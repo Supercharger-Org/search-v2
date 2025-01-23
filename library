@@ -11,15 +11,6 @@ const APIConfig = {
         }
     },
 
-    getEnvironment() {
-        return window.location.href.includes('.webflow.io') ? 'staging' : 'production';
-    },
-
-    getBaseURL(library) {
-        const env = this.getEnvironment();
-        return this.baseURLs[env][library];
-    },
-
     endpoints: {
         patents: {
             search: '/api/patent/search'
@@ -29,41 +20,46 @@ const APIConfig = {
         }
     },
 
+    getEnvironment() {
+        return window.location.href.includes('.webflow.io') ? 'staging' : 'production';
+    },
+
+    getBaseURL(library) {
+        const env = this.getEnvironment();
+        return this.baseURLs[env][library];
+    },
+
     getFullURL(library, endpoint) {
+        if (!library || !endpoint) return null;
         const baseURL = this.getBaseURL(library);
         const endpointPath = this.endpoints[library][endpoint];
         return `${baseURL}${endpointPath}`;
     }
 };
 
-// Step Configuration
 const StepConfig = {
     library: {
         options: {
             patents: {
                 visibility: {
                     '#patentSpecificFields': true,
-                    '#ttoSpecificFields': false,
-                    '#patentDescription': true,
-                    '#patentMethodOption': true,
+                    '#ttoSpecificFields': false
                 },
+                inactiveMethods: [],
                 text: {
                     '[data-content="search-title"]': 'Patent Search',
-                    '[data-content="search-description"]': 'Search through patent databases',
-                    '[data-content="library-type"]': 'Patent Database'
+                    '[data-content="search-description"]': 'Search through patent databases'
                 }
             },
             tto: {
                 visibility: {
                     '#patentSpecificFields': false,
-                    '#ttoSpecificFields': true,
-                    '#patentDescription': false,
-                    '#patentMethodOption': false,
+                    '#ttoSpecificFields': true
                 },
+                inactiveMethods: ['patent'],
                 text: {
                     '[data-content="search-title"]': 'TTO Search',
-                    '[data-content="search-description"]': 'Search through TTO database',
-                    '[data-content="library-type"]': 'TTO Database'
+                    '[data-content="search-description"]': 'Search through TTO database'
                 }
             }
         }
@@ -74,42 +70,33 @@ const StepConfig = {
                 visibility: {
                     '#advancedOptions': false,
                     '#basicOptions': true,
-                    '#patentOptions': false,
-                    '#keywordBasic': true,
-                    '#keywordAdvanced': false
+                    '#patentOptions': false
                 },
+                inactiveLibraries: [],
                 text: {
-                    '[data-content="method-title"]': 'Basic Search',
-                    '[data-content="method-description"]': 'Simple search with basic filters'
+                    '[data-content="method-title"]': 'Basic Search'
                 }
             },
             advanced: {
                 visibility: {
                     '#advancedOptions': true,
                     '#basicOptions': false,
-                    '#patentOptions': false,
-                    '#keywordBasic': false,
-                    '#keywordAdvanced': true
+                    '#patentOptions': false
                 },
+                inactiveLibraries: [],
                 text: {
-                    '[data-content="method-title"]': 'Advanced Search',
-                    '[data-content="method-description"]': 'Complex search with advanced filters'
+                    '[data-content="method-title"]': 'Advanced Search'
                 }
             },
             patent: {
-                requires: {
-                    library: ['patents'] // Only available when library is patents
-                },
                 visibility: {
                     '#advancedOptions': true,
                     '#basicOptions': false,
-                    '#patentOptions': true,
-                    '#keywordBasic': false,
-                    '#keywordAdvanced': true
+                    '#patentOptions': true
                 },
+                inactiveLibraries: ['tto'],
                 text: {
-                    '[data-content="method-title"]': 'Patent Search',
-                    '[data-content="method-description"]': 'Specialized patent search options'
+                    '[data-content="method-title"]': 'Patent Search'
                 }
             }
         }
@@ -122,18 +109,24 @@ class StepManager {
             library: null,
             method: null
         };
+
+        // Add API reference to the class
+        this.api = APIConfig;
     }
 
     init() {
         this.setupLibraryListeners();
         this.setupMethodListeners();
+        this.updateInactiveStates();
     }
 
     setupLibraryListeners() {
         document.querySelectorAll('[data-library-option]').forEach(element => {
             element.addEventListener('click', (e) => {
-                const option = e.target.dataset.libraryOption;
-                this.setLibrary(option);
+                if (!element.classList.contains('inactive')) {
+                    const option = e.target.dataset.libraryOption;
+                    this.setLibrary(option);
+                }
             });
         });
     }
@@ -141,94 +134,117 @@ class StepManager {
     setupMethodListeners() {
         document.querySelectorAll('[data-method-option]').forEach(element => {
             element.addEventListener('click', (e) => {
-                const option = e.target.dataset.methodOption;
-                this.setMethod(option);
+                if (!element.classList.contains('inactive')) {
+                    const option = e.target.dataset.methodOption;
+                    this.setMethod(option);
+                }
             });
         });
     }
 
     setLibrary(library) {
+        // Remove active class from all library options
+        document.querySelectorAll('[data-library-option]').forEach(element => {
+            element.classList.remove('active');
+        });
+
         // Update state
         this.state.library = library;
 
-        // Update UI
-        this.updateLibraryUI();
-        
-        // If current method is not valid for new library, reset it
-        if (this.state.method) {
-            const methodConfig = StepConfig.method.options[this.state.method];
-            if (methodConfig.requires && 
-                methodConfig.requires.library && 
-                !methodConfig.requires.library.includes(library)) {
-                this.setMethod(null);
+        // Add active class to selected library
+        if (library) {
+            const element = document.querySelector(`[data-library-option="${library}"]`);
+            if (element) {
+                element.classList.add('active');
+            }
+
+            // Apply library-specific changes
+            const config = StepConfig.library.options[library];
+            if (config) {
+                this.applyVisibilityRules(config.visibility);
+                this.applyTextRules(config.text);
             }
         }
 
-        // Apply library-specific changes
-        const config = StepConfig.library.options[library];
-        if (config) {
-            this.applyVisibilityRules(config.visibility);
-            this.applyTextRules(config.text);
+        // Update inactive states
+        this.updateInactiveStates();
+
+        // Check if current method is valid with new library
+        if (this.state.method) {
+            const libraryConfig = StepConfig.library.options[library];
+            if (libraryConfig && libraryConfig.inactiveMethods.includes(this.state.method)) {
+                this.setMethod(null);
+            }
         }
 
         this.emitStateChange();
     }
 
     setMethod(method) {
-        // Validate method is allowed for current library
-        if (method) {
-            const methodConfig = StepConfig.method.options[method];
-            if (methodConfig.requires && 
-                methodConfig.requires.library && 
-                !methodConfig.requires.library.includes(this.state.library)) {
-                console.warn('Invalid method for current library');
-                return;
-            }
-        }
-
-        // Update state
-        this.state.method = method;
-
-        // Update UI
-        this.updateMethodUI();
-
-        // Apply method-specific changes
-        if (method) {
-            const config = StepConfig.method.options[method];
-            this.applyVisibilityRules(config.visibility);
-            this.applyTextRules(config.text);
-        }
-
-        this.emitStateChange();
-    }
-
-    updateLibraryUI() {
-        // Remove active class from all library options
-        document.querySelectorAll('[data-library-option]').forEach(element => {
-            element.classList.remove('active');
-        });
-
-        // Add active class to selected library
-        if (this.state.library) {
-            const element = document.querySelector(
-                `[data-library-option="${this.state.library}"]`
-            );
-            if (element) element.classList.add('active');
-        }
-    }
-
-    updateMethodUI() {
         // Remove active class from all method options
         document.querySelectorAll('[data-method-option]').forEach(element => {
             element.classList.remove('active');
         });
 
+        // Update state
+        this.state.method = method;
+
         // Add active class to selected method
+        if (method) {
+            const element = document.querySelector(`[data-method-option="${method}"]`);
+            if (element) {
+                element.classList.add('active');
+            }
+
+            // Apply method-specific changes
+            const config = StepConfig.method.options[method];
+            if (config) {
+                this.applyVisibilityRules(config.visibility);
+                this.applyTextRules(config.text);
+            }
+        }
+
+        // Update inactive states
+        this.updateInactiveStates();
+
+        this.emitStateChange();
+    }
+
+    updateInactiveStates() {
+        // First, remove all inactive classes
+        document.querySelectorAll('[data-library-option], [data-method-option]')
+            .forEach(element => {
+                element.classList.remove('inactive');
+            });
+
+        // Apply inactive states based on current library selection
+        if (this.state.library) {
+            const libraryConfig = StepConfig.library.options[this.state.library];
+            if (libraryConfig && libraryConfig.inactiveMethods) {
+                libraryConfig.inactiveMethods.forEach(methodName => {
+                    const methodElement = document.querySelector(
+                        `[data-method-option="${methodName}"]`
+                    );
+                    if (methodElement) {
+                        methodElement.classList.add('inactive');
+                    }
+                });
+            }
+        }
+
+        // Apply inactive states based on current method selection
         if (this.state.method) {
-            const element = document.querySelector(
-                `[data-method-option="${this.state.method}"]`
-            );
-            if (element) element.classList.add('active');
+            const methodConfig = StepConfig.method.options[this.state.method];
+            if (methodConfig && methodConfig.inactiveLibraries) {
+                methodConfig.inactiveLibraries.forEach(libraryName => {
+                    const libraryElement = document.querySelector(
+                        `[data-library-option="${libraryName}"]`
+                    );
+                    if (libraryElement) {
+                        libraryElement.classList.add('inactive');
+                    }
+                });
+            }
         }
     }
 
@@ -254,7 +270,7 @@ class StepManager {
         document.dispatchEvent(new CustomEvent('step:stateChanged', {
             detail: {
                 state: this.getState(),
-                apiURL: this.getAPIURL('search')
+                searchAPI: this.getSearchAPI()
             }
         }));
     }
@@ -263,19 +279,47 @@ class StepManager {
         return { ...this.state };
     }
 
-    getAPIURL(endpoint) {
-        if (!this.state.library) return null;
-        return APIConfig.getFullURL(this.state.library, endpoint);
+    getSearchAPI() {
+        return this.api.getFullURL(this.state.library, 'search');
+    }
+
+    // Helper method to check current environment
+    isStaging() {
+        return this.api.getEnvironment() === 'staging';
     }
 }
 
-// Usage
+// Usage example:
 const stepManager = new StepManager();
 stepManager.init();
 
 // Listen for state changes
 document.addEventListener('step:stateChanged', (event) => {
-    const { state, apiURL } = event.detail;
+    const { state, searchAPI } = event.detail;
     console.log('Current state:', state);
-    console.log('API URL:', apiURL);
+    console.log('Search API URL:', searchAPI);
+    console.log('Is staging:', stepManager.isStaging());
 });
+
+// Example of making an API call
+async function performSearch(searchParams) {
+    const searchAPI = stepManager.getSearchAPI();
+    if (!searchAPI) {
+        throw new Error('Search API URL not available - library not selected');
+    }
+
+    try {
+        const response = await fetch(searchAPI, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(searchParams)
+        });
+
+        return await response.json();
+    } catch (error) {
+        console.error('Search API error:', error);
+        throw error;
+    }
+}
