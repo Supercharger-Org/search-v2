@@ -37,7 +37,7 @@ const APIConfig = {
     }
 };
 
-const StepConfig = {
+const MainSelectionConfig = {
     library: {
         options: {
             patents: {
@@ -103,243 +103,117 @@ const StepConfig = {
     }
 };
 
-class SessionManager {
-    constructor(stepManager) {
-        this.stepManager = stepManager;
-        this.sessionParam = 'session';
-    }
-
-    init() {
-        // Check for existing session on load
-        const existingSession = this.getSessionFromURL();
-        
-        if (existingSession) {
-            // Session exists, prepare for data restoration
-            this.handleExistingSession(existingSession);
-        } else {
-            // No session, create new one
-            const newSession = this.generateSessionId();
-            this.setSessionInURL(newSession);
-        }
-    }
-
-    generateSessionId() {
-        // Generate a unique session ID combining timestamp and random string
-        const timestamp = new Date().getTime();
-        const random = Math.random().toString(36).substring(2, 15);
-        return `${timestamp}_${random}`;
-    }
-
-    getSessionFromURL() {
-        const urlParams = new URLSearchParams(window.location.search);
-        return urlParams.get(this.sessionParam);
-    }
-
-    setSessionInURL(sessionId) {
-        // Get current URL parameters
-        const urlParams = new URLSearchParams(window.location.search);
-        
-        // Set session parameter
-        urlParams.set(this.sessionParam, sessionId);
-        
-        // Update URL without reloading page
-        const newUrl = `${window.location.pathname}?${urlParams.toString()}`;
-        window.history.pushState({ path: newUrl }, '', newUrl);
-    }
-
-    async handleExistingSession(sessionId) {
-        try {
-            // Placeholder for future API call
-            // const sessionData = await this.fetchSessionData(sessionId);
-            
-            // For now, just log that we'd restore the session
-            console.log(`Would restore session: ${sessionId}`);
-            
-            // This is where we'll restore the state once API is implemented
-            // this.restoreSessionState(sessionData);
-        } catch (error) {
-            console.error('Error handling existing session:', error);
-        }
-    }
-
-    // Placeholder for future API call
-    async fetchSessionData(sessionId) {
-        // This will be implemented later
-        // return await fetch(`/api/sessions/${sessionId}`);
-    }
-
-    // Method to restore state from session data
-    restoreSessionState(sessionData) {
-        // Example of how we'll restore state when we have the API
-        if (sessionData.library) {
-            this.stepManager.setLibrary(sessionData.library);
-        }
-        if (sessionData.method) {
-            this.stepManager.setMethod(sessionData.method);
-        }
-    }
-
-    // Method to get current state for saving
-    getCurrentState() {
-        return {
-            sessionId: this.getSessionFromURL(),
-            ...this.stepManager.getState()
-        };
-    }
-}
-
 class StepManager {
     constructor() {
-        this.state = {
-            library: null,
-            method: null
-        };
+        this.steps = [];
         this.api = APIConfig;
-        this.sessionManager = new SessionManager(this);
+        this.testSessionData = null; // Variable to store session data
     }
 
     init() {
-        // Initialize session management first
-        this.sessionManager.init();
-        
-        // Then initialize the rest
-        this.setupLibraryListeners();
-        this.setupMethodListeners();
-        this.updateInactiveStates();
-    }
-
-    setupLibraryListeners() {
-        document.querySelectorAll('[data-library-option]').forEach(element => {
-            element.addEventListener('click', (e) => {
-                if (!element.classList.contains('inactive')) {
-                    const option = e.target.dataset.libraryOption;
-                    this.setLibrary(option);
-                }
-            });
-        });
-    }
-
-    setupMethodListeners() {
-        document.querySelectorAll('[data-method-option]').forEach(element => {
-            element.addEventListener('click', (e) => {
-                if (!element.classList.contains('inactive')) {
-                    const option = e.target.dataset.methodOption;
-                    this.setMethod(option);
-                }
-            });
-        });
-    }
-
-    setLibrary(library, silent = false) {
-        // Remove active class from all library options
-        document.querySelectorAll('[data-library-option]').forEach(element => {
-            element.classList.remove('active');
+        // Hide all step wrappers initially
+        document.querySelectorAll('.horizontal-slide_wrapper').forEach(wrapper => {
+            wrapper.classList.add('hidden');
         });
 
-        // Update state
-        this.state.library = library;
-
-        // Add active class to selected library
-        if (library) {
-            const element = document.querySelector(`[data-library-option="${library}"]`);
-            if (element) {
-                element.classList.add('active');
-            }
-
-            // Apply library-specific changes
-            const config = StepConfig.library.options[library];
-            if (config) {
-                this.applyVisibilityRules(config.visibility);
-                this.applyTextRules(config.text);
-            }
+        // If no session data exists, initialize with first step
+        if (!this.testSessionData) {
+            this.initializeFirstStep();
+        } else {
+            this.restoreFromSession();
         }
 
-        // Update inactive states
-        this.updateInactiveStates();
-
-        // Check if current method is valid with new library
-        if (this.state.method) {
-            const libraryConfig = StepConfig.library.options[library];
-            if (libraryConfig && libraryConfig.inactiveMethods.includes(this.state.method)) {
-                this.setMethod(null);
-            }
-        }
-
-        if (!silent) {
-            // Only emit state change if not silent
-            this.emitStateChange();
-        }
+        this.updateDisplay();
     }
 
-    setMethod(method, silent = false) {
-        // Remove active class from all method options
-        document.querySelectorAll('[data-method-option]').forEach(element => {
-            element.classList.remove('active');
-        });
-
-        // Update state
-        this.state.method = method;
-
-        // Add active class to selected method
-        if (method) {
-            const element = document.querySelector(`[data-method-option="${method}"]`);
-            if (element) {
-                element.classList.add('active');
-            }
-
-            // Apply method-specific changes
-            const config = StepConfig.method.options[method];
-            if (config) {
-                this.applyVisibilityRules(config.visibility);
-                this.applyTextRules(config.text);
-            }
-        }
-
-        // Update inactive states
-        this.updateInactiveStates();
-
-        if (!silent) {
-            // Only emit state change if not silent
-            this.emitStateChange();
-        }
-    }
-
-    updateInactiveStates() {
-        // First, remove all inactive classes
-        document.querySelectorAll('[data-library-option], [data-method-option]')
-            .forEach(element => {
-                element.classList.remove('inactive');
-            });
-
-        // Apply inactive states based on current library selection
-        if (this.state.library) {
-            const libraryConfig = StepConfig.library.options[this.state.library];
-            if (libraryConfig && libraryConfig.inactiveMethods) {
-                libraryConfig.inactiveMethods.forEach(methodName => {
-                    const methodElement = document.querySelector(
-                        `[data-method-option="${methodName}"]`
-                    );
-                    if (methodElement) {
-                        methodElement.classList.add('inactive');
-                    }
+    initializeFirstStep() {
+        const libraryStep = {
+            stepName: 'library',
+            title: 'Library Selection',
+            data: null,
+            position: 0,
+            element: document.querySelector('[step-name="library"]'),
+            initFunction: () => {
+                document.querySelectorAll('[data-library-option]').forEach(element => {
+                    element.addEventListener('click', (e) => {
+                        if (!element.classList.contains('inactive')) {
+                            const option = e.target.dataset.libraryOption;
+                            this.updateStepData('library', option);
+                        }
+                    });
                 });
-            }
-        }
-
-        // Apply inactive states based on current method selection
-        if (this.state.method) {
-            const methodConfig = StepConfig.method.options[this.state.method];
-            if (methodConfig && methodConfig.inactiveLibraries) {
-                methodConfig.inactiveLibraries.forEach(libraryName => {
-                    const libraryElement = document.querySelector(
-                        `[data-library-option="${libraryName}"]`
-                    );
-                    if (libraryElement) {
-                        libraryElement.classList.add('inactive');
-                    }
+            },
+            eventName: 'library:updated',
+            updateFunction: (value) => {
+                // Remove active class from all library options
+                document.querySelectorAll('[data-library-option]').forEach(element => {
+                    element.classList.remove('active');
                 });
+
+                // Add active class to selected library
+                if (value) {
+                    const element = document.querySelector(`[data-library-option="${value}"]`);
+                    if (element) {
+                        element.classList.add('active');
+                    }
+
+                    // Apply library-specific changes
+                    const config = MainSelectionConfig.library.options[value];
+                    if (config) {
+                        this.applyVisibilityRules(config.visibility);
+                        this.applyTextRules(config.text);
+                    }
+                }
+
+                // Update inactive states
+                this.updateInactiveStates();
+
+                // Show the step's wrapper
+                const wrapper = document.querySelector(`[step-name="${this.steps[0].stepName}"]`)
+                    .closest('.horizontal-slide_wrapper');
+                if (wrapper) {
+                    wrapper.classList.remove('hidden');
+                }
             }
-        }
+        };
+
+        this.steps.push(libraryStep);
+        libraryStep.initFunction(); // Initialize the step
+    }
+
+    updateStepData(stepName, value) {
+        const step = this.steps.find(s => s.stepName === stepName);
+        if (!step) return;
+
+        // Update the step's data
+        step.data = value;
+
+        // Run the step's update function
+        step.updateFunction(value);
+
+        // Emit the step's event
+        document.dispatchEvent(new CustomEvent(step.eventName, {
+            detail: {
+                value,
+                step
+            }
+        }));
+
+        // Update display
+        this.updateDisplay();
+    }
+
+    updateDisplay() {
+        this.steps.forEach(step => {
+            // Show wrapper for this step
+            const wrapper = step.element.closest('.horizontal-slide_wrapper');
+            if (wrapper) {
+                wrapper.classList.remove('hidden');
+            }
+
+            // Run the step's update function with current data
+            step.updateFunction(step.data);
+        });
     }
 
     applyVisibilityRules(rules) {
@@ -360,71 +234,43 @@ class StepManager {
         });
     }
 
-    emitStateChange() {
-        document.dispatchEvent(new CustomEvent('step:stateChanged', {
-            detail: {
-                state: this.getState(),
-                searchAPI: this.getSearchAPI()
-            }
-        }));
-    }
+    updateInactiveStates() {
+        // Get current library step
+        const libraryStep = this.steps.find(s => s.stepName === 'library');
+        if (!libraryStep || !libraryStep.data) return;
 
-    getState() {
-        return { ...this.state };
+        const libraryConfig = MainSelectionConfig.library.options[libraryStep.data];
+        if (libraryConfig && libraryConfig.inactiveMethods) {
+            // First, remove all inactive classes
+            document.querySelectorAll('[data-method-option]').forEach(element => {
+                element.classList.remove('inactive');
+            });
+
+            // Then apply inactive states based on configuration
+            libraryConfig.inactiveMethods.forEach(methodName => {
+                const methodElement = document.querySelector(
+                    `[data-method-option="${methodName}"]`
+                );
+                if (methodElement) {
+                    methodElement.classList.add('inactive');
+                }
+            });
+        }
     }
 
     getSearchAPI() {
-        return this.api.getFullURL(this.state.library, 'search');
+        const libraryStep = this.steps.find(s => s.stepName === 'library');
+        return libraryStep ? this.api.getFullURL(libraryStep.data, 'search') : null;
     }
-
-    // Helper method to check current environment
-    isStaging() {
-        return this.api.getEnvironment() === 'staging';
-    }
-
-    restoreState(state) {
-        if (state.library) {
-            this.setLibrary(state.library, true); // true flag for silent update
-        }
-        if (state.method) {
-            this.setMethod(state.method, true); // true flag for silent update
-        }
-    }
-
-
 }
 
-// Usage example:
+// Initialize
 const stepManager = new StepManager();
 stepManager.init();
 
-// Listen for state changes
-document.addEventListener('step:stateChanged', (event) => {
-    const { state, searchAPI } = event.detail;
-    console.log('Current state:', state);
-    console.log('Search API URL:', searchAPI);
-    console.log('Is staging:', stepManager.isStaging());
+// Listen for library updates
+document.addEventListener('library:updated', (event) => {
+    const { value, step } = event.detail;
+    console.log('Library updated:', value);
+    console.log('Search API URL:', stepManager.getSearchAPI());
 });
-
-// Example of making an API call
-async function performSearch(searchParams) {
-    const searchAPI = stepManager.getSearchAPI();
-    if (!searchAPI) {
-        throw new Error('Search API URL not available - library not selected');
-    }
-
-    try {
-        const response = await fetch(searchAPI, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(searchParams)
-        });
-
-        return await response.json();
-    } catch (error) {
-        console.error('Search API error:', error);
-        throw error;
-    }
-}
