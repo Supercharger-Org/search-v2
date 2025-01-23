@@ -194,12 +194,15 @@ class StepManager {
             library: null,
             method: null
         };
-
-        // Add API reference to the class
         this.api = APIConfig;
+        this.sessionManager = new SessionManager(this);
     }
 
     init() {
+        // Initialize session management first
+        this.sessionManager.init();
+        
+        // Then initialize the rest
         this.setupLibraryListeners();
         this.setupMethodListeners();
         this.updateInactiveStates();
