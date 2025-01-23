@@ -230,7 +230,7 @@ class StepManager {
         });
     }
 
-    setLibrary(library) {
+    setLibrary(library, silent = false) {
         // Remove active class from all library options
         document.querySelectorAll('[data-library-option]').forEach(element => {
             element.classList.remove('active');
@@ -265,10 +265,13 @@ class StepManager {
             }
         }
 
-        this.emitStateChange();
+        if (!silent) {
+            // Only emit state change if not silent
+            this.emitStateChange();
+        }
     }
 
-    setMethod(method) {
+    setMethod(method, silent = false) {
         // Remove active class from all method options
         document.querySelectorAll('[data-method-option]').forEach(element => {
             element.classList.remove('active');
@@ -295,7 +298,10 @@ class StepManager {
         // Update inactive states
         this.updateInactiveStates();
 
-        this.emitStateChange();
+        if (!silent) {
+            // Only emit state change if not silent
+            this.emitStateChange();
+        }
     }
 
     updateInactiveStates() {
@@ -375,6 +381,17 @@ class StepManager {
     isStaging() {
         return this.api.getEnvironment() === 'staging';
     }
+
+    restoreState(state) {
+        if (state.library) {
+            this.setLibrary(state.library, true); // true flag for silent update
+        }
+        if (state.method) {
+            this.setMethod(state.method, true); // true flag for silent update
+        }
+    }
+
+
 }
 
 // Usage example:
