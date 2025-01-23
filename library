@@ -103,6 +103,91 @@ const StepConfig = {
     }
 };
 
+class SessionManager {
+    constructor(stepManager) {
+        this.stepManager = stepManager;
+        this.sessionParam = 'session';
+    }
+
+    init() {
+        // Check for existing session on load
+        const existingSession = this.getSessionFromURL();
+        
+        if (existingSession) {
+            // Session exists, prepare for data restoration
+            this.handleExistingSession(existingSession);
+        } else {
+            // No session, create new one
+            const newSession = this.generateSessionId();
+            this.setSessionInURL(newSession);
+        }
+    }
+
+    generateSessionId() {
+        // Generate a unique session ID combining timestamp and random string
+        const timestamp = new Date().getTime();
+        const random = Math.random().toString(36).substring(2, 15);
+        return `${timestamp}_${random}`;
+    }
+
+    getSessionFromURL() {
+        const urlParams = new URLSearchParams(window.location.search);
+        return urlParams.get(this.sessionParam);
+    }
+
+    setSessionInURL(sessionId) {
+        // Get current URL parameters
+        const urlParams = new URLSearchParams(window.location.search);
+        
+        // Set session parameter
+        urlParams.set(this.sessionParam, sessionId);
+        
+        // Update URL without reloading page
+        const newUrl = `${window.location.pathname}?${urlParams.toString()}`;
+        window.history.pushState({ path: newUrl }, '', newUrl);
+    }
+
+    async handleExistingSession(sessionId) {
+        try {
+            // Placeholder for future API call
+            // const sessionData = await this.fetchSessionData(sessionId);
+            
+            // For now, just log that we'd restore the session
+            console.log(`Would restore session: ${sessionId}`);
+            
+            // This is where we'll restore the state once API is implemented
+            // this.restoreSessionState(sessionData);
+        } catch (error) {
+            console.error('Error handling existing session:', error);
+        }
+    }
+
+    // Placeholder for future API call
+    async fetchSessionData(sessionId) {
+        // This will be implemented later
+        // return await fetch(`/api/sessions/${sessionId}`);
+    }
+
+    // Method to restore state from session data
+    restoreSessionState(sessionData) {
+        // Example of how we'll restore state when we have the API
+        if (sessionData.library) {
+            this.stepManager.setLibrary(sessionData.library);
+        }
+        if (sessionData.method) {
+            this.stepManager.setMethod(sessionData.method);
+        }
+    }
+
+    // Method to get current state for saving
+    getCurrentState() {
+        return {
+            sessionId: this.getSessionFromURL(),
+            ...this.stepManager.getState()
+        };
+    }
+}
+
 class StepManager {
     constructor() {
         this.state = {
