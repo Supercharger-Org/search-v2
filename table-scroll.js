@@ -1,123 +1,104 @@
-window.Wized = window.Wized || [];
-window.Wized.push((Wized) => {
-  console.log("Wized initialized");
+// Selectors
+const scrollTriggerNode = document.querySelector('[wized="search_table_scroll_trigger"]');
+const scrollWrapperNode = document.querySelector('[wized="search_table_scroll_wrapper"]');
+const mainWrapperNode = document.querySelector('[wized="search_table_mainWrapper"]');
 
-  // Get the scroll trigger, wrapper, and main table elements
-  const scrollTrigger = Wized.elements.get("search_table_scroll_trigger");
-  const scrollWrapper = Wized.elements.get("search_table_scroll_wrapper");
-  const mainWrapper = Wized.elements.get("search_table_mainWrapper");
+if (!scrollTriggerNode || !scrollWrapperNode || !mainWrapperNode) {
+  console.error("Required elements not found. Please ensure all elements are correctly defined with the 'wized' attributes.");
+  return;
+}
 
-  if (!scrollTrigger || !scrollWrapper || !mainWrapper) {
-    console.error("Required elements not found.");
-    return;
+// Variables to track dragging state
+let isDragging = false;
+let startX; // Tracks the X coordinate where the mouse was pressed
+let currentLeft = 0; // Tracks the current translateX value of the drag handle
+const padding = 4; // The padding value ensures the drag handle is not flush against the edges
+
+// Helper function: Get the current translateX value of an element
+const getTranslateX = (element) => {
+  const style = window.getComputedStyle(element);
+  const matrix = style.transform;
+
+  if (matrix !== "none") {
+    const values = matrix.match(/matrix\((.+)\)/)[1].split(", ");
+    const translateX = parseFloat(values[4]) || 0;
+    console.log(`Current translateX of element: ${translateX}px`);
+    return translateX;
   }
+  return 0;
+};
 
-  const scrollTriggerNode = scrollTrigger.node;
-  const scrollWrapperNode = scrollWrapper.node;
-  const mainWrapperNode = mainWrapper.node;
+// Initialize the drag handle's position with 4px padding
+scrollTriggerNode.style.transform = `translateX(${padding}px)`;
+console.log("Initialized drag handle position with 4px padding.");
 
-  if (!scrollTriggerNode || !scrollWrapperNode || !mainWrapperNode) {
-    console.error("DOM nodes for required elements are missing.");
-    return;
-  }
+// Event: Mouse down to start dragging
+scrollTriggerNode.addEventListener("mousedown", (e) => {
+  console.log("Mouse down event triggered. Dragging started.");
+  isDragging = true;
+  startX = e.clientX; // Capture the starting X coordinate of the mouse
+  currentLeft = getTranslateX(scrollTriggerNode); // Get the current translateX value
 
-  console.log("Scroll trigger, wrapper, and main wrapper elements found.");
-
-  // Variables to track dragging state
-  let isDragging = false;
-  let startX;
-  let currentLeft = 0; // Track the current translateX value
-  const padding = 4; // Adjust the padding value (4px as shown in the screenshot)
-
-  // Helper function to get the current translateX value
-  const getTranslateX = (element) => {
-    const style = window.getComputedStyle(element);
-    const matrix = style.transform;
-
-    if (matrix !== "none") {
-      const values = matrix.match(/matrix\((.+)\)/)[1].split(", ");
-      return parseFloat(values[4]) || 0; // Return the translateX value
-    }
-    return 0;
-  };
-
-  // Mouse down event to start dragging
-  scrollTriggerNode.addEventListener("mousedown", (e) => {
-    console.log("Mouse down event triggered");
-
-    isDragging = true;
-    startX = e.clientX;
-
-    // Get the current translateX position
-    currentLeft = getTranslateX(scrollTriggerNode);
-
-    console.log("Dragging started: startX =", startX, "currentLeft =", currentLeft);
-
-    // Add a dragging class for potential visual feedback
-    scrollTriggerNode.classList.add("dragging");
-    e.preventDefault();
-  });
-
-  // Mouse move event to drag the element
-  document.addEventListener("mousemove", (e) => {
-    if (!isDragging) return;
-
-    const deltaX = e.clientX - startX;
-    let newLeft = currentLeft + deltaX;
-
-    // Restrict movement within the bounds of the parent, considering padding
-    const minLeft = padding;
-    const maxLeft =
-      scrollWrapperNode.offsetWidth - scrollTriggerNode.offsetWidth - padding;
-
-    newLeft = Math.max(minLeft, Math.min(newLeft, maxLeft));
-
-    console.log("Dragging in progress: deltaX =", deltaX, "newLeft =", newLeft);
-
-    // Move the element horizontally
-    scrollTriggerNode.style.transform = `translateX(${newLeft}px)`;
-
-    // Calculate scroll percentage and update table scroll position
-    const scrollPercentage =
-      (newLeft - minLeft) /
-      (scrollWrapperNode.offsetWidth - scrollTriggerNode.offsetWidth - 2 * padding);
-
-    const tableScrollLeft =
-      scrollPercentage *
-      (mainWrapperNode.scrollWidth - mainWrapperNode.clientWidth);
-
-    mainWrapperNode.scrollLeft = tableScrollLeft;
-
-    console.log("Table scroll updated: scrollPercentage =", scrollPercentage, "scrollLeft =", tableScrollLeft);
-  });
-
-  // Mouse up event to stop dragging
-  document.addEventListener("mouseup", () => {
-    if (!isDragging) return;
-
-    console.log("Mouse up event triggered");
-    isDragging = false;
-
-    // Remove the dragging class
-    scrollTriggerNode.classList.remove("dragging");
-
-    console.log("Dragging stopped");
-  });
-
-  // Sync drag element with table scrolling
-  mainWrapperNode.addEventListener("scroll", () => {
-    const scrollPercentage =
-      mainWrapperNode.scrollLeft /
-      (mainWrapperNode.scrollWidth - mainWrapperNode.clientWidth);
-
-    const dragMaxPosition =
-      scrollWrapperNode.offsetWidth - scrollTriggerNode.offsetWidth - 2 * padding;
-
-    const newLeft = scrollPercentage * dragMaxPosition + padding;
-
-    scrollTriggerNode.style.transform = `translateX(${newLeft}px)`;
-
-    console.log("Scroll trigger updated: scrollPercentage =", scrollPercentage, "newLeft =", newLeft);
-  });
+  // Add a visual class to indicate dragging
+  scrollTriggerNode.classList.add("dragging");
+  console.log(`Starting drag position: startX=${startX}px, currentLeft=${currentLeft}px`);
+  e.preventDefault();
 });
 
+// Event: Mouse move to handle dragging
+document.addEventListener("mousemove", (e) => {
+  if (!isDragging) return; // Ignore if not dragging
+
+  const deltaX = e.clientX - startX; // Calculate how far the mouse has moved
+  let newLeft = currentLeft + deltaX; // Determine the new position of the drag handle
+
+  // Restrict movement within bounds (consider padding)
+  const minLeft = padding;
+  const maxLeft = scrollWrapperNode.offsetWidth - scrollTriggerNode.offsetWidth - padding;
+  newLeft = Math.max(minLeft, Math.min(newLeft, maxLeft));
+
+  console.log(`Dragging in progress: deltaX=${deltaX}px, newLeft=${newLeft}px`);
+
+  // Apply the new position
+  scrollTriggerNode.style.transform = `translateX(${newLeft}px)`;
+
+  // Calculate scroll percentage based on the drag handle's position
+  const scrollPercentage =
+    (newLeft - minLeft) /
+    (scrollWrapperNode.offsetWidth - scrollTriggerNode.offsetWidth - 2 * padding);
+
+  // Update the table's scroll position based on the calculated percentage
+  const tableScrollLeft =
+    scrollPercentage *
+    (mainWrapperNode.scrollWidth - mainWrapperNode.clientWidth);
+  mainWrapperNode.scrollLeft = tableScrollLeft;
+
+  console.log(`Table scrolled: scrollPercentage=${(scrollPercentage * 100).toFixed(2)}%, scrollLeft=${tableScrollLeft}px`);
+});
+
+// Event: Mouse up to stop dragging
+document.addEventListener("mouseup", () => {
+  if (!isDragging) return;
+
+  console.log("Mouse up event triggered. Dragging stopped.");
+  isDragging = false;
+
+  // Remove the dragging class
+  scrollTriggerNode.classList.remove("dragging");
+});
+
+// Event: Sync the drag handle's position when the table is scrolled directly
+mainWrapperNode.addEventListener("scroll", () => {
+  const scrollPercentage =
+    mainWrapperNode.scrollLeft /
+    (mainWrapperNode.scrollWidth - mainWrapperNode.clientWidth);
+
+  const dragMaxPosition =
+    scrollWrapperNode.offsetWidth - scrollTriggerNode.offsetWidth - 2 * padding;
+
+  const newLeft = scrollPercentage * dragMaxPosition + padding;
+
+  scrollTriggerNode.style.transform = `translateX(${newLeft}px)`;
+
+  console.log(`Drag handle synced with table scroll: scrollPercentage=${(scrollPercentage * 100).toFixed(2)}%, newLeft=${newLeft}px`);
+});
