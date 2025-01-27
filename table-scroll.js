@@ -22,7 +22,7 @@ const getTranslateX = (element) => {
   if (matrix !== "none") {
     const values = matrix.match(/matrix\((.+)\)/)[1].split(", ");
     const translateX = parseFloat(values[4]) || 0;
-    console.log(`Current translateX of element: ${translateX}px`);
+    // console.log(`Current translateX of element: ${translateX}px`);
     return translateX;
   }
   return 0;
@@ -30,18 +30,18 @@ const getTranslateX = (element) => {
 
 // Initialize the drag handle's position with 4px padding
 scrollTriggerNode.style.transform = `translateX(${padding}px)`;
-console.log("Initialized drag handle position with 4px padding.");
+// console.log("Initialized drag handle position with 4px padding.");
 
 // Event: Mouse down to start dragging
 scrollTriggerNode.addEventListener("mousedown", (e) => {
-  console.log("Mouse down event triggered. Dragging started.");
+  // console.log("Mouse down event triggered. Dragging started.");
   isDragging = true;
   startX = e.clientX; // Capture the starting X coordinate of the mouse
   currentLeft = getTranslateX(scrollTriggerNode); // Get the current translateX value
 
   // Add a visual class to indicate dragging
   scrollTriggerNode.classList.add("dragging");
-  console.log(`Starting drag position: startX=${startX}px, currentLeft=${currentLeft}px`);
+  // console.log(`Starting drag position: startX=${startX}px, currentLeft=${currentLeft}px`);
   e.preventDefault();
 });
 
@@ -57,7 +57,7 @@ document.addEventListener("mousemove", (e) => {
   const maxLeft = scrollWrapperNode.offsetWidth - scrollTriggerNode.offsetWidth - padding;
   newLeft = Math.max(minLeft, Math.min(newLeft, maxLeft));
 
-  console.log(`Dragging in progress: deltaX=${deltaX}px, newLeft=${newLeft}px`);
+  // console.log(`Dragging in progress: deltaX=${deltaX}px, newLeft=${newLeft}px`);
 
   // Apply the new position
   scrollTriggerNode.style.transform = `translateX(${newLeft}px)`;
@@ -73,14 +73,14 @@ document.addEventListener("mousemove", (e) => {
     (mainWrapperNode.scrollWidth - mainWrapperNode.clientWidth);
   mainWrapperNode.scrollLeft = tableScrollLeft;
 
-  console.log(`Table scrolled: scrollPercentage=${(scrollPercentage * 100).toFixed(2)}%, scrollLeft=${tableScrollLeft}px`);
+  // console.log(`Table scrolled: scrollPercentage=${(scrollPercentage * 100).toFixed(2)}%, scrollLeft=${tableScrollLeft}px`);
 });
 
 // Event: Mouse up to stop dragging
 document.addEventListener("mouseup", () => {
   if (!isDragging) return;
 
-  console.log("Mouse up event triggered. Dragging stopped.");
+  // console.log("Mouse up event triggered. Dragging stopped.");
   isDragging = false;
 
   // Remove the dragging class
@@ -100,5 +100,5 @@ mainWrapperNode.addEventListener("scroll", () => {
 
   scrollTriggerNode.style.transform = `translateX(${newLeft}px)`;
 
-  console.log(`Drag handle synced with table scroll: scrollPercentage=${(scrollPercentage * 100).toFixed(2)}%, newLeft=${newLeft}px`);
+  // console.log(`Drag handle synced with table scroll: scrollPercentage=${(scrollPercentage * 100).toFixed(2)}%, newLeft=${newLeft}px`);
 });
