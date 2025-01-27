@@ -12,7 +12,7 @@ triggers.forEach(trigger => {
 
   // Event listener for trigger click
   trigger.addEventListener('click', () => {
-    console.log('Trigger clicked:', trigger);
+    // console.log('Trigger clicked:', trigger);
 
     // Find the associated content and icon
     const content = trigger.nextElementSibling; // Assuming content is adjacent to the trigger
@@ -44,7 +44,7 @@ triggers.forEach(trigger => {
           icon.style.transition = 'transform 0.3s ease'; // Smooth reset
         }
 
-        console.log('Content closed:', content);
+        // console.log('Content closed:', content);
       }
     } else {
       console.warn('No associated content found for trigger:', trigger);
@@ -56,12 +56,12 @@ triggers.forEach(trigger => {
   if (content && content.getAttribute('data-accordion') === 'content') {
     content.style.height = '0px'; // Start collapsed
     content.style.overflow = 'hidden'; // Prevent content overflow
-    console.log('Initialized content:', content);
+    // console.log('Initialized content:', content);
   }
 
   const icon = trigger.querySelector(ICON_SELECTOR);
   if (icon) {
     icon.style.transform = 'rotate(0deg)'; // Start with default rotation
-    console.log('Initialized icon:', icon);
+    // console.log('Initialized icon:', icon);
   }
 });
