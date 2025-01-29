@@ -1,5 +1,5 @@
 /**
- * http-calls.js
+ * http-methods.js
  * 
  * This file contains a set of global functions for making HTTP requests.
  * It includes functionality for:
