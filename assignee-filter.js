@@ -1,118 +1,51 @@
-/**
- * filter-assignee.js
- *
- * This file manages the assignee search functionality including:
- * 1. Input handling and API calls
- * 2. Dropdown visibility management
- * 3. Loading states
- * 4. Results rendering
- * 5. Empty state handling
- */
+// ====================================
+// config.js - Configuration settings
+// ====================================
+const CONFIG = {
+  API_ENDPOINT:
+    "https://xobg-f2pu-pqfs.n7.xano.io/api:fr-l0x4x/dashboard/patent-search/assignees",
+  DEBOUNCE_DELAY: 300,
+  BLUR_DELAY: 200,
+};
 
-class AssigneeEventHandler {
-  /**
-   * Sets up the initial configuration and binds class methods
-   */
+// ====================================
+// dom-handler.js - DOM manipulation and element management
+// ====================================
+class DOMHandler {
   constructor() {
-    // Configuration
-    this.API_ENDPOINT =
-      "https://xobg-f2pu-pqfs.n7.xano.io/api:fr-l0x4x/dashboard/patent-search/assignees";
-    this.debounceTimer = null;
-    this.debounceDelay = 300; // Wait 300ms after user stops typing
-    this.assigneeResults = null;
-    this.isLoading = false;
-
-    // Method Binding
-    this.handleAssigneeInput = this.handleAssigneeInput.bind(this);
-    this.handleFocus = this.handleFocus.bind(this);
-    this.handleBlur = this.handleBlur.bind(this);
-    this.fetchAssignees = this.fetchAssignees.bind(this);
-    this.initialize = this.initialize.bind(this);
-    this.toggleDropdown = this.toggleDropdown.bind(this);
-    this.renderResults = this.renderResults.bind(this);
-    this.toggleLoader = this.toggleLoader.bind(this);
-    this.toggleResultsWrapper = this.toggleResultsWrapper.bind(this);
-
-    // console.log("AssigneeEventHandler: Constructor initialized");
-
-    // Initialize when DOM is ready
-    if (document.readyState === "loading") {
-      //   console.log("Document still loading, waiting for DOMContentLoaded");
-      document.addEventListener("DOMContentLoaded", () => this.initialize());
-    } else {
-      //   console.log("Document already loaded, initializing immediately");
-      this.initialize();
-    }
+    // Storage for DOM elements
+    this.elements = {};
   }
 
-  /**
-   * Initializes the event handler by finding required DOM elements and setting up event listeners
-   */
-  initialize() {
-    // console.log("Initializing AssigneeEventHandler");
-
-    // Find all required DOM elements
-    this.findDOMElements();
-
-    // Verify all required elements exist
-    if (!this.verifyRequiredElements()) {
-      console.error("Initialization failed: Missing required elements");
-      return;
-    }
-
-    // Set up the results container and template
-    this.setupResultsTemplate();
-
-    // Add event listeners
-    this.setupEventListeners();
-
-    // console.log("AssigneeEventHandler: Initialization complete");
-  }
-
-  /**
-   * Finds and stores references to all required DOM elements
-   */
-  findDOMElements() {
-    this.assigneeInput = document.querySelector(
-      '[data-attribute="assignee_input"]'
-    );
-    this.dropdownWrapper = document.querySelector(
-      '[data-attribute="assignee_resultDropdownMainWrapper"]'
-    );
-    this.loader = document.querySelector(
-      '[data-attribute="assignee_resultDropdownLoader"]'
-    );
-    this.resultItemTemplate = document.querySelector(
-      '[data-attribute="assignee_resultDropdownItem"]'
-    );
-    this.resultsWrapper = document.querySelector(
-      '[data-attribute="assignee_resultDropdownWrapper"]'
-    );
-
-    // // console.log("DOM Elements found:", {
-    //   input: !!this.assigneeInput,
-    //   dropdown: !!this.dropdownWrapper,
-    //   loader: !!this.loader,
-    //   template: !!this.resultItemTemplate,
-    //   resultsWrapper: !!this.resultsWrapper,
-    // });
-  }
-
-  /**
-   * Verifies that all required DOM elements are present
-   * @returns {boolean} True if all required elements exist
-   */
-  verifyRequiredElements() {
-    const requiredElements = {
-      input: this.assigneeInput,
-      dropdown: this.dropdownWrapper,
-      loader: this.loader,
-      template: this.resultItemTemplate,
-      resultsWrapper: this.resultsWrapper,
+  findElements() {
+    this.elements = {
+      input: document.querySelector('[data-attribute="assignee_input"]'),
+      dropdownWrapper: document.querySelector(
+        '[data-attribute="assignee_resultDropdownMainWrapper"]'
+      ),
+      loader: document.querySelector(
+        '[data-attribute="assignee_resultDropdownLoader"]'
+      ),
+      resultItemTemplate: document.querySelector(
+        '[data-attribute="assignee_resultDropdownItem"]'
+      ),
+      resultsWrapper: document.querySelector(
+        '[data-attribute="assignee_resultDropdownWrapper"]'
+      ),
     };
 
-    const missingElements = Object.entries(requiredElements)
-      .filter(([_, element]) => !element)
+    if (this.elements.resultItemTemplate) {
+      this.elements.resultsContainer =
+        this.elements.resultItemTemplate.parentElement;
+      this.elements.resultItemTemplate.remove();
+    }
+
+    return this.verifyElements();
+  }
+
+  verifyElements() {
+    const missingElements = Object.entries(this.elements)
+      .filter(([key, element]) => !element && key !== "resultsContainer")
       .map(([name]) => name);
 
     if (missingElements.length > 0) {
@@ -123,195 +56,156 @@ class AssigneeEventHandler {
     return true;
   }
 
-  /**
-   * Sets up the results template and container
-   */
-  setupResultsTemplate() {
-    this.resultsContainer = this.resultItemTemplate.parentElement;
-    this.resultItemTemplate.remove(); // Remove template from DOM but keep reference
+  get(elementName) {
+    return this.elements[elementName];
+  }
+}
+
+// ====================================
+// ui-manager.js - UI state and visibility management
+// ====================================
+class UIManager {
+  constructor(domHandler) {
+    this.dom = domHandler;
   }
 
-  /**
-   * Sets up all event listeners
-   */
-  setupEventListeners() {
-    try {
-      this.assigneeInput.addEventListener("input", this.handleAssigneeInput);
-      this.assigneeInput.addEventListener("focus", this.handleFocus);
-      this.assigneeInput.addEventListener("blur", this.handleBlur);
-      //   console.log("Event listeners setup complete");
-    } catch (error) {
-      console.error("Failed to setup event listeners:", error);
-    }
-  }
-
-  /**
-   * Toggles the visibility of the loading indicator
-   * @param {boolean} show - Whether to show or hide the loader
-   */
   toggleLoader(show) {
-    // console.log("Toggling loader:", show);
+    const loader = this.dom.get("loader");
+    if (!loader) return;
+
     if (show) {
-      this.loader.removeAttribute("custom-cloak");
+      loader.removeAttribute("custom-cloak");
     } else {
-      this.loader.setAttribute("custom-cloak", "");
+      loader.setAttribute("custom-cloak", "");
     }
-    this.isLoading = show;
   }
 
-  /**
-   * Toggles the visibility of the results wrapper based on results existence
-   * @param {boolean} hasResults - Whether there are results to display
-   */
   toggleResultsWrapper(hasResults) {
-    // console.log("Toggling results wrapper visibility:", hasResults);
+    const wrapper = this.dom.get("resultsWrapper");
+    if (!wrapper) return;
+
     if (hasResults) {
-      this.resultsWrapper.removeAttribute("custom-cloak");
+      wrapper.removeAttribute("custom-cloak");
     } else {
-      this.resultsWrapper.setAttribute("custom-cloak", "");
+      wrapper.setAttribute("custom-cloak", "");
     }
   }
 
-  /**
-   * Toggles the visibility of the main dropdown
-   * @param {boolean} show - Whether to show or hide the dropdown
-   */
-  toggleDropdown(show) {
-    // console.log("Toggling dropdown visibility:", show);
-    const hasText = this.assigneeInput.value.trim().length > 0;
+  toggleDropdown(show, input, hasResults) {
+    const wrapper = this.dom.get("dropdownWrapper");
+    if (!wrapper) return;
 
-    if (show && (hasText || this.assigneeResults)) {
-      this.dropdownWrapper.removeAttribute("custom-cloak");
+    const hasText = input.value.trim().length > 0;
+
+    if (show && (hasText || hasResults)) {
+      wrapper.removeAttribute("custom-cloak");
     } else {
-      this.dropdownWrapper.setAttribute("custom-cloak", "");
+      wrapper.setAttribute("custom-cloak", "");
     }
   }
+}
 
-  /**
-   * Handles input focus event
-   */
-  handleFocus() {
-    // console.log("Input focused");
-    this.toggleDropdown(true);
+// ====================================
+// results-renderer.js - Results rendering and management
+// ====================================
+class ResultsRenderer {
+  constructor(domHandler) {
+    this.dom = domHandler;
   }
 
-  /**
-   * Handles input blur event
-   */
-  handleBlur() {
-    // console.log("Input blurred");
-    setTimeout(() => this.toggleDropdown(false), 200);
+  render(results) {
+    const container = this.dom.get("resultsContainer");
+    const template = this.dom.get("resultItemTemplate");
+
+    if (!container || !template) return;
+
+    this.clearExisting(container);
+
+    if (!results?.items?.length) return;
+
+    results.items.forEach((item) => this.renderItem(item, template, container));
   }
 
-  /**
-   * Handles input changes and triggers search
-   * @param {Event} event - Input event object
-   */
-  handleAssigneeInput(event) {
-    // console.log("Input handler called");
-    const searchTerm = event.target.value.trim();
-    // console.log("Input detected:", searchTerm);
+  clearExisting(container) {
+    const existingItems = container.querySelectorAll(
+      '[data-attribute="assignee_resultDropdownItem"]'
+    );
+    existingItems.forEach((item) => item.remove());
+  }
 
+  renderItem(item, template, container) {
+    const newItem = template.cloneNode(true);
+    const textElement = newItem.querySelector(
+      '[data-attribute="assignee_resultDropdownText"]'
+    );
+
+    if (textElement) {
+      textElement.textContent = item.name;
+    }
+
+    container.appendChild(newItem);
+  }
+}
+
+// ====================================
+// api-service.js - API interaction handling
+// ====================================
+class APIService {
+  constructor(endpoint) {
+    this.endpoint = endpoint;
+  }
+
+  async searchAssignees(searchTerm) {
+    if (typeof httpGet !== "function") {
+      throw new Error(
+        "httpGet function not found! Make sure http-calls.js is loaded first"
+      );
+    }
+
+    return await httpGet(this.endpoint, {
+      params: { search_assignee: searchTerm },
+    });
+  }
+}
+
+// ====================================
+// event-manager.js - Event handling and debouncing
+// ====================================
+class EventManager {
+  constructor(delay = 300) {
+    this.debounceTimer = null;
+    this.delay = delay;
+  }
+
+  setupListeners(input, handlers) {
+    if (!input) return false;
+
+    const { onInput, onFocus, onBlur } = handlers;
+
+    input.addEventListener("input", (event) =>
+      this.handleInput(event, onInput)
+    );
+    input.addEventListener("focus", onFocus);
+    input.addEventListener("blur", onBlur);
+
+    return true;
+  }
+
+  handleInput(event, callback) {
     if (this.debounceTimer) {
       clearTimeout(this.debounceTimer);
     }
 
-    this.toggleDropdown(searchTerm.length > 0);
-
     this.debounceTimer = setTimeout(() => {
-      if (searchTerm) {
-        // console.log("Making API call for:", searchTerm);
-        this.fetchAssignees(searchTerm);
-      } else {
-        // console.log("Clearing results due to empty input");
-        this.assigneeResults = null;
-        this.renderResults(null);
-        this.toggleResultsWrapper(false);
-      }
-    }, this.debounceDelay);
+      callback(event.target.value.trim());
+    }, this.delay);
   }
 
-  /**
-   * Makes the API request to fetch assignees
-   * @param {string} searchTerm - Search term to query
-   */
-  async fetchAssignees(searchTerm) {
-    // console.log("Fetching assignees for:", searchTerm);
-
-    try {
-      if (typeof httpGet !== "function") {
-        throw new Error(
-          "httpGet function not found! Make sure http-calls.js is loaded first"
-        );
-      }
-
-      this.toggleLoader(true);
-
-      const response = await httpGet(this.API_ENDPOINT, {
-        params: { search_assignee: searchTerm },
-      });
-
-      this.assigneeResults = response;
-      //   console.log("API response:", response);
-
-      // Handle empty results
-      const hasResults = response?.items?.length > 0;
-      this.toggleResultsWrapper(hasResults);
-
-      // Render results
-      this.renderResults(response);
-    } catch (error) {
-      console.error("API error:", error);
-      this.assigneeResults = null;
-      this.renderResults(null);
-      this.toggleResultsWrapper(false);
-    } finally {
-      this.toggleLoader(false);
-    }
-  }
-
-  /**
-   * Renders the assignee results in the dropdown
-   * @param {Object} results - API response containing assignee data
-   */
-  renderResults(results) {
-    // console.log("Rendering results:", results);
-
-    // Clear existing results
-    const existingItems = this.resultsContainer.querySelectorAll(
-      '[data-attribute="assignee_resultDropdownItem"]'
-    );
-    existingItems.forEach((item) => item.remove());
-
-    if (!results?.items?.length) {
-      //   console.log("No results to render");
-      return;
-    }
-
-    // Create and append new result items
-    results.items.forEach((item) => {
-      const newItem = this.resultItemTemplate.cloneNode(true);
-      const textElement = newItem.querySelector(
-        '[data-attribute="assignee_resultDropdownText"]'
-      );
-
-      if (textElement) {
-        textElement.textContent = item.name;
-      }
-
-      this.resultsContainer.appendChild(newItem);
-    });
-  }
-
-  /**
-   * Cleans up event listeners and timers
-   */
-  destroy() {
-    // console.log("Cleaning up AssigneeEventHandler");
-    if (this.assigneeInput) {
-      this.assigneeInput.removeEventListener("input", this.handleAssigneeInput);
-      this.assigneeInput.removeEventListener("focus", this.handleFocus);
-      this.assigneeInput.removeEventListener("blur", this.handleBlur);
+  cleanup(input, handlers) {
+    if (input) {
+      input.removeEventListener("input", handlers.onInput);
+      input.removeEventListener("focus", handlers.onFocus);
+      input.removeEventListener("blur", handlers.onBlur);
     }
 
     if (this.debounceTimer) {
@@ -320,6 +214,89 @@ class AssigneeEventHandler {
   }
 }
 
-// Create instance immediately
-// console.log("🚀 Creating AssigneeEventHandler instance...");
+// ====================================
+// assignee-handler.js - Main orchestration class
+// ====================================
+class AssigneeEventHandler {
+  constructor() {
+    // Initialize sub-modules
+    this.domHandler = new DOMHandler();
+    this.uiManager = new UIManager(this.domHandler);
+    this.resultsRenderer = new ResultsRenderer(this.domHandler);
+    this.apiService = new APIService(CONFIG.API_ENDPOINT);
+    this.eventManager = new EventManager(CONFIG.DEBOUNCE_DELAY);
+
+    // State
+    this.assigneeResults = null;
+    this.isLoading = false;
+
+    // Initialize when DOM is ready
+    if (document.readyState === "loading") {
+      document.addEventListener("DOMContentLoaded", () => this.initialize());
+    } else {
+      this.initialize();
+    }
+  }
+
+  initialize() {
+    // Find and verify DOM elements
+    if (!this.domHandler.findElements()) return;
+
+    // Setup event listeners
+    this.eventManager.setupListeners(this.domHandler.get("input"), {
+      onInput: (value) => this.handleSearch(value),
+      onFocus: () => this.handleFocus(),
+      onBlur: () => this.handleBlur(),
+    });
+  }
+
+  async handleSearch(searchTerm) {
+    try {
+      this.uiManager.toggleLoader(true);
+      this.uiManager.toggleDropdown(true, this.domHandler.get("input"), false);
+
+      if (!searchTerm) {
+        this.assigneeResults = null;
+        this.resultsRenderer.render(null);
+        this.uiManager.toggleResultsWrapper(false);
+        return;
+      }
+
+      this.assigneeResults = await this.apiService.searchAssignees(searchTerm);
+      const hasResults = this.assigneeResults?.items?.length > 0;
+
+      this.resultsRenderer.render(this.assigneeResults);
+      this.uiManager.toggleResultsWrapper(hasResults);
+    } catch (error) {
+      console.error("Search error:", error);
+      this.assigneeResults = null;
+      this.resultsRenderer.render(null);
+      this.uiManager.toggleResultsWrapper(false);
+    } finally {
+      this.uiManager.toggleLoader(false);
+    }
+  }
+
+  handleFocus() {
+    const input = this.domHandler.get("input");
+    this.uiManager.toggleDropdown(true, input, !!this.assigneeResults);
+  }
+
+  handleBlur() {
+    const input = this.domHandler.get("input");
+    setTimeout(() => {
+      this.uiManager.toggleDropdown(false, input, !!this.assigneeResults);
+    }, CONFIG.BLUR_DELAY);
+  }
+
+  destroy() {
+    this.eventManager.cleanup(this.domHandler.get("input"), {
+      onInput: this.handleSearch,
+      onFocus: this.handleFocus,
+      onBlur: this.handleBlur,
+    });
+  }
+}
+
+// Initialize the handler
 window.assigneeHandler = new AssigneeEventHandler();
