@@ -19,6 +19,14 @@ class AssigneeEventHandler {
         this.handleAssigneeInput = this.handleAssigneeInput.bind(this);
         this.fetchAssignees = this.fetchAssignees.bind(this);
         this.initialize = this.initialize.bind(this);
+
+        // Initialize when DOM is loaded
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', this.initialize);
+        } else {
+            // DOM already loaded, initialize immediately
+            this.initialize();
+        }
     }
 
     /**
@@ -26,6 +34,8 @@ class AssigneeEventHandler {
      * @returns {void}
      */
     initialize() {
+        console.log('Trying to initialize AssigneeEventHandler...');
+        
         // Find the assignee input element
         this.assigneeInput = document.querySelector('[data-attribute="assignee_input"]');
         
@@ -37,7 +47,8 @@ class AssigneeEventHandler {
         // Add event listener
         this.assigneeInput.addEventListener('input', this.handleAssigneeInput);
         
-        console.log('AssigneeEventHandler initialized');
+        console.log('AssigneeEventHandler initialized successfully');
+        console.log('Watching element:', this.assigneeInput);
     }
 
     /**
@@ -46,6 +57,7 @@ class AssigneeEventHandler {
      * @returns {void}
      */
     handleAssigneeInput(event) {
+        console.log('Input detected:', event.target.value);
         const searchTerm = event.target.value.trim();
         
         // Clear previous timeout
@@ -56,6 +68,7 @@ class AssigneeEventHandler {
         // Set new timeout for debouncing
         this.debounceTimer = setTimeout(() => {
             if (searchTerm) {
+                console.log('Making API call for:', searchTerm);
                 this.fetchAssignees(searchTerm);
             }
         }, this.debounceDelay);
@@ -68,6 +81,7 @@ class AssigneeEventHandler {
      */
     async fetchAssignees(searchTerm) {
         try {
+            console.log('Fetching assignees for:', searchTerm);
             const response = await httpGet(this.API_ENDPOINT, {
                 params: {
                     search_assignee: searchTerm
@@ -118,31 +132,6 @@ class AssigneeEventHandler {
     }
 }
 
-// Example of how to use the event handler:
-/*
-// Create instance
-const assigneeHandler = new AssigneeEventHandler();
-
-// Initialize when DOM is loaded
-document.addEventListener('DOMContentLoaded', () => {
-    assigneeHandler.initialize();
-});
-
-// Listen for search results
-document.addEventListener('assigneeSearchComplete', (event) => {
-    const { results, searchTerm } = event.detail;
-    console.log(`Search results for "${searchTerm}":`, results);
-});
-
-// Listen for search errors
-document.addEventListener('assigneeSearchError', (event) => {
-    const { error, searchTerm } = event.detail;
-    console.error(`Error searching for "${searchTerm}":`, error);
-});
-
-// Cleanup when needed
-// assigneeHandler.destroy();
-*/
-
-// Make the class available globally
-window.AssigneeEventHandler = AssigneeEventHandler;
+// Create instance immediately
+console.log('Creating AssigneeEventHandler instance...');
+window.assigneeHandler = new AssigneeEventHandler();
