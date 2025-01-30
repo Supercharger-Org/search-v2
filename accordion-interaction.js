@@ -3,65 +3,107 @@ const TRIGGER_SELECTOR = '[data-accordion="trigger"]';
 const CONTENT_SELECTOR = '[data-accordion="content"]';
 const ICON_SELECTOR = '[data-accordion="icon"]';
 
+// Flag to prevent recursive updates
+let isUpdating = false;
+
+// Function to update content height
+function updateContentHeight(content) {
+  if (!content || isUpdating) return;
+
+  // Only update height if content is currently open
+  const trigger = content.previousElementSibling;
+  if (trigger && trigger._isOpen) {
+    isUpdating = true;
+
+    // Reset height to auto to get the true scroll height
+    content.style.transition = "none";
+    content.style.height = "auto";
+    const newHeight = content.scrollHeight;
+    content.style.height = `${newHeight}px`;
+
+    // Restore transition
+    requestAnimationFrame(() => {
+      content.style.transition = "height 0.3s cubic-bezier(0.4, 0, 0.2, 1)";
+      isUpdating = false;
+    });
+  }
+}
+
+// Create observers for each content section
+function createContentObserver(content) {
+  const config = {
+    childList: true, // Watch for added/removed children
+    subtree: true, // Watch all descendants
+    attributes: true, // Watch for attribute changes
+    attributeFilter: ["style", "class", "hidden"], // Only watch relevant attributes
+  };
+
+  const observer = new MutationObserver((mutations) => {
+    // Filter out mutations caused by our own height updates
+    const relevantMutations = mutations.filter((mutation) => {
+      return !(
+        mutation.type === "attributes" &&
+        mutation.attributeName === "style" &&
+        mutation.target === content
+      );
+    });
+
+    if (relevantMutations.length > 0) {
+      updateContentHeight(content);
+    }
+  });
+
+  observer.observe(content, config);
+  return observer;
+}
+
 // Get all trigger elements
 const triggers = document.querySelectorAll(TRIGGER_SELECTOR);
 
-triggers.forEach(trigger => {
-  // Track the state of the trigger (open or closed)
+triggers.forEach((trigger) => {
+  // Track the state of the trigger
   trigger._isOpen = false;
 
   // Event listener for trigger click
-  trigger.addEventListener('click', () => {
-    // console.log('Trigger clicked:', trigger);
+  trigger.addEventListener("click", () => {
+    const content = trigger.nextElementSibling;
+    const icon = trigger.querySelector(ICON_SELECTOR);
 
-    // Find the associated content and icon
-    const content = trigger.nextElementSibling; // Assuming content is adjacent to the trigger
-    const icon = trigger.querySelector(ICON_SELECTOR); // Icon within the trigger
-
-    if (content && content.getAttribute('data-accordion') === 'content') {
+    if (content && content.getAttribute("data-accordion") === "content") {
       if (!trigger._isOpen) {
         // Open content
-        content.style.height = content.scrollHeight + 'px'; // Set to content height
-        content.style.transition = 'height 0.3s ease'; // Smooth opening
+        content.style.height = `${content.scrollHeight}px`;
+        content.style.transition = "height 0.3s cubic-bezier(0.4, 0, 0.2, 1)";
         trigger._isOpen = true;
 
-        // Rotate the icon
         if (icon) {
-          icon.style.transform = 'rotate(180deg)';
-          icon.style.transition = 'transform 0.3s ease'; // Smooth rotation
+          icon.style.transform = "rotate(180deg)";
+          icon.style.transition = "transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)";
         }
-
-        console.log('Content opened:', content);
       } else {
         // Close content
-        content.style.height = '0px'; // Collapse height
-        content.style.transition = 'height 0.3s ease'; // Smooth closing
+        content.style.height = "0px";
+        content.style.transition = "height 0.3s cubic-bezier(0.4, 0, 0.2, 1)";
         trigger._isOpen = false;
 
-        // Reset icon rotation
         if (icon) {
-          icon.style.transform = 'rotate(0deg)';
-          icon.style.transition = 'transform 0.3s ease'; // Smooth reset
+          icon.style.transform = "rotate(0deg)";
+          icon.style.transition = "transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)";
         }
-
-        // console.log('Content closed:', content);
       }
-    } else {
-      console.warn('No associated content found for trigger:', trigger);
     }
   });
 
   // Initialize content and icon states
   const content = trigger.nextElementSibling;
-  if (content && content.getAttribute('data-accordion') === 'content') {
-    content.style.height = '0px'; // Start collapsed
-    content.style.overflow = 'hidden'; // Prevent content overflow
-    // console.log('Initialized content:', content);
+  if (content && content.getAttribute("data-accordion") === "content") {
+    content.style.height = "0px";
+    content.style.overflow = "hidden";
+    createContentObserver(content);
   }
 
   const icon = trigger.querySelector(ICON_SELECTOR);
   if (icon) {
-    icon.style.transform = 'rotate(0deg)'; // Start with default rotation
-    // console.log('Initialized icon:', icon);
+    icon.style.transform = "rotate(0deg)";
   }
 });
