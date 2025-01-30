@@ -1,18 +1,19 @@
+// Main function to initialize table scroll functionality
 function initializeTableScroll() {
   // Selectors
   const scrollTriggerNode = document.querySelector(
-    '[wized="search_table_scroll_trigger"]'
+    '[data-attribute="table_scroll_trigger"]'
   );
   const scrollWrapperNode = document.querySelector(
-    '[wized="search_table_scroll_wrapper"]'
+    '[data-attribute="table_scroll_wrapper"]'
   );
   const mainWrapperNode = document.querySelector(
-    '[wized="search_table_mainWrapper"]'
+    '[data-attribute="table_mainWrapper"]'
   );
 
   if (!scrollTriggerNode || !scrollWrapperNode || !mainWrapperNode) {
     console.error(
-      "Required elements not found. Please ensure all elements are correctly defined with the 'wized' attributes."
+      "Required elements not found. Please ensure all elements are correctly defined with the 'data-attribute' attributes."
     );
     return;
   }
