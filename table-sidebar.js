@@ -8,6 +8,7 @@
  * - [data-attribute="table_contentCell_wrapper"] - Clickable table cell wrappers
  * - [data-attribute="table_sidebar"] - Sidebar element that displays detailed content
  * - [data-attribute="table_sidebar_close"] - Button to close the sidebar
+ * - [data-attribute="table_mainWrapper"] - Main wrapper element for scrolling
  *
  * States:
  * - initial: Default state, sidebar hidden
@@ -41,6 +42,7 @@ const TableUIConfig = {
     tableCells: '[data-attribute="table_contentCell_wrapper"]',
     sidebar: '[data-attribute="table_sidebar"]',
     closeButton: '[data-attribute="table_sidebar_close"]',
+    mainWrapper: '[data-attribute="table_mainWrapper"]',
 
     // Content mapping from cell to sidebar
     contentMapping: {
@@ -104,6 +106,9 @@ class TableSidebarManager {
       this.elements.closeButton = document.querySelector(
         this.config.selectors.closeButton
       );
+      this.elements.mainWrapper = document.querySelector(
+        this.config.selectors.mainWrapper
+      );
 
       // Verify required elements exist
       if (!this.elements.tableCells.length || !this.elements.sidebar) {
@@ -157,6 +162,13 @@ class TableSidebarManager {
       // Apply sidebar state
       if (stateConfig.sidebar.active) {
         this.elements.sidebar.classList.add("active");
+        // Scroll main wrapper to the right when sidebar becomes active
+        if (this.elements.mainWrapper) {
+          this.elements.mainWrapper.scrollTo({
+            left: this.elements.mainWrapper.scrollWidth,
+            behavior: "smooth",
+          });
+        }
       } else {
         this.elements.sidebar.classList.remove("active");
       }
