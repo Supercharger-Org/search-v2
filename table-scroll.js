@@ -1,5 +1,4 @@
 // Selectors
-//testing
 const scrollTriggerNode = document.querySelector('[wized="search_table_scroll_trigger"]');
 const scrollWrapperNode = document.querySelector('[wized="search_table_scroll_wrapper"]');
 const mainWrapperNode = document.querySelector('[wized="search_table_mainWrapper"]');
