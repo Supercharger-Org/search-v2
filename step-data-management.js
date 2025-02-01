@@ -5,16 +5,21 @@ class APIConfig {
       production: {
         patents: "https://production-patent-api.com",
         tto: "https://production-tto-api.com",
+        lambda: "https://t4g7cxqt59.execute-api.us-east-1.amazonaws.com/production"
       },
       staging: {
         patents: "https://staging-patent-api.com",
         tto: "https://staging-tto-api.com",
+        lambda: "https://t4g7cxqt59.execute-api.us-east-1.amazonaws.com/staging"
       }
     };
     
     this.endpoints = {
       patents: { search: "/api/patent/search" },
-      tto: { search: "/api/tto/search" }
+      tto: { search: "/api/tto/search" },
+      lambda: {
+        validateDescription: "/validate-description"
+      }
     };
   }
 
@@ -29,6 +34,11 @@ class APIConfig {
   getSearchURL(library) {
     const baseURL = this.getBaseURL(library);
     return `${baseURL}${this.endpoints[library].search}`;
+  }
+
+  getLambdaURL(endpoint) {
+    const baseURL = this.getBaseURL('lambda');
+    return `${baseURL}${this.endpoints.lambda[endpoint]}`;
   }
 }
 
