@@ -51,6 +51,7 @@ class EventEmitter {
       'method:updated': 'methodUpdated',
       'search:input': 'searchInput',
       'search:validated': 'searchValidated',
+      'description:validated': 'descriptionValidated',
       'patent:searched': 'patentSearched',
       'filter:added': 'filterAdded',
       'filter:updated': 'filterUpdated'
@@ -75,9 +76,10 @@ class SessionManager {
       method: {
         selected: null,
         mainSearchValue: null,
+        previousSearchValue: null,
         validated: false
       },
-      filters: [] // Array to store filter steps
+      filters: []
     };
   }
 
@@ -88,13 +90,16 @@ class SessionManager {
   }
 
   updateMethod(data) {
+    if (data.mainSearchValue !== undefined && 
+        data.mainSearchValue !== this.session.method.mainSearchValue) {
+      this.session.method.previousSearchValue = this.session.method.mainSearchValue;
+    }
     this.session.method = { ...this.session.method, ...data };
     this.eventEmitter.emit('method:updated', { data });
     this.logSession();
   }
 
   addFilter(filterName) {
-    // Only add if not already present
     if (!this.session.filters.find(f => f.name === filterName)) {
       this.session.filters.push({
         name: filterName,
@@ -118,6 +123,121 @@ class SessionManager {
 
   getSession() {
     return this.session;
+  }
+}
+
+class DisplayManager {
+  constructor(sessionManager) {
+    this.sessionManager = sessionManager;
+    this.steps = ['library', 'method'];
+  }
+
+  initialize() {
+    document.querySelectorAll('.horizontal-slide_wrapper').forEach(wrapper => {
+      wrapper.style.display = 'none';
+    });
+
+    const libraryStep = document.querySelector('[step-name="library"]');
+    if (libraryStep) {
+      const libraryWrapper = libraryStep.closest('.horizontal-slide_wrapper');
+      if (libraryWrapper) {
+        libraryWrapper.style.display = '';
+      }
+    }
+
+    document.querySelectorAll('[data-method-display]').forEach(element => {
+      element.style.display = 'none';
+    });
+
+    // Initially hide validation elements
+    const validateDescription = document.querySelector('#validate-description');
+    if (validateDescription) {
+      validateDescription.style.display = 'none';
+    }
+
+    const llmAnalysis = document.querySelector('#llm-description-analysis');
+    if (llmAnalysis) {
+      llmAnalysis.style.display = 'none';
+    }
+  }
+
+  updateDisplay() {
+    const session = this.sessionManager.getSession();
+    
+    this.updateStepDisplays(session);
+    this.updateValidationDisplays(session);
+    this.updateFilterDisplay(session);
+  }
+
+  updateStepDisplays(session) {
+    this.steps.forEach(step => {
+      document.querySelectorAll(`[data-${step}-option]`).forEach(element => {
+        const optionValue = element.dataset[`${step}Option`];
+        element.classList.toggle('active', 
+          step === 'library' ? optionValue === session.library : 
+          optionValue === session.method.selected
+        );
+      });
+
+      const selectedValue = step === 'library' ? session.library : session.method.selected;
+      if (selectedValue) {
+        document.querySelectorAll(`[data-${step}-display]`).forEach(element => {
+          const allowedValues = element.dataset[`${step}Display`].split(',').map(v => v.trim());
+          element.style.display = allowedValues.includes(selectedValue) ? '' : 'none';
+        });
+      }
+    });
+
+    const methodStep = document.querySelector('[step-name="method"]');
+    if (methodStep) {
+      const wrapper = methodStep.closest('.horizontal-slide_wrapper');
+      if (wrapper) {
+        wrapper.style.display = session.library ? '' : 'none';
+      }
+    }
+  }
+
+  updateValidationDisplays(session) {
+    const validateDescription = document.querySelector('#validate-description');
+    const descriptionInput = document.querySelector('#main-search-description');
+    const llmAnalysis = document.querySelector('#llm-description-analysis');
+
+    if (validateDescription && descriptionInput) {
+      const shouldShow = session.method.selected &&
+                        ['basic', 'description'].includes(session.method.selected) &&
+                        session.method.mainSearchValue &&
+                        session.method.mainSearchValue.length >= 10;
+      
+      validateDescription.style.display = shouldShow ? '' : 'none';
+    }
+
+    if (llmAnalysis) {
+      llmAnalysis.style.display = session.method.validated ? '' : 'none';
+    }
+  }
+
+  updateFilterDisplay(session) {
+    const optionsWrapper = document.querySelector('[step-name="options"]')?.closest('.horizontal-slide_wrapper');
+    if (optionsWrapper) {
+      optionsWrapper.style.display = session.method.selected ? '' : 'none';
+      optionsWrapper.style.order = '99999';
+    }
+
+    session.filters.forEach((filter, index) => {
+      const filterStep = document.querySelector(`[step-name="${filter.name}"]`);
+      if (filterStep) {
+        const wrapper = filterStep.closest('.horizontal-slide_wrapper');
+        if (wrapper) {
+          wrapper.style.display = '';
+          wrapper.style.order = filter.order;
+        }
+      }
+    });
+
+    document.querySelectorAll('[data-filter-option]').forEach(button => {
+      const filterName = button.dataset.filterOption;
+      button.style.display = session.filters.some(f => f.name === filterName) ? 'none' : '';
+    });
   }
 }
 
@@ -217,10 +337,11 @@ class DisplayManager {
 }
 
 class EventManager {
-  constructor(sessionManager, displayManager, eventEmitter) {
+  constructor(sessionManager, displayManager, eventEmitter, apiConfig) {
     this.sessionManager = sessionManager;
     this.displayManager = displayManager;
     this.eventEmitter = eventEmitter;
+    this.apiConfig = apiConfig;
   }
 
   initializeEvents() {
@@ -228,8 +349,65 @@ class EventManager {
     this.initializeInputEvents();
     this.initializeCustomEventListeners();
     this.initializeFilterEvents();
+    this.initializeValidationEvents();
   }
 
+  initializeValidationEvents() {
+    const validateButton = document.querySelector('#validate-description');
+    if (validateButton) {
+      validateButton.addEventListener('click', async () => {
+        const session = this.sessionManager.getSession();
+        if (session.method.mainSearchValue) {
+          try {
+            const response = await this.validateDescription(session.method.mainSearchValue);
+            
+            // Update the input field with the new description
+            const descriptionInput = document.querySelector('#main-search-description');
+            if (descriptionInput) {
+              descriptionInput.value = response.newDescription;
+            }
+
+            // Update the analysis display
+            const analysisElement = document.querySelector('#llm-description-analysis');
+            if (analysisElement) {
+              analysisElement.textContent = response.overview;
+              analysisElement.style.display = '';
+            }
+
+            // Update session with new value
+            this.sessionManager.updateMethod({
+              mainSearchValue: response.newDescription,
+              validated: true
+            });
+
+            this.displayManager.updateDisplay();
+          } catch (error) {
+            console.error('Error validating description:', error);
+          }
+        }
+      });
+    }
+  }
+
+  async validateDescription(description) {
+    const url = this.apiConfig.getLambdaURL('validateDescription');
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        input: description
+      })
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    const data = await response.json();
+    return data.data; // Assuming the API response structure matches what we need
+  }
   initializeClickEvents() {
     // Library selection
     document.querySelectorAll('[data-library-option]').forEach(element => {
@@ -355,7 +533,8 @@ class SearchApp {
     this.eventManager = new EventManager(
       this.sessionManager, 
       this.displayManager, 
-      this.eventEmitter
+      this.eventEmitter,
+      this.apiConfig
     );
   }
 
@@ -369,5 +548,7 @@ class SearchApp {
 // Initialize the application
 const app = new SearchApp();
 app.initialize();
+
+console.log("Main branch step data management code is running.")
 
 
