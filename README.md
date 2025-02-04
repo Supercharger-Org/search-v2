@@ -1,103 +1,14 @@
-Search Application Module Structure
-Core Files
+# Search Application
 
-constants.js
+A modular search application built with JavaScript using an event-driven architecture.
 
-Contains EventTypes enum
-Any other constant values used across the application
+## Project Structure
 
+The application is split into multiple modules to ensure maintainability and separation of concerns.
 
-config/APIConfig.js
-
-APIConfig class
-Handles all API endpoint configurations and URL management
-Environment detection and base URL generation
-
-
-services/APIService.js
-
-APIService class
-Handles all API communication
-Implements request methods and error handling
-Depends on APIConfig
-
-
-core/EventBus.js
-
-EventBus class
-Core event management system
-Handles event subscription and emission
-
-
-state/SessionState.js
-
-SessionState class
-Manages application state
-Handles state updates and logging
-Depends on UIManager
-
-
-ui/UIManager.js
-
-UIManager class
-Handles all UI interactions and updates
-Manages DOM manipulation and event listeners
-Depends on EventBus
-
-
-SearchApp.js
-
-Main application class
-Orchestrates all components
-Sets up event handlers
-Initializes application
-Imports and connects all other modules
-
-
-index.js
-
-Entry point
-Imports SearchApp
-Initializes the application
-
-
-
-Import/Export Structure
-javascriptCopy// index.js
-import { SearchApp } from './SearchApp.js';
-
-// SearchApp.js
-import { EventBus } from './core/EventBus.js';
-import { APIConfig } from './config/APIConfig.js';
-import { UIManager } from './ui/UIManager.js';
-import { SessionState } from './state/SessionState.js';
-import { APIService } from './services/APIService.js';
-Dependencies Graph
-
-SearchApp
-
-→ EventBus
-→ APIConfig
-→ UIManager
-
-→ EventBus
-
-
-→ SessionState
-
-→ UIManager
-
-
-→ APIService
-
-→ APIConfig
-
-
-
-
-
-File Organization
-Copysrc/
+### Directory Layout
+```
+src/
 ├── config/
 │   └── APIConfig.js
 ├── core/
@@ -111,6 +22,103 @@ Copysrc/
 ├── constants.js
 ├── SearchApp.js
 └── index.js
+```
+
+## Modules
+
+### `constants.js`
+- Defines application-wide event types
+- Contains UI configuration constants
+- Stores other shared constant values
+
+### `config/APIConfig.js`
+- Manages API endpoint configurations
+- Handles environment-specific URLs
+- Provides URL generation utilities
+
+### `core/EventBus.js`
+- Implements the event management system
+- Handles event subscription and emission
+- Core communication layer between components
+
+### `services/APIService.js`
+- Manages all API communications
+- Handles HTTP requests and responses
+- Implements error handling for API calls
+
+### `state/SessionState.js`
+- Manages application state
+- Handles state updates and persistence
+- Provides state logging functionality
+
+### `ui/UIManager.js`
+- Controls UI interactions and updates
+- Manages DOM manipulation
+- Handles event listeners and UI state
+
+### `SearchApp.js`
+- Main application orchestrator
+- Initializes and connects all components
+- Sets up application event handlers
+
+### `index.js`
+- Application entry point
+- Bootstraps the application
+- Initializes SearchApp
+
+## Dependencies
+
+The application components have the following dependency structure:
+
+```
+SearchApp
+├── EventBus
+├── APIConfig
+├── UIManager
+│   └── EventBus
+├── SessionState
+│   └── UIManager
+└── APIService
+    └── APIConfig
+```
+
+## Getting Started
+
+1. Clone the repository
+2. Install dependencies
+```bash
+npm install
+```
+3. Start the development server
+```bash
+npm start
+```
+
+## Development
+
+### Adding New Features
+1. Identify the appropriate module for your feature
+2. Add any new event types to `constants.js`
+3. Implement your feature in the relevant module
+4. Update the SearchApp class if needed
+5. Add appropriate documentation
+
+### Code Style
+- Use ES6+ modules for imports/exports
+- Include JSDoc comments for functions and classes
+- Follow the established event-driven pattern
+- Keep modules focused and single-purpose
+
+## Contributing
+
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Submit a pull request
+
+## License
+
+[Add your license here]
 
 # Search Application Documentation
 
