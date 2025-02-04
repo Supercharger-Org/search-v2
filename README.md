@@ -1,3 +1,117 @@
+Search Application Module Structure
+Core Files
+
+constants.js
+
+Contains EventTypes enum
+Any other constant values used across the application
+
+
+config/APIConfig.js
+
+APIConfig class
+Handles all API endpoint configurations and URL management
+Environment detection and base URL generation
+
+
+services/APIService.js
+
+APIService class
+Handles all API communication
+Implements request methods and error handling
+Depends on APIConfig
+
+
+core/EventBus.js
+
+EventBus class
+Core event management system
+Handles event subscription and emission
+
+
+state/SessionState.js
+
+SessionState class
+Manages application state
+Handles state updates and logging
+Depends on UIManager
+
+
+ui/UIManager.js
+
+UIManager class
+Handles all UI interactions and updates
+Manages DOM manipulation and event listeners
+Depends on EventBus
+
+
+SearchApp.js
+
+Main application class
+Orchestrates all components
+Sets up event handlers
+Initializes application
+Imports and connects all other modules
+
+
+index.js
+
+Entry point
+Imports SearchApp
+Initializes the application
+
+
+
+Import/Export Structure
+javascriptCopy// index.js
+import { SearchApp } from './SearchApp.js';
+
+// SearchApp.js
+import { EventBus } from './core/EventBus.js';
+import { APIConfig } from './config/APIConfig.js';
+import { UIManager } from './ui/UIManager.js';
+import { SessionState } from './state/SessionState.js';
+import { APIService } from './services/APIService.js';
+Dependencies Graph
+
+SearchApp
+
+→ EventBus
+→ APIConfig
+→ UIManager
+
+→ EventBus
+
+
+→ SessionState
+
+→ UIManager
+
+
+→ APIService
+
+→ APIConfig
+
+
+
+
+
+File Organization
+Copysrc/
+├── config/
+│   └── APIConfig.js
+├── core/
+│   └── EventBus.js
+├── services/
+│   └── APIService.js
+├── state/
+│   └── SessionState.js
+├── ui/
+│   └── UIManager.js
+├── constants.js
+├── SearchApp.js
+└── index.js
+
 # Search Application Documentation
 
 ## Architecture Overview
