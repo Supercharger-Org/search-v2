@@ -151,17 +151,24 @@ export default class UIManager {
       });
     });
   }
-
+  
+    // Determines if the keyword button should be visible based on the current state
   shouldShowKeywordsButton(state) {
     if (!state.method?.selected) return false;
+  
+    // For descriptive/basic methods, only check if the description is valid (10+ characters)
     if (["descriptive", "basic"].includes(state.method.selected)) {
-      return state.method.description?.isValid && state.method.description?.validated;
+      return state.method.description?.isValid; // Removed the "validated" check
     }
+  
+    // For patent method, the button appears once patent data has been received
     if (state.method.selected === "patent") {
       return !!state.method.patent?.data;
     }
+  
     return false;
   }
+
 
   updateKeywordsDisplay(state) {
     const wrapper = document.querySelector(".badge-wrapper.keywords-include");
