@@ -1,6 +1,6 @@
 // ui/uiManager.js
-import { Logger } from "../core/logger.js";
-import { EventTypes } from "../constants/eventTypes.js";
+import { Logger } from "./logger.js";
+import { EventTypes } from "./eventTypes.js";
 
 export default class UIManager {
   constructor(eventBus) {
