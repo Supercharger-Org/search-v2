@@ -1,11 +1,11 @@
 // searchApp.js
-import { Logger } from "../core/logger.js";
-import { EventTypes } from "../constants/eventTypes.js";
-import EventBus from "../core/eventBus.js";
-import APIConfig from "../config/apiConfig.js";
-import APIService from "../services/apiService.js";
-import UIManager from "../ui/uiManager.js";
-import SessionState from "../state/sessionState.js";
+import { Logger } from "./logger.js";
+import { EventTypes } from "./eventTypes.js";
+import EventBus from "./eventBus.js";
+import APIConfig from "./apiConfig.js";
+import APIService from "./apiService.js";
+import UIManager from "./uiManager.js";
+import SessionState from "./sessionState.js";
 
 class SearchApp {
   constructor() {
