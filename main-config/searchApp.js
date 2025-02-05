@@ -1,3 +1,5 @@
+console.log("Search app script initiated from Github.");
+
 // searchApp.js
 import { Logger } from "./logger.js";
 import { EventTypes } from "./eventTypes.js";
