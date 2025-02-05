@@ -1,4 +1,4 @@
-// logger.js
+ // logger.js
 export const Logger = {
   enabled: true, // Toggle logging globally
 
