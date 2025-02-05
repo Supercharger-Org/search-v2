@@ -1,413 +1,280 @@
-# Search Application
+# Modular Search Application
 
-A modular search application built with JavaScript using an event-driven architecture.
+A JavaScript search application built with an event-driven architecture, designed for patent and technology transfer office (TTO) searches. The application uses centralized state management and event-driven communication to maintain a clean, maintainable codebase.
 
-## Project Structure
+## Core Architecture
 
-The application is split into multiple modules to ensure maintainability and separation of concerns.
+The application is built around three key concepts:
+- Centralized state management through `SessionState`
+- Event-driven communication via `EventBus`
+- Decoupled UI updates through `UIManager`
 
-### Directory Layout
-```
-src/
-├── config/
-│   └── APIConfig.js
-├── core/
-│   └── EventBus.js
-├── services/
-│   └── APIService.js
-├── state/
-│   └── SessionState.js
-├── ui/
-│   └── UIManager.js
-├── constants.js
-├── SearchApp.js
-└── index.js
+## Project Files
+
+```plaintext
+├── sessionState.js    # State management and updates
+├── eventBus.js       # Event pub/sub system
+├── eventTypes.js     # Event type constants
+├── apiConfig.js      # API configuration
+├── apiService.js     # API communication
+├── uiManager.js      # DOM and UI management
+├── searchApp.js      # Main application
+└── logger.js         # Logging utility
 ```
 
-## Modules
+## Core Components
 
-### `constants.js`
-- Defines application-wide event types
-- Contains UI configuration constants
-- Stores other shared constant values
+### Session State Management
 
-### `config/APIConfig.js`
-- Manages API endpoint configurations
-- Handles environment-specific URLs
-- Provides URL generation utilities
+The `SessionState` class manages the entire application state with a predictable structure:
 
-### `core/EventBus.js`
-- Implements the event management system
-- Handles event subscription and emission
-- Core communication layer between components
-
-### `services/APIService.js`
-- Manages all API communications
-- Handles HTTP requests and responses
-- Implements error handling for API calls
-
-### `state/SessionState.js`
-- Manages application state
-- Handles state updates and persistence
-- Provides state logging functionality
-
-### `ui/UIManager.js`
-- Controls UI interactions and updates
-- Manages DOM manipulation
-- Handles event listeners and UI state
-
-### `SearchApp.js`
-- Main application orchestrator
-- Initializes and connects all components
-- Sets up application event handlers
-
-### `index.js`
-- Application entry point
-- Bootstraps the application
-- Initializes SearchApp
-
-## Dependencies
-
-The application components have the following dependency structure:
-
-```
-SearchApp
-├── EventBus
-├── APIConfig
-├── UIManager
-│   └── EventBus
-├── SessionState
-│   └── UIManager
-└── APIService
-    └── APIConfig
-```
-
-## Getting Started
-
-1. Clone the repository
-2. Install dependencies
-```bash
-npm install
-```
-3. Start the development server
-```bash
-npm start
-```
-
-## Development
-
-### Adding New Features
-1. Identify the appropriate module for your feature
-2. Add any new event types to `constants.js`
-3. Implement your feature in the relevant module
-4. Update the SearchApp class if needed
-5. Add appropriate documentation
-
-### Code Style
-- Use ES6+ modules for imports/exports
-- Include JSDoc comments for functions and classes
-- Follow the established event-driven pattern
-- Keep modules focused and single-purpose
-
-## Contributing
-
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Submit a pull request
-
-## License
-
-[Add your license here]
-
-# Search Application Documentation
-
-## Architecture Overview
-
-This application follows an event-driven architecture with centralized state management. Here's how the components work together:
-
-### Core Components
-
-#### 1. UIManager
-- Controls all display-related operations
-- Initializes the UI state (hiding/showing elements)
-- Manages event listeners for UI elements
-- Updates the display based on session state changes
-- Controls the visibility and ordering of steps
-- Handles method-specific displays and filter buttons
-
-#### 2. SessionState
-- Stores and manages the application state
-- Structure:
-  ```javascript
-  {
-    library: null,
-    method: {
-      selected: null,
-      description: {
-        value: '',
-        validated: false,
-        previousValue: null,
-        modificationSummary: null
+```javascript
+export default class SessionState {
+  constructor(uiManager) {
+    this.state = {
+      library: null,
+      method: {
+        selected: null,
+        description: {
+          value: "",
+          previousValue: null,
+          isValid: false,
+          improved: false,
+          modificationSummary: null
+        },
+        patent: null,
+        searchValue: "",
+        validated: false
       },
-      patent: null,
-      validated: false
-    },
-    filters: []
+      filters: []
+    };
   }
-  ```
-- Provides methods to update and retrieve state
-- Automatically triggers UI updates when state changes
-- Logs state changes to console
 
-#### 3. EventBus
-- Manages event communication between components
-- Handles event subscription and emission
-- Provides centralized event logging
-- Enables decoupled communication between components
-
-#### 4. APIConfig & APIService
-- Manages API endpoints and environment configuration
-- Handles API requests and responses
-- Provides environment-aware URL generation
-- Encapsulates API-related logic
-
-#### 5. SearchApp
-- Main application controller
-- Initializes all components
-- Sets up event handlers
-- Manages component interactions
-- Provides session loading functionality
-
-## How Components Interact
-
-1. User interacts with UI → UIManager captures event
-2. UIManager emits event through EventBus
-3. SearchApp's event handlers process the event
-4. SessionState is updated
-5. UIManager automatically updates display based on new state
-
-## Loading a Session
-
-You can load a complete session using the `loadSession` method:
-
-```javascript
-app.loadSession({
-  library: 'patents',
-  method: {
-    selected: 'description',
-    description: {
-      value: 'Initial description text',
-      validated: false,
-      previousValue: null,
-      modificationSummary: null
-    },
-    patent: null,
-    validated: false
-  },
-  filters: [
-    {
-      name: 'date',
-      order: 0,
-      value: '2024-01-01'
+  update(path, value) {
+    const parts = path.split(".");
+    let current = this.state;
+    for (let i = 0; i < parts.length - 1; i++) {
+      if (!(parts[i] in current)) current[parts[i]] = {};
+      current = current[parts[i]];
     }
-  ]
-});
-```
-
-## Adding New Functionality
-
-Let's walk through adding a new feature step by step. In this example, we'll add an "Expert Review" feature for patent descriptions. This feature will:
-1. Have a button that users can click to request an expert review
-2. Make an API call to get the review
-3. Show the review results on the page
-
-### Understanding the Flow
-
-When adding a new feature, here's the general flow to understand:
-1. User interacts with a UI element (e.g., clicks a button)
-2. This triggers an event listener we've set up
-3. The event listener emits an event through our EventBus
-4. A handler in SearchApp catches this event and executes the necessary logic
-5. The handler updates the session state
-6. UI automatically updates to reflect the new state
-
-### Step-by-Step Implementation
-
-First, let's define our new events. Events are like messages that different parts of our application use to communicate:
-
-```javascript
-// Add these to the EventTypes object at the top of the file
-window.EventTypes.EXPERT_REVIEW_REQUESTED = 'expert:reviewRequested';
-window.EventTypes.EXPERT_REVIEW_COMPLETED = 'expert:reviewCompleted';
-```
-
-### Setting Up the API
-
-Next, we tell our application where to find the API endpoint for this feature:
-
-```javascript
-// In the APIConfig class, add this to the endpoints.lambda object
-this.endpoints.lambda.expertReview = "/expert-review";
-```
-
-This defines the endpoint our application will call for expert reviews. Think of it as adding a new destination our application can communicate with.
-
-### Creating the API Method
-
-Now we create a method that will make the actual API call:
-
-```javascript
-// Add this method to the APIService class
-async requestExpertReview(description) {
-  try {
-    const url = this.apiConfig.getLambdaURL('expertReview');
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ description })
-    });
-    return await response.json();
-  } catch (error) {
-    console.error('Error requesting expert review:', error);
-    throw error;
+    current[parts[parts.length - 1]] = value;
+    this.uiManager.updateDisplay(this.state);
+    return this.state;
   }
 }
 ```
 
-This method:
-1. Gets the correct URL for our endpoint
-2. Makes a POST request to that URL with the description
-3. Returns the response from the API
-4. Handles any errors that might occur
+### Event Management
 
-### Setting Up the UI Event Listener
-
-Now we connect the user interface to our event system. This code goes in the UIManager's setupEventListeners method:
+The `EventBus` implements a publisher-subscriber pattern for decoupled communication:
 
 ```javascript
-// Add to UIManager.setupEventListeners method
-const expertReviewButton = document.querySelector('#request-expert-review');
-if (expertReviewButton) {
-  expertReviewButton.addEventListener('click', () => {
-    this.eventBus.emit(window.EventTypes.EXPERT_REVIEW_REQUESTED);
-  });
+export default class EventBus {
+  constructor() {
+    this.listeners = new Map();
+  }
+
+  on(eventType, callback) {
+    if (!this.listeners.has(eventType)) {
+      this.listeners.set(eventType, new Set());
+    }
+    this.listeners.get(eventType).add(callback);
+  }
+
+  emit(eventType, data) {
+    const listeners = this.listeners.get(eventType);
+    if (listeners) {
+      listeners.forEach(callback => callback(data));
+    }
+  }
 }
 ```
 
-What's happening here:
-1. We find a button with the ID 'request-expert-review' on the page
-2. When that button is clicked, we emit our EXPERT_REVIEW_REQUESTED event
-3. The event will be picked up by a handler we'll create next
+### UI Management
 
-Note: You'll need to have a button in your HTML with id="request-expert-review" for this to work.
-
-### Creating the Event Handler
-
-This is where we define what happens when our event is triggered. This code goes in the SearchApp's setupEventHandlers method:
+The `UIManager` handles all DOM interactions and updates:
 
 ```javascript
-// Add to SearchApp.setupEventHandlers method
-this.eventBus.on(window.EventTypes.EXPERT_REVIEW_REQUESTED, async () => {
-  // Get the current description from our session state
+export default class UIManager {
+  constructor(eventBus) {
+    this.eventBus = eventBus;
+    this.setupEventListeners();
+  }
+
+  updateDisplay(state) {
+    // Update UI based on state changes
+    const manageKeywordsButton = document.querySelector("#manage-keywords-button");
+    if (manageKeywordsButton) {
+      manageKeywordsButton.style.display = 
+        this.shouldShowKeywordsButton(state) ? "" : "none";
+    }
+
+    // Update method selection
+    document.querySelectorAll("[data-method-option]").forEach((element) => {
+      element.classList.toggle(
+        "active", 
+        element.dataset.methodOption === state.method?.selected
+      );
+    });
+
+    // Update filters display
+    this.updateKeywordsDisplay(state);
+  }
+}
+```
+
+## Implementation Example: Adding Expert Review
+
+This example demonstrates how all components work together to implement a complete feature:
+
+### 1. Define State Structure
+
+```javascript
+// In sessionState.js
+this.state = {
+  method: {
+    description: {
+      value: "",
+      expertReview: null,
+      expertReviewStatus: null
+    }
+  }
+};
+```
+
+### 2. Add Event Types
+
+```javascript
+// In eventTypes.js
+export const EventTypes = {
+  EXPERT_REVIEW_REQUESTED: "expert:reviewRequested",
+  EXPERT_REVIEW_COMPLETED: "expert:reviewCompleted"
+};
+```
+
+### 3. Setup Event Handler
+
+```javascript
+// In searchApp.js
+this.eventBus.on(EventTypes.EXPERT_REVIEW_REQUESTED, async () => {
   const description = this.sessionState.get().method.description.value;
-  
   try {
-    // Update the UI to show we're working on it
-    this.sessionState.update('method.description.expertReviewStatus', 'pending');
+    // Update state to show pending status
+    this.sessionState.update(
+      "method.description.expertReviewStatus", 
+      "pending"
+    );
     
-    // Call our API method we created earlier
+    // Make the API call
     const result = await this.apiService.requestExpertReview(description);
     
-    // Store the results in our session state
-    this.sessionState.update('method.description.expertReview', result);
-    this.sessionState.update('method.description.expertReviewStatus', 'completed');
+    // Update state with results
+    this.sessionState.update("method.description.expertReview", result);
+    this.sessionState.update(
+      "method.description.expertReviewStatus", 
+      "completed"
+    );
     
-    // Let other parts of the app know we're done
-    this.eventBus.emit(window.EventTypes.EXPERT_REVIEW_COMPLETED, { result });
+    // Emit completion event
+    this.eventBus.emit(EventTypes.EXPERT_REVIEW_COMPLETED, { result });
   } catch (error) {
-    console.error('Expert review failed:', error);
-    this.sessionState.update('method.description.expertReviewStatus', 'failed');
+    this.sessionState.update(
+      "method.description.expertReviewStatus", 
+      "failed"
+    );
   }
 });
 ```
 
-This handler:
-1. Gets triggered when EXPERT_REVIEW_REQUESTED is emitted
-2. Retrieves the current description from our session state
-3. Updates the state to show we're working (which updates the UI)
-4. Makes the API call
-5. Stores the results in our session state
-6. Emits a new event to signal completion
-7. Handles any errors that might occur
-
-### Updating the UI Display Logic
-
-Finally, we need to tell our application how to display the results. This code goes in the UIManager's updateDisplay method:
+### 4. Add UI Listeners
 
 ```javascript
-// Add to UIManager.updateDisplay method
-if (state.method?.description?.expertReviewStatus) {
-  // Update the status display
-  const statusElement = document.querySelector('#expert-review-status');
-  if (statusElement) {
-    statusElement.textContent = `Expert Review: ${state.method.description.expertReviewStatus}`;
-    statusElement.style.display = '';
-  }
-  
-  // Show the results if we have them
-  const resultElement = document.querySelector('#expert-review-result');
-  if (resultElement && state.method.description.expertReview) {
-    resultElement.textContent = JSON.stringify(state.method.description.expertReview, null, 2);
-    resultElement.style.display = '';
+// In uiManager.js
+setupEventListeners() {
+  const expertReviewButton = document.querySelector("#request-expert-review");
+  if (expertReviewButton) {
+    expertReviewButton.addEventListener("click", (e) => {
+      e.preventDefault();
+      this.eventBus.emit(EventTypes.EXPERT_REVIEW_REQUESTED);
+    });
   }
 }
 ```
 
-This display logic:
-1. Checks if we have an expert review status in our state
-2. Updates a status element to show the current status (pending/completed/failed)
-3. If we have results, displays them in the results element
+### 5. Update UI Display
 
-Note: You'll need these elements in your HTML:
-- An element with id="expert-review-status" for showing the status
-- An element with id="expert-review-result" for showing the results
-
-### Required HTML Elements
-
-For this feature to work, you need these elements in your HTML:
-```html
-<!-- Button to trigger the expert review -->
-<button id="request-expert-review">Request Expert Review</button>
-
-<!-- Element to show the status -->
-<div id="expert-review-status" style="display: none;"></div>
-
-<!-- Element to show the results -->
-<div id="expert-review-result" style="display: none;"></div>
+```javascript
+// In uiManager.js
+updateDisplay(state) {
+  if (state.method?.description?.expertReviewStatus) {
+    const statusElement = document.querySelector("#expert-review-status");
+    if (statusElement) {
+      statusElement.textContent = 
+        `Expert Review: ${state.method.description.expertReviewStatus}`;
+      statusElement.style.display = "";
+    }
+    
+    const resultElement = document.querySelector("#expert-review-result");
+    if (resultElement && state.method.description.expertReview) {
+      resultElement.textContent = JSON.stringify(
+        state.method.description.expertReview, 
+        null, 
+        2
+      );
+      resultElement.style.display = "";
+    }
+  }
+}
 ```
 
-### How It All Works Together
+## State Management Flow
 
-1. User clicks the "Request Expert Review" button
-2. Click triggers the event listener we set up in UIManager
-3. Event listener emits EXPERT_REVIEW_REQUESTED
-4. Our handler in SearchApp catches this event and:
-   - Updates state to show 'pending'
-   - Makes API call
-   - Updates state with results
-5. Each state update triggers UIManager's updateDisplay
-6. updateDisplay shows/updates the status and results
+1. **Event Triggers State Update**
+   ```javascript
+   this.eventBus.emit(EventTypes.DESCRIPTION_UPDATED, { 
+     value: newDescription,
+     isValid: true 
+   });
+   ```
 
-This pattern of connecting UI elements → events → handlers → state updates → UI updates is the core flow for adding any new feature to the application.
+2. **State Updates Through SessionState**
+   ```javascript
+   this.sessionState.update("method.description", {
+     value: newDescription,
+     isValid: true
+   });
+   ```
+
+3. **UI Updates Automatically**
+   ```javascript
+   // SessionState triggers UIManager
+   this.uiManager.updateDisplay(this.state);
+   ```
 
 ## Best Practices
 
-1. Always emit events through EventBus
-2. Update state through SessionState
-3. Let UI updates flow from state changes
-4. Keep API logic in APIService
-5. Log events and state changes for debugging
-6. Handle loading and error states
-7. Use meaningful event names
-8. Update UI based on state, not events
+1. **State Management**
+   - All state updates must flow through `SessionState.update()`
+   - Use dot notation for precise state updates
+   - Keep state structure flat when possible
+   - Log state changes for debugging
+
+2. **Event Communication**
+   - Components should communicate only through events
+   - Use descriptive event names (`category:action`)
+   - Handle events in the main application
+   - Log events for debugging
+
+3. **UI Updates**
+   - Never update UI directly from events
+   - All UI updates should flow from state changes
+   - Keep UI logic isolated in UIManager
+   - Use data attributes for dynamic elements
+
+4. **Error Handling**
+   - Implement proper error states in SessionState
+   - Show user-friendly error messages
+   - Log errors for debugging
+   - Maintain consistent state during errors
+
+The architecture ensures that all components are loosely coupled while maintaining a predictable state flow and clear separation of concerns.
