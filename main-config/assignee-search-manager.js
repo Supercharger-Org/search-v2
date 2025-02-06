@@ -1,7 +1,8 @@
 // src/assigneeSearchManager.js
 class AssigneeSearchManager {
-  constructor(eventBus) {
+  constructor(eventBus, eventTypes) {
     this.eventBus = eventBus;
+    this.eventTypes = eventTypes;
     this.api = {
       baseURLs: {
         production: { assignee: "https://xobg-f2pu-pqfs.n7.xano.io/api:fr-l0x4x/dashboard" },
