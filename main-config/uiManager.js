@@ -124,25 +124,25 @@ updateBadgeDisplayForItems(items, wrapperSelector, formatFn, removeEventType) {
   }
 
   updateCodesDisplay(state) {
-    const filter = state.filters.find(f => f.name === "codes");
+    const filter = state.filters.find(f => f.name === "code");
     const items = Array.isArray(filter?.value) ? filter.value : [];
-    this.updateBadgeDisplayForItems(items, ".badge-wrapper.codes", item => item, EventTypes.CODE_REMOVED);
+    this.updateBadgeDisplayForItems(items, ".badge-wrapper.code", item => item, EventTypes.CODE_REMOVED);
     const clearBtn = document.querySelector("#clear-codes");
     if (clearBtn) clearBtn.style.display = items.length > 0 ? "" : "none";
   }
 
   updateInventorsDisplay(state) {
-    const filter = state.filters.find(f => f.name === "inventors");
+    const filter = state.filters.find(f => f.name === "inventor");
     const items = Array.isArray(filter?.value) ? filter.value : [];
-    this.updateBadgeDisplayForItems(items, ".badge-wrapper.inventors", inventor => `${inventor.first_name} ${inventor.last_name}`, EventTypes.INVENTOR_REMOVED);
+    this.updateBadgeDisplayForItems(items, ".badge-wrapper.inventor", inventor => `${inventor.first_name} ${inventor.last_name}`, EventTypes.INVENTOR_REMOVED);
     const clearBtn = document.querySelector("#clear-inventors");
     if (clearBtn) clearBtn.style.display = items.length > 0 ? "" : "none";
   }
 
   updateAssigneesDisplay(state) {
-    const filter = state.filters.find(f => f.name === "assignees");
+    const filter = state.filters.find(f => f.name === "assignee");
     const items = Array.isArray(filter?.value) ? filter.value : [];
-    this.updateBadgeDisplayForItems(items, ".badge-wrapper.assignees", item => item, EventTypes.ASSIGNEE_REMOVED);
+    this.updateBadgeDisplayForItems(items, ".badge-wrapper.assignee", item => item, EventTypes.ASSIGNEE_REMOVED);
     const clearBtn = document.querySelector("#clear-assignees");
     if (clearBtn) clearBtn.style.display = items.length > 0 ? "" : "none";
   }
