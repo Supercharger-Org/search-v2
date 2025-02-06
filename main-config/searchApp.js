@@ -7,6 +7,7 @@ import APIService from "./apiService.js";
 import UIManager from "./uiManager.js";
 import SessionState from "./sessionState.js";
 import AssigneeSearchManager from "./assignee-search-manager.js";
+import ValueSelectManager from "./value-select-manager.js";
 
 class SearchApp {
   constructor() {
@@ -17,6 +18,8 @@ class SearchApp {
     this.apiService = new APIService(this.apiConfig);
     this.assigneeSearchManager = new AssigneeSearchManager();
     this.assigneeSearchManager.init();
+    this.valueSelectManager = new ValueSelectManager(this.eventBus);
+    this.valueSelectManager.init();
     this.setupEventHandlers();
   }
   
