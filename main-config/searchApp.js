@@ -99,16 +99,15 @@ class SearchApp {
       }
     });
   });
-    // Codes events.
-    this.eventBus.on(EventTypes.CODE_ADDED, ({ code }) => {
-      if (!code) return;
-      this.updateFilter("codes", filter => {
-        const current = Array.isArray(filter.value) ? filter.value : [];
-        if (!current.includes(code)) filter.value = [...current, code];
-      });
-    });
+this.eventBus.on(EventTypes.CODE_ADDED, ({ code }) => {
+  if (!code) return;
+  this.updateFilter("code", filter => {
+    const current = Array.isArray(filter.value) ? filter.value : [];
+    if (!current.includes(code)) filter.value = [...current, code];
+  });
+});
  this.eventBus.on(EventTypes.CODE_REMOVED, ({ item, clearAll }) => {
-    this.updateFilter("codes", filter => {
+    this.updateFilter("code", filter => {
       if (clearAll) {
         filter.value = [];
       } else if (item) {
@@ -122,14 +121,14 @@ class SearchApp {
     // Inventors events.
     this.eventBus.on(EventTypes.INVENTOR_ADDED, ({ inventor }) => {
       if (!inventor || !inventor.first_name || !inventor.last_name) return;
-      this.updateFilter("inventors", filter => {
+      this.updateFilter("inventor", filter => {
         const current = Array.isArray(filter.value) ? filter.value : [];
         const exists = current.some(i => i.first_name === inventor.first_name && i.last_name === inventor.last_name);
         if (!exists) filter.value = [...current, inventor];
       });
     });
  this.eventBus.on(EventTypes.INVENTOR_REMOVED, ({ item, clearAll }) => {
-    this.updateFilter("inventors", filter => {
+    this.updateFilter("inventor", filter => {
       if (clearAll) {
         filter.value = [];
       } else if (item) {
@@ -144,13 +143,13 @@ class SearchApp {
     // Assignees events.
     this.eventBus.on(EventTypes.ASSIGNEE_ADDED, ({ assignee }) => {
       if (!assignee) return;
-      this.updateFilter("assignees", filter => {
+      this.updateFilter("assignee", filter => {
         const current = Array.isArray(filter.value) ? filter.value : [];
         if (!current.includes(assignee)) filter.value = [...current, assignee];
       });
     });
   this.eventBus.on(EventTypes.ASSIGNEE_REMOVED, ({ item, clearAll }) => {
-    this.updateFilter("assignees", filter => {
+    this.updateFilter("assignee", filter => {
       if (clearAll) {
         filter.value = [];
       } else if (item) {
