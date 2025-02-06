@@ -143,34 +143,33 @@ export default class UIManager {
 
   // Reorder filter steps inside the container so that new filters appear below default steps.
   updateFilterStepOrder(state) {
-    const container = document.querySelector(".step-container_width-664px");
-    if (!container) return;
-    const defaultSteps = ["library", "method", "keywords-include"];
-    const filterNodes = Array.from(container.querySelectorAll("[step-name]")).filter(el => {
-      const name = el.getAttribute("step-name");
-      return !defaultSteps.includes(name);
-    });
-    const ordered = filterNodes.sort((a, b) => {
-      const aName = a.getAttribute("step-name");
-      const bName = b.getAttribute("step-name");
-      const aOrder = state.filters.find(f => f.name === aName)?.order ?? 0;
-      const bOrder = state.filters.find(f => f.name === bName)?.order ?? 0;
-      return aOrder - bOrder;
-    });
-    ordered.forEach(node => {
-      const wrapper = node.closest(".horizontal-slide_wrapper");
-      if (wrapper) container.appendChild(wrapper);
-    });
-  }
+    const container = document.querySelector(".step-small-container");
+    
+  const steps = Array.from(container.children).filter(child => child.hasAttribute("step-name"));
+  
+  // Sort steps by the order stored in state.filters.
+  steps.sort((a, b) => {
+    const aName = a.getAttribute("step-name");
+    const bName = b.getAttribute("step-name");
+    const aOrder = state.filters.find(f => f.name === aName)?.order ?? 0;
+    const bOrder = state.filters.find(f => f.name === bName)?.order ?? 0;
+    return aOrder - bOrder;
+  });
+  
+  // Remove and re-append steps in sorted order.
+  steps.forEach(step => container.appendChild(step));
+}
 
   // Toggle visibility of filter option buttons based on whether a filter exists.
   updateFilterOptionButtons(state) {
-    document.querySelectorAll("[data-filter-option]").forEach(button => {
-      const filterName = button.dataset.filterOption;
-      const exists = this.filterExists(filterName, state);
-      button.style.display = exists ? "none" : "";
-    });
-  }
+  // Use data-option-filter so that it matches your step-name attribute.
+  document.querySelectorAll("[data-filter-option]").forEach(button => {
+    const filterName = button.getAttribute("data-filter-option");
+    const exists = state.filters && state.filters.some(f => f.name === filterName);
+    button.style.display = exists ? "none" : "";
+  });
+}
+
 
   // Combined UI update.
   updateAll(state) {
@@ -281,86 +280,83 @@ export default class UIManager {
     window.scrollTo(scrollX, scrollY);
   }
   
-  // Accordion functions integrated into UIManager.
   initializeAccordions() {
-    const triggers = document.querySelectorAll(".step-container_width-664px [data-accordion='trigger']");
-    triggers.forEach(trigger => {
-      if (!trigger._initialized) {
-        trigger._initialized = true;
-        trigger._isOpen = false;
-        trigger.addEventListener("click", () => {
-          this.closeOtherAccordions(trigger);
-          this.toggleAccordion(trigger);
-        });
-        const content = trigger.nextElementSibling;
-        if (content && content.getAttribute("data-accordion") === "content") {
-          content.style.height = "0px";
-          content.style.overflow = "hidden";
-          this.createContentObserver(content);
-        }
-      }
-    });
-  }
-  
-  toggleAccordion(trigger) {
-    const content = trigger.nextElementSibling;
-    const icon = trigger.querySelector("[data-accordion='icon']");
-    if (content) {
-      if (!trigger._isOpen) {
-        content.style.height = content.scrollHeight + "px";
-        trigger._isOpen = true;
-        if (icon) icon.style.transform = "rotate(180deg)";
-      } else {
+  // Assume that your accordion triggers are located within the container 
+  // with class .step-container_width-664px.
+  const triggers = document.querySelectorAll(".step-container_width-664px [data-accordion='trigger']");
+  triggers.forEach(trigger => {
+    if (!trigger._initialized) {
+      trigger._initialized = true;
+      trigger._isOpen = false;
+      trigger.addEventListener("click", () => {
+        this.closeOtherAccordions(trigger);
+        this.toggleAccordion(trigger);
+      });
+      const content = trigger.nextElementSibling;
+      if (content && content.getAttribute("data-accordion") === "content") {
         content.style.height = "0px";
-        trigger._isOpen = false;
-        if (icon) icon.style.transform = "rotate(0deg)";
+        content.style.overflow = "hidden";
+        this.createContentObserver(content);
       }
     }
-  }
-  
-  closeOtherAccordions(currentTrigger) {
-    const triggers = document.querySelectorAll(".step-container_width-664px [data-accordion='trigger']");
-    triggers.forEach(trigger => {
-      if (trigger !== currentTrigger && trigger._isOpen) {
-        const content = trigger.nextElementSibling;
-        if (content) content.style.height = "0px";
-        trigger._isOpen = false;
-        const icon = trigger.querySelector("[data-accordion='icon']");
-        if (icon) icon.style.transform = "rotate(0deg)";
-      }
-    });
-  }
-  
-  createContentObserver(content) {
-    const config = { childList: true, subtree: true, attributes: true, attributeFilter: ["style", "class", "hidden"] };
-    const observer = new MutationObserver(mutations => {
-      const relevant = mutations.filter(m => !(m.type === "attributes" && m.attributeName === "style" && m.target === content));
-      if (relevant.length > 0) this.updateContentHeight(content);
-    });
-    observer.observe(content, config);
-  }
-  
-  updateContentHeight(content) {
-    if (!content) return;
-    const trigger = content.previousElementSibling;
-    if (trigger && trigger._isOpen) {
-      content.style.height = "auto";
-      const newHeight = content.scrollHeight;
-      content.style.height = newHeight + "px";
-    }
-  }
-  
-  // When a new step is added, open its accordion and close others.
-  openNewStepAccordion(newStepTrigger) {
-    this.closeOtherAccordions(newStepTrigger);
-    if (newStepTrigger) {
-      const content = newStepTrigger.nextElementSibling;
-      if (content) content.style.height = content.scrollHeight + "px";
-      newStepTrigger._isOpen = true;
-      const icon = newStepTrigger.querySelector("[data-accordion='icon']");
+  });
+}
+
+// Toggle the clicked accordion trigger.
+toggleAccordion(trigger) {
+  const content = trigger.nextElementSibling;
+  const icon = trigger.querySelector("[data-accordion='icon']");
+  if (content) {
+    if (!trigger._isOpen) {
+      content.style.height = content.scrollHeight + "px";
+      trigger._isOpen = true;
       if (icon) icon.style.transform = "rotate(180deg)";
+    } else {
+      content.style.height = "0px";
+      trigger._isOpen = false;
+      if (icon) icon.style.transform = "rotate(0deg)";
     }
   }
+}
+
+// Close all accordions except the one provided.
+closeOtherAccordions(currentTrigger) {
+  const triggers = document.querySelectorAll(".step-container_width-664px [data-accordion='trigger']");
+  triggers.forEach(trigger => {
+    if (trigger !== currentTrigger && trigger._isOpen) {
+      const content = trigger.nextElementSibling;
+      if (content) content.style.height = "0px";
+      trigger._isOpen = false;
+      const icon = trigger.querySelector("[data-accordion='icon']");
+      if (icon) icon.style.transform = "rotate(0deg)";
+    }
+  });
+}
+
+// (Optional) Attach a MutationObserver so that if content inside an accordion changes, its height is recalculated.
+createContentObserver(content) {
+  const config = {
+    childList: true,
+    subtree: true,
+    attributes: true,
+    attributeFilter: ["style", "class", "hidden"]
+  };
+  const observer = new MutationObserver(mutations => {
+    const relevant = mutations.filter(m => !(m.type === "attributes" && m.attributeName === "style" && m.target === content));
+    if (relevant.length > 0) this.updateContentHeight(content);
+  });
+  observer.observe(content, config);
+}
+
+updateContentHeight(content) {
+  if (!content) return;
+  const trigger = content.previousElementSibling;
+  if (trigger && trigger._isOpen) {
+    content.style.height = "auto";
+    const newHeight = content.scrollHeight;
+    content.style.height = newHeight + "px";
+  }
+}
   
   updateFilterOptionButtons(state) {
     document.querySelectorAll("[data-filter-option]").forEach(button => {
