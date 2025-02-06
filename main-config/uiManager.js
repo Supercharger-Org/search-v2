@@ -181,7 +181,7 @@ export default class UIManager {
     });
     
     // --- Filter Steps Visibility & Ordering ---
-    // Reserve orders 0-2 for Library, Method, and Keywords Include.
+    // Reserve orders 0-2 for Library, Method, and Included Keywords.
     const baseOrder = 3;
     if (state.filters) {
       state.filters.forEach((filter, index) => {
@@ -495,3 +495,4 @@ export default class UIManager {
     this.setupEventListeners();
   }
 }
+
