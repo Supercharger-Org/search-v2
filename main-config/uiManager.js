@@ -141,23 +141,35 @@ export default class UIManager {
     }
   }
 
-  // Reorder filter steps inside the container so that new filters appear below default steps.
-  updateFilterStepOrder(state) {
-    const container = document.querySelector(".step-small-container");
-    
-  const steps = Array.from(container.children).filter(child => child.hasAttribute("step-name"));
+updateFilterStepOrder(state) {
+  const container = document.querySelector('.step-small-container');
+  if (!container) {
+    Logger.error('Step container not found');
+    return;
+  }
   
-  // Sort steps by the order stored in state.filters.
+  // Get all step elements that have the step-name attribute
+  const steps = Array.from(container.querySelectorAll('[step-name]'));
+  if (!steps.length) return;
+  
+  // Sort steps based on filter order
   steps.sort((a, b) => {
-    const aName = a.getAttribute("step-name");
-    const bName = b.getAttribute("step-name");
-    const aOrder = state.filters.find(f => f.name === aName)?.order ?? 0;
-    const bOrder = state.filters.find(f => f.name === bName)?.order ?? 0;
+    const aName = a.getAttribute('step-name');
+    const bName = b.getAttribute('step-name');
+    const aOrder = state.filters?.find(f => f.name === aName)?.order ?? Number.MAX_SAFE_INTEGER;
+    const bOrder = state.filters?.find(f => f.name === bName)?.order ?? Number.MAX_SAFE_INTEGER;
     return aOrder - bOrder;
   });
   
-  // Remove and re-append steps in sorted order.
-  steps.forEach(step => container.appendChild(step));
+  // Reorder elements and initialize accordions
+  steps.forEach(step => {
+    const wrapper = step.closest('.horizontal-slide_wrapper');
+    if (wrapper) {
+      container.appendChild(wrapper);
+      // Initialize accordion for this step
+      this.initializeStepAccordion(wrapper);
+    }
+  });
 }
 
   // Toggle visibility of filter option buttons based on whether a filter exists.
@@ -169,6 +181,8 @@ export default class UIManager {
     button.style.display = exists ? "none" : "";
   });
 }
+
+  
 
 
   // Combined UI update.
@@ -283,7 +297,7 @@ export default class UIManager {
   initializeAccordions() {
   // Assume that your accordion triggers are located within the container 
   // with class .step-container_width-664px.
-  const triggers = document.querySelectorAll(".step-container_width-664px [data-accordion='trigger']");
+  const triggers = document.querySelectorAll(".step-small-container [data-accordion='trigger']");
   triggers.forEach(trigger => {
     if (!trigger._initialized) {
       trigger._initialized = true;
@@ -321,7 +335,7 @@ toggleAccordion(trigger) {
 
 // Close all accordions except the one provided.
 closeOtherAccordions(currentTrigger) {
-  const triggers = document.querySelectorAll(".step-container_width-664px [data-accordion='trigger']");
+  const triggers = document.querySelectorAll(".step-small-container[data-accordion='trigger']");
   triggers.forEach(trigger => {
     if (trigger !== currentTrigger && trigger._isOpen) {
       const content = trigger.nextElementSibling;
