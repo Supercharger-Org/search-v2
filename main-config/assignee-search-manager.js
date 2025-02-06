@@ -175,12 +175,9 @@ class AssigneeSearchManager {
     });
   }
 
-  handleAssigneeSelection(assigneeName) {
+ handleAssigneeSelection(assigneeName) {
     if (!assigneeName) return;
-    
-    // Use correct EventTypes constant
-    this.eventBus.emit(EventTypes.ASSIGNEE_ADDED, { assignee: assigneeName });
-    
+    this.eventBus.emit(this.eventTypes.ASSIGNEE_ADDED, { assignee: assigneeName });
     if (this.elements.input) {
       this.elements.input.value = '';
     }
