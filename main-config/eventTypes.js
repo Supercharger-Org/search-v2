@@ -17,13 +17,8 @@ export const EventTypes = {
   // New events for excluded keywords
   KEYWORD_EXCLUDED_ADDED: "keyword:excluded:added",
   KEYWORD_EXCLUDED_REMOVED: "keyword:excluded:removed",
-  // New events for codes
-  CODE_ADDED: "code:added",
-  CODE_REMOVED: "code:removed",
-  // New events for inventors
-  INVENTOR_ADDED: "inventor:added",
-  INVENTOR_REMOVED: "inventor:removed",
-  // New events for assignees
-  ASSIGNEE_ADDED: "assignee:added",
-  ASSIGNEE_REMOVED: "assignee:removed"
+  CODE_ADDED: "codes:added",       // Changed from code:added
+  CODE_REMOVED: "codes:removed",   // Changed from code:removed
+  INVENTOR_ADDED: "inventors:added",     // Changed from inventor:added
+  INVENTOR_REMOVED: "inventors:removed", // Changed from inventor:removed
 };
