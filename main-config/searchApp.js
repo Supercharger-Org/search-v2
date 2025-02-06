@@ -6,6 +6,7 @@ import APIConfig from "./apiConfig.js";
 import APIService from "./apiService.js";
 import UIManager from "./uiManager.js";
 import SessionState from "./sessionState.js";
+import AssigneeSearchManager from "./assignee-search-manager.js";
 
 class SearchApp {
   constructor() {
