@@ -140,7 +140,7 @@ export default class UIManager {
       manageKeywordsButton.style.display = this.shouldShowKeywordsButton(state) ? "" : "none";
     }
     
-    // Update all filter displays
+    // Update filter badges
     this.updateKeywordsDisplay(state);
     this.updateExcludedKeywordsDisplay(state);
     this.updateCodesDisplay(state);
@@ -148,12 +148,12 @@ export default class UIManager {
     this.updateAssigneesDisplay(state);
     this.updateDateDisplay(state);
 
-    // --- Library Selection ---
+    // --- Library Selection Active State ---
     document.querySelectorAll("[data-library-option]").forEach((element) => {
       element.classList.toggle("active", element.dataset.libraryOption === state.library);
     });
 
-    // --- Method Selection ---
+    // --- Method Step ---
     const methodWrapper = document.querySelector('[step-name="method"]')?.closest(".horizontal-slide_wrapper");
     if (methodWrapper) {
       methodWrapper.style.display = state.library ? "" : "none";
@@ -162,7 +162,7 @@ export default class UIManager {
     if (patentMethodOption) {
       patentMethodOption.style.display = state.library === "tto" ? "none" : "";
     }
-    // If library is "tto" and method is "patent", reset method to "descriptive"
+    // Reset method if needed
     if (state.library === "tto" && state.method?.selected === "patent") {
       this.eventBus.emit(EventTypes.METHOD_SELECTED, { value: "descriptive" });
     }
@@ -175,6 +175,27 @@ export default class UIManager {
       element.style.display = allowedMethods.includes(state.method?.selected) ? "" : "none";
     });
 
+    // --- Filter Step Visibility & Ordering ---
+    // For each filter step in the session state, ensure its slide is visible and ordered correctly.
+    if (state.filters) {
+      state.filters.forEach((filter, index) => {
+        const filterStep = document.querySelector(`[step-name="${filter.name}"]`);
+        if (filterStep) {
+          const wrapper = filterStep.closest(".horizontal-slide_wrapper");
+          if (wrapper) {
+            wrapper.style.display = "";
+            wrapper.style.order = index;
+          }
+        }
+      });
+      // Toggle filter option buttons (hide options for filters already added)
+      document.querySelectorAll("[data-filter-option]").forEach((button) => {
+        const filterName = button.dataset.filterOption;
+        const isActive = state.filters.some((f) => f.name === filterName);
+        button.style.display = isActive ? "none" : "";
+      });
+    }
+
     // --- Options Wrapper Ordering ---
     const optionsWrapper = document.querySelector('[step-name="options"]')?.closest(".horizontal-slide_wrapper");
     if (optionsWrapper) {
@@ -183,7 +204,7 @@ export default class UIManager {
         maxOrder = Math.max(maxOrder, index);
       });
       optionsWrapper.style.order = maxOrder + 1;
-      // Only display options if "keywords-include" filter exists
+      // Only display options if "keywords-include" filter exists.
       optionsWrapper.style.display = state.filters.find(f => f.name === "keywords-include") ? "" : "none";
     }
 
@@ -236,7 +257,8 @@ export default class UIManager {
     window.scrollTo(scrollX, scrollY);
   }
 
-  // --- Setup UI for each filter/step ---
+  // --- Setup UI for Filters and Steps ---
+
   setupKeywordsUI() {
     const manageKeywordsButton = document.querySelector("#manage-keywords-button");
     if (manageKeywordsButton) {
