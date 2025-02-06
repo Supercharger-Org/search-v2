@@ -177,10 +177,9 @@ class AssigneeSearchManager {
   handleAssigneeSelection(assigneeName) {
     if (!assigneeName) return;
     
-    // Emit event for assignee selection
-    this.eventBus.emit('ASSIGNEE_ADDED', { assignee: assigneeName });
+    // Use correct EventTypes constant
+    this.eventBus.emit(EventTypes.ASSIGNEE_ADDED, { assignee: assigneeName });
     
-    // Update input and close dropdown
     if (this.elements.input) {
       this.elements.input.value = '';
     }
