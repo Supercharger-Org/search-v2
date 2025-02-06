@@ -16,7 +16,7 @@ class SearchApp {
     this.uiManager = new UIManager(this.eventBus);
     this.sessionState = new SessionState(this.uiManager);
     this.apiService = new APIService(this.apiConfig);
-    this.assigneeSearchManager = new AssigneeSearchManager();
+    this.assigneeSearchManager = new AssigneeSearchManager(this.eventBus);
     this.assigneeSearchManager.init();
     this.valueSelectManager = new ValueSelectManager(this.eventBus);
     this.valueSelectManager.init();
