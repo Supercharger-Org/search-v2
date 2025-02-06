@@ -165,17 +165,7 @@ updateBadgeDisplayForItems(items, wrapperSelector, formatFn, removeEventType) {
     }
   }
 
-  // Toggle visibility of filter option buttons based on whether a filter exists.
-  updateFilterOptionButtons(state) {
-  // Use data-option-filter so that it matches your step-name attribute.
-  document.querySelectorAll("[data-filter-option]").forEach(button => {
-    const filterName = button.getAttribute("data-filter-option");
-    const exists = state.filters && state.filters.some(f => f.name === filterName);
-    button.style.display = exists ? "none" : "";
-  });
-}
-
-  updateFilterOptionsVisibility(state) {
+updateFilterOptionsVisibility(state) {
   const optionsStep = document.querySelector('[step-name="options"]');
   const optionsWrapper = optionsStep?.closest('.horizontal-slide_wrapper');
   
@@ -279,12 +269,6 @@ updateFilterStepOrder(state) {
           }
         }
       });
-      const optionsWrapper = document.querySelector('[step-name="options"]')?.closest(".horizontal-slide_wrapper");
-      if (optionsWrapper) {
-        optionsWrapper.style.order = baseOrder + state.filters.length;
-        optionsWrapper.style.display = this.filterExists("keywords-include", state) ? "none" : "";
-      }
-      this.updateFilterStepOrder(state);
     }
     
     // Accordion integration.
@@ -356,26 +340,34 @@ toggleAccordion(trigger) {
   const icon = trigger.querySelector('[data-accordion="icon"]');
   
   if (!content || !content.matches('[data-accordion="content"]')) return;
+
+  // Ensure transition styles are set
+  content.style.transition = 'height 0.3s cubic-bezier(0.4, 0, 0.2, 1)';
+  content.style.overflow = 'hidden';
   
   if (!trigger._isOpen) {
     // Opening
-    content.style.height = '0px'; // Reset height before opening
     content.style.display = ''; // Make sure it's visible
-    const targetHeight = content.scrollHeight;
-    content.style.height = targetHeight + 'px';
+    requestAnimationFrame(() => {
+      const targetHeight = content.scrollHeight;
+      content.style.height = targetHeight + 'px';
+    });
     trigger._isOpen = true;
     if (icon) {
       icon.style.transform = 'rotate(180deg)';
-      icon.style.transition = 'transform 0.3s ease';
+      icon.style.transition = 'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)';
     }
   } else {
     // Closing
-    content.style.height = content.scrollHeight + 'px'; // Set current height before transitioning
-    setTimeout(() => content.style.height = '0px', 0); // Trigger transition to 0
+    const currentHeight = content.scrollHeight;
+    content.style.height = currentHeight + 'px';
+    requestAnimationFrame(() => {
+      content.style.height = '0px';
+    });
     trigger._isOpen = false;
     if (icon) {
       icon.style.transform = 'rotate(0deg)';
-      icon.style.transition = 'transform 0.3s ease';
+      icon.style.transition = 'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)';
     }
   }
 }
@@ -422,17 +414,8 @@ updateContentHeight(content) {
   }
 }
   
-  updateFilterOptionButtons(state) {
-    document.querySelectorAll("[data-filter-option]").forEach(button => {
-      const filterName = button.dataset.filterOption;
-      const exists = this.filterExists(filterName, state);
-      button.style.display = exists ? "none" : "";
-    });
-  }
-  
   updateAll(state) {
     this.updateDisplay(state);
-    this.updateFilterOptionButtons(state);
      document.querySelectorAll('.horizontal-slide_wrapper[step-name]').forEach(step => {
     const trigger = step.querySelector('[data-accordion="trigger"]');
     if (trigger && !trigger._initialized) {
@@ -442,7 +425,7 @@ updateContentHeight(content) {
   });
   }
 
-  initializeNewStep(stepElement) {
+initializeNewStep(stepElement) {
   const trigger = stepElement.querySelector('[data-accordion="trigger"]');
   const content = stepElement.querySelector('[data-accordion="content"]');
   
@@ -450,7 +433,7 @@ updateContentHeight(content) {
   
   // Set up initial state
   content.style.height = '0px';
-  content.style.transition = 'height 0.3s ease';
+  content.style.transition = 'height 0.3s cubic-bezier(0.4, 0, 0.2, 1)';
   content.style.overflow = 'hidden';
   
   // Remove any existing listeners
@@ -458,16 +441,18 @@ updateContentHeight(content) {
   trigger.parentNode.replaceChild(newTrigger, trigger);
   
   // Add new listener
+  newTrigger._initialized = true;
+  newTrigger._isOpen = false;
   newTrigger.addEventListener('click', () => {
     this.closeOtherAccordions(newTrigger);
     this.toggleAccordion(newTrigger);
   });
   
-  // Open this accordion and close others
+  // Open this accordion and close others after a brief delay
   setTimeout(() => {
     this.closeOtherAccordions(newTrigger);
     this.toggleAccordion(newTrigger);
-  }, 0);
+  }, 50);
 }
   
   // Setup UI for included keywords.
