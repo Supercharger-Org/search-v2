@@ -52,51 +52,57 @@ export default class UIManager {
     return false;
   }
 
-  // Render badges for a given array.
-  updateBadgeDisplayForItems(items, wrapperSelector, formatFn, removeEventType) {
+updateBadgeDisplayForItems(items, wrapperSelector, formatFn, removeEventType) {
   const wrapper = document.querySelector(wrapperSelector);
   if (!wrapper) {
     Logger.error(`Wrapper not found: ${wrapperSelector}`);
     return;
   }
-  
-  // Clear existing badges except template
-  const existingBadges = wrapper.querySelectorAll('.badge-item');
-  existingBadges.forEach(badge => badge.remove());
-  
-  // Get template
-  const template = wrapper.querySelector('.template');
+
+  // Get the first child as template
+  const template = wrapper.firstElementChild;
   if (!template) {
-    Logger.error('Template badge not found');
+    Logger.error(`No template badge found in ${wrapperSelector}`);
     return;
   }
-  
-  // Create new badges
+
+  // Hide the template
+  template.style.display = 'none';
+
+  // Remove all badges except the first child (template)
+  Array.from(wrapper.children)
+    .slice(1)
+    .forEach(badge => badge.remove());
+
+  // If no items, we're done
+  if (!Array.isArray(items) || items.length === 0) return;
+
+  // Create new badges for each item
   items.forEach(item => {
     const newBadge = template.cloneNode(true);
-    newBadge.classList.remove('template');
-    newBadge.classList.add('badge-item');
     newBadge.style.display = '';
     
+    // Update the text content
     const textEl = newBadge.querySelector('.text-no-click');
-    if (textEl) textEl.textContent = formatFn(item);
-    
+    if (textEl) {
+      textEl.textContent = formatFn(item);
+    }
+
+    // Setup remove icon click handler
     const removeIcon = newBadge.querySelector('.badge_remove-icon');
     if (removeIcon) {
-      // Clear any existing listeners
+      // Clear any existing listeners by cloning
       const newRemoveIcon = removeIcon.cloneNode(true);
       removeIcon.parentNode.replaceChild(newRemoveIcon, removeIcon);
-      
+
       // Add new click listener
       newRemoveIcon.addEventListener('click', (e) => {
         e.preventDefault();
         e.stopPropagation();
         this.eventBus.emit(removeEventType, { item });
-        // Remove the badge from UI immediately for better UX
-        newBadge.remove();
       });
     }
-    
+
     wrapper.appendChild(newBadge);
   });
 }
