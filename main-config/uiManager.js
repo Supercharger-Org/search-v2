@@ -54,34 +54,52 @@ export default class UIManager {
 
   // Render badges for a given array.
   updateBadgeDisplayForItems(items, wrapperSelector, formatFn, removeEventType) {
-    const wrapper = document.querySelector(wrapperSelector);
-    if (!wrapper) {
-      Logger.error(`Wrapper not found: ${wrapperSelector}`);
-      return;
-    }
-    // Assume the first child is the template badge.
-    const template = wrapper.firstElementChild;
-    if (template) template.style.display = "none";
-    // Remove existing badges.
-    wrapper.querySelectorAll(".badge-item").forEach(badge => badge.remove());
-    // Append new badges.
-    items.forEach(item => {
-      const newBadge = template.cloneNode(true);
-      newBadge.classList.remove("template");
-      newBadge.classList.add("badge-item");
-      newBadge.style.display = "";
-      const textEl = newBadge.querySelector(".text-no-click");
-      if (textEl) textEl.textContent = formatFn(item);
-      const removeIcon = newBadge.querySelector(".badge_remove-icon");
-      if (removeIcon) {
-        removeIcon.addEventListener("click", e => {
-          e.preventDefault();
-          this.eventBus.emit(removeEventType, { item });
-        });
-      }
-      wrapper.appendChild(newBadge);
-    });
+  const wrapper = document.querySelector(wrapperSelector);
+  if (!wrapper) {
+    Logger.error(`Wrapper not found: ${wrapperSelector}`);
+    return;
   }
+  
+  // Clear existing badges except template
+  const existingBadges = wrapper.querySelectorAll('.badge-item');
+  existingBadges.forEach(badge => badge.remove());
+  
+  // Get template
+  const template = wrapper.querySelector('.template');
+  if (!template) {
+    Logger.error('Template badge not found');
+    return;
+  }
+  
+  // Create new badges
+  items.forEach(item => {
+    const newBadge = template.cloneNode(true);
+    newBadge.classList.remove('template');
+    newBadge.classList.add('badge-item');
+    newBadge.style.display = '';
+    
+    const textEl = newBadge.querySelector('.text-no-click');
+    if (textEl) textEl.textContent = formatFn(item);
+    
+    const removeIcon = newBadge.querySelector('.badge_remove-icon');
+    if (removeIcon) {
+      // Clear any existing listeners
+      const newRemoveIcon = removeIcon.cloneNode(true);
+      removeIcon.parentNode.replaceChild(newRemoveIcon, removeIcon);
+      
+      // Add new click listener
+      newRemoveIcon.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        this.eventBus.emit(removeEventType, { item });
+        // Remove the badge from UI immediately for better UX
+        newBadge.remove();
+      });
+    }
+    
+    wrapper.appendChild(newBadge);
+  });
+}
 
   updateKeywordsDisplay(state) {
     const filter = state.filters.find(f => f.name === "keywords-include");
