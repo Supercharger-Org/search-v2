@@ -165,37 +165,6 @@ updateBadgeDisplayForItems(items, wrapperSelector, formatFn, removeEventType) {
     }
   }
 
-updateFilterStepOrder(state) {
-  const container = document.querySelector('.step-small-container');
-  if (!container) {
-    Logger.error('Step container not found');
-    return;
-  }
-  
-  // Get all step elements that have the step-name attribute
-  const steps = Array.from(container.querySelectorAll('[step-name]'));
-  if (!steps.length) return;
-  
-  // Sort steps based on filter order
-  steps.sort((a, b) => {
-    const aName = a.getAttribute('step-name');
-    const bName = b.getAttribute('step-name');
-    const aOrder = state.filters?.find(f => f.name === aName)?.order ?? Number.MAX_SAFE_INTEGER;
-    const bOrder = state.filters?.find(f => f.name === bName)?.order ?? Number.MAX_SAFE_INTEGER;
-    return aOrder - bOrder;
-  });
-  
-  // Reorder elements and initialize accordions
-  steps.forEach(step => {
-    const wrapper = step.closest('.horizontal-slide_wrapper');
-    if (wrapper) {
-      container.appendChild(wrapper);
-      // Initialize accordion for this step
-      this.initializeStepAccordion(wrapper);
-    }
-  });
-}
-
   // Toggle visibility of filter option buttons based on whether a filter exists.
   updateFilterOptionButtons(state) {
   // Use data-option-filter so that it matches your step-name attribute.
@@ -206,14 +175,51 @@ updateFilterStepOrder(state) {
   });
 }
 
+  updateFilterOptionsVisibility(state) {
+  const optionsStep = document.querySelector('[step-name="options"]');
+  const optionsWrapper = optionsStep?.closest('.horizontal-slide_wrapper');
   
-
-
-  // Combined UI update.
-  updateAll(state) {
-    this.updateDisplay(state);
-    this.updateFilterOptionButtons(state);
+  if (optionsWrapper) {
+    const hasKeywordsInclude = this.filterExists('keywords-include', state);
+    optionsWrapper.style.display = hasKeywordsInclude ? '' : 'none';
   }
+
+  // Update filter option buttons visibility
+  document.querySelectorAll('[data-filter-option]').forEach(button => {
+    const filterName = button.getAttribute('data-filter-option');
+    const exists = this.filterExists(filterName, state);
+    button.style.display = exists ? 'none' : '';
+  });
+}
+
+// 4. Improved step ordering
+updateFilterStepOrder(state) {
+  const container = document.querySelector('.step-small-container');
+  if (!container) return;
+
+  const steps = Array.from(container.querySelectorAll('.horizontal-slide_wrapper[step-name]'))
+    .filter(wrapper => wrapper.getAttribute('step-name') !== 'options');
+
+  // Sort steps based on when they were added (using order from state)
+  steps.sort((a, b) => {
+    const aName = a.getAttribute('step-name');
+    const bName = b.getAttribute('step-name');
+    const aOrder = state.filters?.find(f => f.name === aName)?.order ?? Infinity;
+    const bOrder = state.filters?.find(f => f.name === bName)?.order ?? Infinity;
+    return aOrder - bOrder;
+  });
+
+  // Move options step to the end if it exists
+  const optionsStep = container.querySelector('.horizontal-slide_wrapper[step-name="options"]');
+  
+  // Reorder the steps
+  steps.forEach(step => container.appendChild(step));
+  
+  // Append options step last if it exists and should be shown
+  if (optionsStep && this.filterExists('keywords-include', state)) {
+    container.appendChild(optionsStep);
+  }
+}
 
   // Main UI update function.
   updateDisplay(state) {
@@ -435,80 +441,34 @@ updateContentHeight(content) {
     }
   });
   }
+
+  initializeNewStep(stepElement) {
+  const trigger = stepElement.querySelector('[data-accordion="trigger"]');
+  const content = stepElement.querySelector('[data-accordion="content"]');
   
-  // Setup event listeners for UI interactions.
-  setupEventListeners() {
-    // Patent search inputs.
-    const patentInput = document.querySelector("#main-search-patent-input");
-    if (patentInput) {
-      patentInput.addEventListener("keypress", e => {
-        if (e.key === "Enter") {
-          this.eventBus.emit(EventTypes.PATENT_SEARCH_INITIATED, { value: e.target.value });
-        }
-      });
-    }
-    const patentButton = document.querySelector("#main-search-patent-button");
-    if (patentButton) {
-      patentButton.addEventListener("click", e => {
-        e.preventDefault();
-        const value = document.querySelector("#main-search-patent-input")?.value;
-        this.eventBus.emit(EventTypes.PATENT_SEARCH_INITIATED, { value });
-      });
-    }
-    
-    // Library and method selection.
-    document.querySelectorAll("[data-library-option]").forEach(el => {
-      el.addEventListener("click", e => {
-        e.preventDefault();
-        const library = e.target.closest("[data-library-option]").dataset.libraryOption;
-        this.eventBus.emit(EventTypes.LIBRARY_SELECTED, { value: library });
-      });
-    });
-    document.querySelectorAll("[data-method-option]").forEach(el => {
-      el.addEventListener("click", e => {
-        e.preventDefault();
-        const method = e.target.closest("[data-method-option]").dataset.methodOption;
-        this.eventBus.emit(EventTypes.METHOD_SELECTED, { value: method });
-      });
-    });
-    
-    // Description input handling.
-    const descriptionInput = document.querySelector("#main-search-description");
-    if (descriptionInput) {
-      descriptionInput.addEventListener("input", e => {
-        const value = e.target.value;
-        const isValid = value.trim().length >= 10;
-        this.eventBus.emit(EventTypes.DESCRIPTION_UPDATED, { value, isValid });
-        const improveButton = document.querySelector("#validate-description");
-        if (improveButton) improveButton.style.display = isValid ? "flex" : "none";
-      });
-    }
-    const improveButton = document.querySelector("#validate-description");
-    if (improveButton) {
-      improveButton.textContent = "Improve Description";
-      improveButton.addEventListener("click", e => {
-        e.preventDefault();
-        this.eventBus.emit(EventTypes.DESCRIPTION_IMPROVED);
-      });
-    }
-    
-    // Filter option buttons.
-    document.querySelectorAll("[data-filter-option]").forEach(button => {
-      button.addEventListener("click", e => {
-        e.preventDefault();
-        const filterName = e.target.dataset.filterOption;
-        this.eventBus.emit(EventTypes.FILTER_ADDED, { filterName });
-      });
-    });
-    
-    // Setup filter input UIs.
-    this.setupKeywordsUI();
-    this.setupExcludedKeywordsUI();
-    this.setupCodesUI();
-    this.setupInventorsUI();
-    this.setupAssigneesUI();
-    this.setupDateUI();
-  }
+  if (!trigger || !content) return;
+  
+  // Set up initial state
+  content.style.height = '0px';
+  content.style.transition = 'height 0.3s ease';
+  content.style.overflow = 'hidden';
+  
+  // Remove any existing listeners
+  const newTrigger = trigger.cloneNode(true);
+  trigger.parentNode.replaceChild(newTrigger, trigger);
+  
+  // Add new listener
+  newTrigger.addEventListener('click', () => {
+    this.closeOtherAccordions(newTrigger);
+    this.toggleAccordion(newTrigger);
+  });
+  
+  // Open this accordion and close others
+  setTimeout(() => {
+    this.closeOtherAccordions(newTrigger);
+    this.toggleAccordion(newTrigger);
+  }, 0);
+}
   
   // Setup UI for included keywords.
   setupKeywordsUI() {
@@ -745,15 +705,22 @@ updateContentHeight(content) {
       });
     }
     
-    // Filter option buttons.
-    document.querySelectorAll("[data-filter-option]").forEach(button => {
-      button.addEventListener("click", e => {
-        e.preventDefault();
-        const filterName = e.target.dataset.filterOption;
-        this.eventBus.emit(EventTypes.FILTER_ADDED, { filterName });
-      });
+document.querySelectorAll('[data-filter-option]').forEach(button => {
+    button.addEventListener('click', e => {
+      e.preventDefault();
+      const filterName = button.getAttribute('data-filter-option');
+      this.eventBus.emit(EventTypes.FILTER_ADDED, { filterName });
+      
+      // Initialize the new step after a short delay to ensure DOM is updated
+      setTimeout(() => {
+        const newStep = document.querySelector(`[step-name="${filterName}"]`)
+          ?.closest('.horizontal-slide_wrapper');
+        if (newStep) {
+          this.initializeNewStep(newStep);
+        }
+      }, 50);
     });
-    
+  });
     // Setup all filter UIs.
     this.setupKeywordsUI();
     this.setupExcludedKeywordsUI();
