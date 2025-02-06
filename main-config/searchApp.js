@@ -71,16 +71,16 @@ class SearchApp {
         if (!current.includes(keyword)) filter.value = [...current, keyword];
       });
     });
-    this.eventBus.on(EventTypes.KEYWORD_REMOVED, ({ keyword, clearAll, type }) => {
-      this.updateFilter("keywords-include", filter => {
-        if (clearAll && type === "include") filter.value = [];
-        else if (keyword) {
-          const current = Array.isArray(filter.value) ? filter.value : [];
-          filter.value = current.filter(k => k !== keyword);
-        }
-      });
+ this.eventBus.on(EventTypes.KEYWORD_REMOVED, ({ item, clearAll, type }) => {
+    this.updateFilter("keywords-include", filter => {
+      if (clearAll && type === "include") {
+        filter.value = [];
+      } else if (item) {
+        const current = Array.isArray(filter.value) ? filter.value : [];
+        filter.value = current.filter(k => k !== item);
+      }
     });
-    
+  });
     // Excluded Keywords events.
     this.eventBus.on(EventTypes.KEYWORD_EXCLUDED_ADDED, ({ keyword }) => {
       if (!keyword) return;
@@ -89,16 +89,16 @@ class SearchApp {
         if (!current.includes(keyword)) filter.value = [...current, keyword];
       });
     });
-    this.eventBus.on(EventTypes.KEYWORD_EXCLUDED_REMOVED, ({ keyword, clearAll }) => {
-      this.updateFilter("keywords-exclude", filter => {
-        if (clearAll) filter.value = [];
-        else if (keyword) {
-          const current = Array.isArray(filter.value) ? filter.value : [];
-          filter.value = current.filter(k => k !== keyword);
-        }
-      });
+  this.eventBus.on(EventTypes.KEYWORD_EXCLUDED_REMOVED, ({ item, clearAll }) => {
+    this.updateFilter("keywords-exclude", filter => {
+      if (clearAll) {
+        filter.value = [];
+      } else if (item) {
+        const current = Array.isArray(filter.value) ? filter.value : [];
+        filter.value = current.filter(k => k !== item);
+      }
     });
-    
+  });
     // Codes events.
     this.eventBus.on(EventTypes.CODE_ADDED, ({ code }) => {
       if (!code) return;
@@ -107,15 +107,17 @@ class SearchApp {
         if (!current.includes(code)) filter.value = [...current, code];
       });
     });
-    this.eventBus.on(EventTypes.CODE_REMOVED, ({ code, clearAll }) => {
-      this.updateFilter("codes", filter => {
-        if (clearAll) filter.value = [];
-        else if (code) {
-          const current = Array.isArray(filter.value) ? filter.value : [];
-          filter.value = current.filter(c => c !== code);
-        }
-      });
+ this.eventBus.on(EventTypes.CODE_REMOVED, ({ item, clearAll }) => {
+    this.updateFilter("codes", filter => {
+      if (clearAll) {
+        filter.value = [];
+      } else if (item) {
+        const current = Array.isArray(filter.value) ? filter.value : [];
+        filter.value = current.filter(c => c !== item);
+      }
     });
+  });
+
     
     // Inventors events.
     this.eventBus.on(EventTypes.INVENTOR_ADDED, ({ inventor }) => {
@@ -126,15 +128,18 @@ class SearchApp {
         if (!exists) filter.value = [...current, inventor];
       });
     });
-    this.eventBus.on(EventTypes.INVENTOR_REMOVED, ({ inventor, clearAll }) => {
-      this.updateFilter("inventors", filter => {
-        if (clearAll) filter.value = [];
-        else if (inventor) {
-          const current = Array.isArray(filter.value) ? filter.value : [];
-          filter.value = current.filter(i => !(i.first_name === inventor.first_name && i.last_name === inventor.last_name));
-        }
-      });
+ this.eventBus.on(EventTypes.INVENTOR_REMOVED, ({ item, clearAll }) => {
+    this.updateFilter("inventors", filter => {
+      if (clearAll) {
+        filter.value = [];
+      } else if (item) {
+        const current = Array.isArray(filter.value) ? filter.value : [];
+        filter.value = current.filter(i => 
+          !(i.first_name === item.first_name && i.last_name === item.last_name)
+        );
+      }
     });
+  });
     
     // Assignees events.
     this.eventBus.on(EventTypes.ASSIGNEE_ADDED, ({ assignee }) => {
@@ -144,15 +149,16 @@ class SearchApp {
         if (!current.includes(assignee)) filter.value = [...current, assignee];
       });
     });
-    this.eventBus.on(EventTypes.ASSIGNEE_REMOVED, ({ assignee, clearAll }) => {
-      this.updateFilter("assignees", filter => {
-        if (clearAll) filter.value = [];
-        else if (assignee) {
-          const current = Array.isArray(filter.value) ? filter.value : [];
-          filter.value = current.filter(a => a !== assignee);
-        }
-      });
+  this.eventBus.on(EventTypes.ASSIGNEE_REMOVED, ({ item, clearAll }) => {
+    this.updateFilter("assignees", filter => {
+      if (clearAll) {
+        filter.value = [];
+      } else if (item) {
+        const current = Array.isArray(filter.value) ? filter.value : [];
+        filter.value = current.filter(a => a !== item);
+      }
     });
+  });
     
     // Date filter.
     this.eventBus.on(EventTypes.FILTER_UPDATED, ({ filterName, value }) => {
