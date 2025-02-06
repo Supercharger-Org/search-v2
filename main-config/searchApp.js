@@ -38,6 +38,15 @@ class SearchApp {
   }
   
   setupEventHandlers() {
+    this.eventBus.on('VALUE_TYPE_UPDATED', ({ filterType, type }) => {
+  if (filterType === 'date') {
+    const currentFilter = this.sessionState.get().filters.find(f => f.name === 'date');
+    if (currentFilter) {
+      currentFilter.type = type;
+      this.sessionState.update('filters', this.sessionState.get().filters);
+    }
+  }
+});
     // Manage Keywords Generation
     this.eventBus.on(EventTypes.KEYWORDS_GENERATE_INITIATED, async () => {
       const state = this.sessionState.get();
