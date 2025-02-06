@@ -17,7 +17,6 @@ class SearchApp {
     this.setupEventHandlers();
   }
   
-  // Helper to update (or add) a filter.
   updateFilter(filterName, updateFn) {
     const currentFilters = this.sessionState.get().filters;
     let filter = currentFilters.find(f => f.name === filterName);
@@ -26,8 +25,7 @@ class SearchApp {
     } else {
       filter = { name: filterName, order: currentFilters.length, value: null };
       updateFn(filter);
-      this.sessionState.update("filters", [...currentFilters, filter]);
-      return;
+      currentFilters.push(filter);
     }
     this.sessionState.update("filters", currentFilters);
   }
@@ -47,131 +45,112 @@ class SearchApp {
           description = state.method.description.value || "";
         }
         if (!description) throw new Error("No content available for keyword generation");
-        
         const keywords = await this.apiService.generateKeywords(description);
         this.updateFilter("keywords-include", filter => {
           const current = Array.isArray(filter.value) ? filter.value : [];
-          // Prevent duplicates.
           filter.value = Array.from(new Set([...current, ...keywords]));
         });
         this.eventBus.emit(EventTypes.KEYWORDS_GENERATE_COMPLETED, { keywords });
         const manageKeywordsButton = document.querySelector("#manage-keywords-button");
-        if (manageKeywordsButton) {
-          manageKeywordsButton.style.display = "none";
-        }
+        if (manageKeywordsButton) manageKeywordsButton.style.display = "none";
       } catch (error) {
         Logger.error("Failed to generate keywords:", error);
         alert(error.message || "Failed to generate keywords");
       }
     });
     
-    // Included Keywords events
+    // Included Keywords events.
     this.eventBus.on(EventTypes.KEYWORD_ADDED, ({ keyword }) => {
       if (!keyword) return;
       this.updateFilter("keywords-include", filter => {
         const current = Array.isArray(filter.value) ? filter.value : [];
-        if (!current.includes(keyword)) {
-          filter.value = [...current, keyword];
-        }
+        if (!current.includes(keyword)) filter.value = [...current, keyword];
       });
     });
     this.eventBus.on(EventTypes.KEYWORD_REMOVED, ({ keyword, clearAll, type }) => {
       this.updateFilter("keywords-include", filter => {
-        if (clearAll && type === "include") {
-          filter.value = [];
-        } else if (keyword) {
+        if (clearAll && type === "include") filter.value = [];
+        else if (keyword) {
           const current = Array.isArray(filter.value) ? filter.value : [];
           filter.value = current.filter(k => k !== keyword);
         }
       });
     });
     
-    // Excluded Keywords events
+    // Excluded Keywords events.
     this.eventBus.on(EventTypes.KEYWORD_EXCLUDED_ADDED, ({ keyword }) => {
       if (!keyword) return;
       this.updateFilter("keywords-exclude", filter => {
         const current = Array.isArray(filter.value) ? filter.value : [];
-        if (!current.includes(keyword)) {
-          filter.value = [...current, keyword];
-        }
+        if (!current.includes(keyword)) filter.value = [...current, keyword];
       });
     });
     this.eventBus.on(EventTypes.KEYWORD_EXCLUDED_REMOVED, ({ keyword, clearAll }) => {
       this.updateFilter("keywords-exclude", filter => {
-        if (clearAll) {
-          filter.value = [];
-        } else if (keyword) {
+        if (clearAll) filter.value = [];
+        else if (keyword) {
           const current = Array.isArray(filter.value) ? filter.value : [];
           filter.value = current.filter(k => k !== keyword);
         }
       });
     });
     
-    // Codes events
+    // Codes events.
     this.eventBus.on(EventTypes.CODE_ADDED, ({ code }) => {
       if (!code) return;
       this.updateFilter("codes", filter => {
         const current = Array.isArray(filter.value) ? filter.value : [];
-        if (!current.includes(code)) {
-          filter.value = [...current, code];
-        }
+        if (!current.includes(code)) filter.value = [...current, code];
       });
     });
     this.eventBus.on(EventTypes.CODE_REMOVED, ({ code, clearAll }) => {
       this.updateFilter("codes", filter => {
-        if (clearAll) {
-          filter.value = [];
-        } else if (code) {
+        if (clearAll) filter.value = [];
+        else if (code) {
           const current = Array.isArray(filter.value) ? filter.value : [];
           filter.value = current.filter(c => c !== code);
         }
       });
     });
     
-    // Inventors events
+    // Inventors events.
     this.eventBus.on(EventTypes.INVENTOR_ADDED, ({ inventor }) => {
       if (!inventor || !inventor.first_name || !inventor.last_name) return;
       this.updateFilter("inventors", filter => {
         const current = Array.isArray(filter.value) ? filter.value : [];
         const exists = current.some(i => i.first_name === inventor.first_name && i.last_name === inventor.last_name);
-        if (!exists) {
-          filter.value = [...current, inventor];
-        }
+        if (!exists) filter.value = [...current, inventor];
       });
     });
     this.eventBus.on(EventTypes.INVENTOR_REMOVED, ({ inventor, clearAll }) => {
       this.updateFilter("inventors", filter => {
-        if (clearAll) {
-          filter.value = [];
-        } else if (inventor) {
+        if (clearAll) filter.value = [];
+        else if (inventor) {
           const current = Array.isArray(filter.value) ? filter.value : [];
           filter.value = current.filter(i => !(i.first_name === inventor.first_name && i.last_name === inventor.last_name));
         }
       });
     });
     
-    // Assignees events
+    // Assignees events.
     this.eventBus.on(EventTypes.ASSIGNEE_ADDED, ({ assignee }) => {
       if (!assignee) return;
       this.updateFilter("assignees", filter => {
         const current = Array.isArray(filter.value) ? filter.value : [];
-        if (!current.includes(assignee)) {
-          filter.value = [...current, assignee];
-        }
+        if (!current.includes(assignee)) filter.value = [...current, assignee];
       });
     });
     this.eventBus.on(EventTypes.ASSIGNEE_REMOVED, ({ assignee, clearAll }) => {
       this.updateFilter("assignees", filter => {
-        if (clearAll) {
-          filter.value = [];
-        } else if (assignee) {
+        if (clearAll) filter.value = [];
+        else if (assignee) {
           const current = Array.isArray(filter.value) ? filter.value : [];
           filter.value = current.filter(a => a !== assignee);
         }
       });
     });
     
-    // Date filter updates come from UI.
+    // Date filter.
     this.eventBus.on(EventTypes.FILTER_UPDATED, ({ filterName, value }) => {
       if (filterName === "date") {
         this.updateFilter("date", filter => {
@@ -180,8 +159,8 @@ class SearchApp {
       }
     });
     
-    // Other existing events.
-    this.eventBus.on(EventTypes.LOAD_SESSION, (sessionData) => {
+    // Other events.
+    this.eventBus.on(EventTypes.LOAD_SESSION, sessionData => {
       this.sessionState.load(sessionData);
     });
     this.eventBus.on(EventTypes.LIBRARY_SELECTED, ({ value }) => {
@@ -249,12 +228,15 @@ class SearchApp {
     this.eventBus.on(EventTypes.FILTER_ADDED, ({ filterName }) => {
       const currentFilters = this.sessionState.get().filters;
       if (!currentFilters.find(f => f.name === filterName)) {
-        const newFilters = [
-          ...currentFilters,
-          { name: filterName, order: currentFilters.length, value: null }
-        ];
+        const newFilters = [...currentFilters, { name: filterName, order: currentFilters.length, value: null }];
         this.sessionState.update("filters", newFilters);
       }
+    });
+    
+    // After every update, trigger UI refresh.
+    this.eventBus.on("stateUpdated", () => {
+      const state = this.sessionState.get();
+      this.uiManager.updateAll(state);
     });
   }
   
@@ -269,5 +251,4 @@ class SearchApp {
 
 const app = new SearchApp();
 app.initialize();
-
 export default app;
