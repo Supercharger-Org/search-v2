@@ -1,6 +1,7 @@
 // src/assigneeSearchManager.js
 class AssigneeSearchManager {
-  constructor() {
+  constructor(eventBus) {
+    this.eventBus = eventBus;
     this.api = {
       baseURLs: {
         production: { assignee: "https://xobg-f2pu-pqfs.n7.xano.io/api:fr-l0x4x/dashboard" },
@@ -98,6 +99,11 @@ class AssigneeSearchManager {
       this.elements.input.addEventListener("input", this.eventHandlers.input);
       this.elements.input.addEventListener("focus", this.eventHandlers.focus);
       this.elements.input.addEventListener("blur", this.eventHandlers.blur);
+      this.elements.input.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter' && e.target.value.trim().length >= 2) {
+          this.handleAssigneeSelection(e.target.value.trim());
+        }
+      });
     }
   }
 
@@ -169,11 +175,18 @@ class AssigneeSearchManager {
   }
 
   handleAssigneeSelection(assigneeName) {
-    console.log("Selected Assignee:", assigneeName);
-    document.querySelector('[data-attribute="assignee_input"]').value = assigneeName;
-    this.applyState("initial");
+    if (!assigneeName) return;
+    
+    // Emit event for assignee selection
+    this.eventBus.emit('ASSIGNEE_ADDED', { assignee: assigneeName });
+    
+    // Update input and close dropdown
+    if (this.elements.input) {
+      this.elements.input.value = '';
+    }
+    this.applyState('initial');
   }
-
+  
   applyState(stateName) {
     const stateConfig = this.config.search.states[stateName];
     if (!stateConfig) return;
