@@ -313,41 +313,37 @@ updateFilterStepOrder(state) {
     window.scrollTo(scrollX, scrollY);
   }
   
-  initializeAccordions() {
-  // Assume that your accordion triggers are located within the container 
-  // with class .step-container_width-664px.
-  const triggers = document.querySelectorAll(".step-small-container [data-accordion='trigger']");
-  triggers.forEach(trigger => {
-    if (!trigger._initialized) {
-      trigger._initialized = true;
-      trigger._isOpen = false;
-      trigger.addEventListener("click", () => {
-        this.closeOtherAccordions(trigger);
-        this.toggleAccordion(trigger);
-      });
-      const content = trigger.nextElementSibling;
-      if (content && content.getAttribute("data-accordion") === "content") {
-        content.style.height = "0px";
-        content.style.overflow = "hidden";
-        this.createContentObserver(content);
-      }
-    }
-  });
+  isAccordionManaged(element) {
+  if (!element) return false;
+  
+  // Find the step wrapper
+  const stepWrapper = element.closest('[step-name]');
+  if (!stepWrapper) return false;
+  
+  const stepName = stepWrapper.getAttribute('step-name');
+  
+  // Method step should never close
+  if (stepName === 'method') return false;
+  
+  return true;
 }
 
-toggleAccordion(trigger) {
+// Updated toggleAccordion method
+toggleAccordion(trigger, forceOpen = false) {
   const content = trigger.nextElementSibling;
   const icon = trigger.querySelector('[data-accordion="icon"]');
   
   if (!content || !content.matches('[data-accordion="content"]')) return;
 
-  // Ensure transition styles are set
+  // Set up transitions
   content.style.transition = 'height 0.3s cubic-bezier(0.4, 0, 0.2, 1)';
   content.style.overflow = 'hidden';
   
-  if (!trigger._isOpen) {
+  const shouldOpen = forceOpen || !trigger._isOpen;
+  
+  if (shouldOpen) {
     // Opening
-    content.style.display = ''; // Make sure it's visible
+    content.style.display = '';
     requestAnimationFrame(() => {
       const targetHeight = content.scrollHeight;
       content.style.height = targetHeight + 'px';
@@ -372,9 +368,10 @@ toggleAccordion(trigger) {
   }
 }
 
+// Updated closeOtherAccordions method - now only closes filter steps
 closeOtherAccordions(currentTrigger) {
   document.querySelectorAll('[data-accordion="trigger"]').forEach(trigger => {
-    if (trigger !== currentTrigger && trigger._isOpen) {
+    if (trigger !== currentTrigger && trigger._isOpen && this.isAccordionManaged(trigger)) {
       const content = trigger.nextElementSibling;
       const icon = trigger.querySelector('[data-accordion="icon"]');
       
@@ -384,7 +381,47 @@ closeOtherAccordions(currentTrigger) {
       trigger._isOpen = false;
       if (icon) {
         icon.style.transform = 'rotate(0deg)';
-        icon.style.transition = 'transform 0.3s ease';
+        icon.style.transition = 'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)';
+      }
+    }
+  });
+}
+
+// Updated initializeAccordions method
+initializeAccordions() {
+  const triggers = document.querySelectorAll(".step-small-container [data-accordion='trigger']");
+  triggers.forEach(trigger => {
+    if (!trigger._initialized) {
+      trigger._initialized = true;
+      trigger._isOpen = false;
+      
+      // Special handling for method step - should start open
+      const stepWrapper = trigger.closest('[step-name]');
+      if (stepWrapper && stepWrapper.getAttribute('step-name') === 'method') {
+        trigger._isOpen = true;
+        const content = trigger.nextElementSibling;
+        if (content) {
+          content.style.height = 'auto';
+          content.style.overflow = 'hidden';
+        }
+        const icon = trigger.querySelector('[data-accordion="icon"]');
+        if (icon) {
+          icon.style.transform = 'rotate(180deg)';
+        }
+      }
+
+      trigger.addEventListener("click", () => {
+        this.toggleAccordion(trigger);
+      });
+
+      const content = trigger.nextElementSibling;
+      if (content && content.getAttribute("data-accordion") === "content") {
+        content.style.transition = 'height 0.3s cubic-bezier(0.4, 0, 0.2, 1)';
+        content.style.overflow = "hidden";
+        if (!trigger._isOpen) {
+          content.style.height = "0px";
+        }
+        this.createContentObserver(content);
       }
     }
   });
@@ -444,16 +481,19 @@ initializeNewStep(stepElement) {
   newTrigger._initialized = true;
   newTrigger._isOpen = false;
   newTrigger.addEventListener('click', () => {
-    this.closeOtherAccordions(newTrigger);
     this.toggleAccordion(newTrigger);
   });
   
-  // Open this accordion and close others after a brief delay
+  // Open this new step
   setTimeout(() => {
-    this.closeOtherAccordions(newTrigger);
-    this.toggleAccordion(newTrigger);
+    // Only close other filter accordions
+    if (this.isAccordionManaged(newTrigger)) {
+      this.closeOtherAccordions(newTrigger);
+    }
+    this.toggleAccordion(newTrigger, true);
   }, 50);
 }
+
   
   // Setup UI for included keywords.
   setupKeywordsUI() {
