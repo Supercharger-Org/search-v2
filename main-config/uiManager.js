@@ -568,17 +568,17 @@ initializeNewStep(stepElement) {
   }
   
   // Setup UI for codes.
-  setupCodesUI() {
-    const input = document.querySelector("#code-input");
-    const addButton = document.querySelector("#code-add-button");
-    if (input) {
-      input.addEventListener("keypress", e => {
-        if (e.key === "Enter" && input.value.trim().length >= 1) {
-          this.eventBus.emit(EventTypes.CODE_ADDED, { code: input.value.trim() });
-          input.value = "";
-        }
-      });
-    }
+setupCodesUI() {
+  const input = document.querySelector("#code-input");
+  const addButton = document.querySelector("#code-add-button");
+  if (input) {
+    input.addEventListener("keypress", e => {
+      if (e.key === "Enter" && input.value.trim().length >= 1) {
+        this.eventBus.emit(EventTypes.CODE_ADDED, { code: input.value.trim() });
+        input.value = "";
+      }
+    });
+  }
     if (addButton) {
       addButton.addEventListener("click", e => {
         e.preventDefault();
