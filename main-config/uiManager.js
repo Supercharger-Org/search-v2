@@ -225,13 +225,18 @@ updateFilterStepOrder(state) {
       manageKeywordsButton.style.display = this.shouldShowKeywordsButton(state) ? "" : "none";
     }
     
-    // Update all filter badge displays.
-    this.updateKeywordsDisplay(state);
-    this.updateExcludedKeywordsDisplay(state);
-    this.updateCodesDisplay(state);
-    this.updateInventorsDisplay(state);
-    this.updateAssigneesDisplay(state);
-    this.updateDateDisplay(state);
+    this.updateFilterOptionsVisibility(state);
+  
+  // Update filter step order
+  this.updateFilterStepOrder(state);
+  
+  // Update badge displays
+  this.updateKeywordsDisplay(state);
+  this.updateExcludedKeywordsDisplay(state);
+  this.updateCodesDisplay(state);
+  this.updateInventorsDisplay(state);
+  this.updateAssigneesDisplay(state);
+  this.updateDateDisplay(state);
     
     // Library selection active state.
     document.querySelectorAll("[data-library-option]").forEach(el => {
@@ -340,37 +345,52 @@ updateFilterStepOrder(state) {
   });
 }
 
-// Toggle the clicked accordion trigger.
 toggleAccordion(trigger) {
   const content = trigger.nextElementSibling;
-  const icon = trigger.querySelector("[data-accordion='icon']");
-  if (content) {
-    if (!trigger._isOpen) {
-      content.style.height = content.scrollHeight + "px";
-      trigger._isOpen = true;
-      if (icon) icon.style.transform = "rotate(180deg)";
-    } else {
-      content.style.height = "0px";
-      trigger._isOpen = false;
-      if (icon) icon.style.transform = "rotate(0deg)";
+  const icon = trigger.querySelector('[data-accordion="icon"]');
+  
+  if (!content || !content.matches('[data-accordion="content"]')) return;
+  
+  if (!trigger._isOpen) {
+    // Opening
+    content.style.height = '0px'; // Reset height before opening
+    content.style.display = ''; // Make sure it's visible
+    const targetHeight = content.scrollHeight;
+    content.style.height = targetHeight + 'px';
+    trigger._isOpen = true;
+    if (icon) {
+      icon.style.transform = 'rotate(180deg)';
+      icon.style.transition = 'transform 0.3s ease';
+    }
+  } else {
+    // Closing
+    content.style.height = content.scrollHeight + 'px'; // Set current height before transitioning
+    setTimeout(() => content.style.height = '0px', 0); // Trigger transition to 0
+    trigger._isOpen = false;
+    if (icon) {
+      icon.style.transform = 'rotate(0deg)';
+      icon.style.transition = 'transform 0.3s ease';
     }
   }
 }
 
-// Close all accordions except the one provided.
 closeOtherAccordions(currentTrigger) {
-  const triggers = document.querySelectorAll(".step-small-container[data-accordion='trigger']");
-  triggers.forEach(trigger => {
+  document.querySelectorAll('[data-accordion="trigger"]').forEach(trigger => {
     if (trigger !== currentTrigger && trigger._isOpen) {
       const content = trigger.nextElementSibling;
-      if (content) content.style.height = "0px";
+      const icon = trigger.querySelector('[data-accordion="icon"]');
+      
+      if (content) {
+        content.style.height = '0px';
+      }
       trigger._isOpen = false;
-      const icon = trigger.querySelector("[data-accordion='icon']");
-      if (icon) icon.style.transform = "rotate(0deg)";
+      if (icon) {
+        icon.style.transform = 'rotate(0deg)';
+        icon.style.transition = 'transform 0.3s ease';
+      }
     }
   });
 }
-
 // (Optional) Attach a MutationObserver so that if content inside an accordion changes, its height is recalculated.
 createContentObserver(content) {
   const config = {
@@ -407,6 +427,13 @@ updateContentHeight(content) {
   updateAll(state) {
     this.updateDisplay(state);
     this.updateFilterOptionButtons(state);
+     document.querySelectorAll('.horizontal-slide_wrapper[step-name]').forEach(step => {
+    const trigger = step.querySelector('[data-accordion="trigger"]');
+    if (trigger && !trigger._initialized) {
+      this.initializeNewStep(step);
+      trigger._initialized = true;
+    }
+  });
   }
   
   // Setup event listeners for UI interactions.
