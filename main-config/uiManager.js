@@ -534,6 +534,18 @@ initializeNewStep(stepElement) {
         this.eventBus.emit(EventTypes.KEYWORD_REMOVED, { clearAll: true, type: "include" });
       });
     }
+    const newGenButton = document.querySelector("#keywords-include-new-gen");
+  if (newGenButton) {
+    newGenButton.addEventListener("click", e => {
+      e.preventDefault();
+      const buttonLabel = newGenButton.querySelector('label');
+      if (buttonLabel) {
+        buttonLabel.textContent = "Generating additional keywords...";
+      }
+      newGenButton.disabled = true;
+      this.eventBus.emit(EventTypes.KEYWORDS_ADDITIONAL_GENERATE_INITIATED);
+    });
+  }
   }
   
   // Setup UI for excluded keywords.
