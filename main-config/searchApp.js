@@ -290,12 +290,7 @@ this.eventBus.on(EventTypes.METHOD_SELECTED, ({ value }) => {
       validated: false
     });
 
-    // Show options immediately
-    const optionsStep = document.querySelector('[step-name="options"]');
-    if (optionsStep) {
-      const optionsWrapper = optionsStep.closest('.horizontal-slide_wrapper');
-      if (optionsWrapper) optionsWrapper.style.display = '';
-    }
+    // The UI update will be handled by updateStepVisibility in UIManager
   } else {
     // Reset button text when switching back to descriptive/patent
     const manageKeywordsButton = document.querySelector("#manage-keywords-button");
