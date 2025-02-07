@@ -148,8 +148,45 @@ export default class SessionState {
         searchValue: "", // Description or patent abstract
         validated: false
       },
-      filters: []
+      filters: [],
+      search: {
+        results: null,
+        current_page: 1,
+        total_pages: 0,
+        active_item: null,
+        reload_required: false,
+        items_per_page: 10
+      }
     };
+  }
+
+  getVisibleFields() {
+    const commonFields = [
+      'publication_number',
+      'title',
+      'abstract',
+      'inventors',
+      'assignee',
+      'grant_date'
+    ];
+
+    const patentSpecificFields = [
+      'claims',
+      'description',
+      'priority_date',
+      'filing_date',
+      'publication_date'
+    ];
+
+    const ttoSpecificFields = [
+      'status',
+      'patent_url',
+      'transfer_office_website'
+    ];
+
+    return this.state.library === 'patents' 
+      ? [...commonFields, ...patentSpecificFields]
+      : [...commonFields, ...ttoSpecificFields];
   }
 
   update(path, value) {
