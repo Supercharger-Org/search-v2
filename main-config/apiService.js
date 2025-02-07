@@ -101,20 +101,22 @@ export default class APIService {
     return result.keywords;
   }
   async generateAdditionalKeywords(currentKeywords, description = '', method = '') {
-    const body = { keywords: currentKeywords };
+    const requestBody = {
+      keywords: currentKeywords
+    };
     
     if (method === 'descriptive' && description) {
-      body.description = description.trim();
+      requestBody.description = description.trim();
     } else if (method === 'patent' && description) {
-      body.description = description.trim();
+      requestBody.description = description.trim();
     }
-    
+
     const result = await this.makeRequest("generateKeywords", {
       method: "POST",
-      body,
-      wrapBody: false,
+      body: requestBody,
+      wrapBody: false // Important: Keep this false to match existing endpoint format
     });
-    
-    return result.keywords;
+
+    return result.keywords || [];
   }
 }
