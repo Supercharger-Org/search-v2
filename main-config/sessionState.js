@@ -6,6 +6,67 @@ class SearchInputGenerator {
     this.sessionState = sessionState;
   }
 
+  updateSearchState(updates) {
+    this.state.search = {
+      ...this.state.search,
+      ...updates
+    };
+    
+    // If results are being updated, update pagination
+    if (updates.results) {
+      const totalPages = Math.ceil(updates.results.length / this.state.search.items_per_page);
+      this.state.search.total_pages = totalPages;
+      this.state.search.current_page = updates.current_page || 1;
+    }
+    
+    // Trigger UI update
+    if (this.uiManager) {
+      this.uiManager.updateAll(this.get());
+    }
+  }
+
+  // Get current page items
+  getSearchPageItems() {
+    if (!this.state.search.results) return [];
+    
+    const start = (this.state.search.current_page - 1) * this.state.search.items_per_page;
+    const end = start + this.state.search.items_per_page;
+    
+    return this.state.search.results.slice(start, end);
+  }
+
+  // Mark search as needing reload
+  markSearchReloadRequired() {
+    this.updateSearchState({
+      reload_required: true
+    });
+  }
+
+  // Get the entire state
+  get() {
+    return this.state;
+  }
+
+  // Update specific path in state
+  update(path, value) {
+    const pathArray = path.split(".");
+    let current = this.state;
+    
+    for (let i = 0; i < pathArray.length - 1; i++) {
+      if (!(pathArray[i] in current)) {
+        current[pathArray[i]] = {};
+      }
+      current = current[pathArray[i]];
+    }
+    
+    current[pathArray[pathArray.length - 1]] = value;
+    
+    // Trigger UI update
+    if (this.uiManager) {
+      this.uiManager.updateAll(this.get());
+    }
+  }
+
   generateSearchInput() {
     const state = this.sessionState.get();
     const searchInput = {
