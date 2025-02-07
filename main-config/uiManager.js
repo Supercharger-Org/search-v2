@@ -13,6 +13,96 @@ export default class UIManager {
     };
   }
 
+  updateSearchResultsDisplay(state) {
+    const resultBox = document.querySelector('#search-result-box');
+    if (!resultBox) return;
+
+    // Toggle visibility based on results presence
+    resultBox.style.display = state.search.results ? '' : 'none';
+
+    // Handle reload required state
+    document.querySelectorAll('[data-state="search-reload"]').forEach(el => {
+      el.style.display = state.search.reload_required ? '' : 'none';
+    });
+
+    // Update search button state
+    const searchButton = document.querySelector('#run-search');
+    if (searchButton) {
+      searchButton.style.display = state.search.results && !state.search.reload_required ? 'none' : '';
+    }
+
+    // Render results if available
+    if (state.search.results) {
+      this.renderSearchResults(state);
+      this.updatePagination(state);
+    }
+  }
+
+  renderSearchResults(state) {
+    const wrapper = document.querySelector('[data-attribute="table_contentCell_wrapper"]');
+    if (!wrapper) return;
+
+    // Get template and parent
+    const template = wrapper.cloneNode(true);
+    const parent = wrapper.parentNode;
+
+    // Hide template
+    wrapper.style.display = 'none';
+
+    // Remove existing results
+    Array.from(parent.children)
+      .slice(1)
+      .forEach(child => child.remove());
+
+    // Get current page items
+    const items = state.search.getSearchPageItems();
+
+    // Render each item
+    items.forEach(item => {
+      const newRow = template.cloneNode(true);
+      newRow.style.display = '';
+
+      // Update all data fields
+      const fields = [
+        'patentNumberText',
+        'titleText',
+        'assigneeText',
+        'inventorText',
+        'abstractText',
+        'claimText',
+        'keywordsText'
+      ];
+
+      fields.forEach(field => {
+        const el = newRow.querySelector(`[data-attribute="table_contentCell_${field}"]`);
+        if (el) {
+          const key = field.replace('Text', '').toLowerCase();
+          el.textContent = Array.isArray(item[key]) ? item[key].join(', ') : item[key] || '';
+        }
+      });
+
+      // Add click handler
+      newRow.addEventListener('click', () => {
+        this.eventBus.emit(EventTypes.SEARCH_ITEM_SELECTED, { item });
+      });
+
+      parent.appendChild(newRow);
+    });
+  }
+
+  updatePagination(state) {
+    // Update pagination elements
+    document.querySelector('[result-pagination="current"]').textContent = state.search.current_page;
+    document.querySelector('[result-pagination="total"]').textContent = state.search.total_pages;
+
+    // Update prev/next buttons state
+    const prevBtn = document.querySelector('[result-pagination="prev"]');
+    const nextBtn = document.querySelector('[result-pagination="next"]');
+
+    if (prevBtn) prevBtn.disabled = state.search.current_page === 1;
+    if (nextBtn) nextBtn.disabled = state.search.current_page === state.search.total_pages;
+  }
+
     updateStepVisibility(state) {
     // Get all step wrappers
     const stepWrappers = document.querySelectorAll('.horizontal-slide_wrapper[step-name]');
