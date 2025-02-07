@@ -6,14 +6,15 @@ export default class APIConfig {
         patents: "https://production-patent-api.com",
         tto: "https://production-tto-api.com",
         lambda: "https://t4g7cxqt59.execute-api.us-east-1.amazonaws.com/production",
+        search: "https://pymdebjbpn.us-east-1.awsapprunner.com"
       },
       staging: {
         patents: "https://staging-patent-api.com",
         tto: "https://staging-tto-api.com",
         lambda: "https://t4g7cxqt59.execute-api.us-east-1.amazonaws.com/production",
+        search: "https://pymdebjbpn.us-east-1.awsapprunner.com"
       },
     };
-
     this.endpoints = {
       patents: { search: "/api/patent/search" },
       tto: { search: "/api/tto/search" },
@@ -22,7 +23,14 @@ export default class APIConfig {
         getPatentInfo: "/get-patent-info",
         generateKeywords: "/generate-keywords",
       },
+      search: {
+        execute: "/search"
+      }
     };
+  }
+
+  getSearchURL() {
+    return `${this.baseURLs[this.getEnvironment()].search}${this.endpoints.search.execute}`;
   }
 
   getEnvironment() {
