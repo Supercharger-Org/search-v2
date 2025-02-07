@@ -23,7 +23,6 @@ class SearchApp {
     this.setupEventHandlers();
   }
   
-  
   updateFilter(filterName, updateFn) {
     const currentFilters = this.sessionState.get().filters;
     let filter = currentFilters.find(f => f.name === filterName);
@@ -47,6 +46,42 @@ class SearchApp {
     }
   }
 });
+
+     this.eventBus.on(EventTypes.KEYWORDS_ADDITIONAL_GENERATE_INITIATED, async () => {
+    const state = this.sessionState.get();
+    const keywordsFilter = state.filters.find(f => f.name === "keywords-include");
+    const currentKeywords = keywordsFilter?.value || [];
+    
+    let description = "";
+    try {
+      if (state.method.selected === "patent") {
+        const patent = state.method.patent.data;
+        description = [
+          patent.title || "",
+          patent.abstract || "",
+          ...(Array.isArray(patent.claims) ? patent.claims : [])
+        ].filter(Boolean).join(" ");
+      } else if (state.method.selected === "descriptive") {
+        description = state.method.description.value || "";
+      }
+      
+      const keywords = await this.apiService.generateAdditionalKeywords(
+        currentKeywords,
+        description,
+        state.method.selected
+      );
+      
+      this.updateFilter("keywords-include", filter => {
+        filter.value = Array.from(new Set([...currentKeywords, ...keywords]));
+      });
+      
+      this.eventBus.emit(EventTypes.KEYWORDS_GENERATE_COMPLETED, { keywords });
+    } catch (error) {
+      Logger.error("Failed to generate additional keywords:", error);
+      alert(error.message || "Failed to generate additional keywords");
+    }
+  });
+    
     // Manage Keywords Generation
     this.eventBus.on(EventTypes.KEYWORDS_GENERATE_INITIATED, async () => {
       const state = this.sessionState.get();
@@ -83,6 +118,7 @@ class SearchApp {
         if (!current.includes(keyword)) filter.value = [...current, keyword];
       });
     });
+    
  this.eventBus.on(EventTypes.KEYWORD_REMOVED, ({ item, clearAll, type }) => {
     this.updateFilter("keywords-include", filter => {
       if (clearAll && type === "include") {
@@ -93,6 +129,7 @@ class SearchApp {
       }
     });
   });
+    
     // Excluded Keywords events.
     this.eventBus.on(EventTypes.KEYWORD_EXCLUDED_ADDED, ({ keyword }) => {
       if (!keyword) return;
@@ -101,6 +138,7 @@ class SearchApp {
         if (!current.includes(keyword)) filter.value = [...current, keyword];
       });
     });
+    
   this.eventBus.on(EventTypes.KEYWORD_EXCLUDED_REMOVED, ({ item, clearAll }) => {
     this.updateFilter("keywords-exclude", filter => {
       if (clearAll) {
@@ -111,6 +149,7 @@ class SearchApp {
       }
     });
   });
+    
 this.eventBus.on(EventTypes.CODE_ADDED, ({ code }) => {
   if (!code) return;
   this.updateFilter("code", filter => {
@@ -118,6 +157,7 @@ this.eventBus.on(EventTypes.CODE_ADDED, ({ code }) => {
     if (!current.includes(code)) filter.value = [...current, code];
   });
 });
+    
  this.eventBus.on(EventTypes.CODE_REMOVED, ({ item, clearAll }) => {
     this.updateFilter("code", filter => {
       if (clearAll) {
@@ -128,7 +168,6 @@ this.eventBus.on(EventTypes.CODE_ADDED, ({ code }) => {
       }
     });
   });
-
     
     // Inventors events.
     this.eventBus.on(EventTypes.INVENTOR_ADDED, ({ inventor }) => {
@@ -139,6 +178,7 @@ this.eventBus.on(EventTypes.CODE_ADDED, ({ code }) => {
         if (!exists) filter.value = [...current, inventor];
       });
     });
+    
  this.eventBus.on(EventTypes.INVENTOR_REMOVED, ({ item, clearAll }) => {
     this.updateFilter("inventor", filter => {
       if (clearAll) {
@@ -187,10 +227,34 @@ this.eventBus.on(EventTypes.CODE_ADDED, ({ code }) => {
     this.eventBus.on(EventTypes.LIBRARY_SELECTED, ({ value }) => {
       this.sessionState.update("library", value);
     });
-    this.eventBus.on(EventTypes.METHOD_SELECTED, ({ value }) => {
-      const currentMethod = this.sessionState.get().method;
-      this.sessionState.update("method", { ...currentMethod, selected: value, validated: false });
-    });
+    
+this.eventBus.on(EventTypes.METHOD_SELECTED, ({ value }) => {
+    const currentMethod = this.sessionState.get().method;
+    if (value === 'basic') {
+      // Clear filters and reset state for basic method
+      this.sessionState.update("filters", []);
+      this.sessionState.update("method", {
+        selected: value,
+        description: { value: "", isValid: false },
+        patent: null,
+        searchValue: "",
+        validated: false
+      });
+      // Show options immediately for basic method
+      document.querySelector('[step-name="options"]')?.closest('.horizontal-slide_wrapper')
+        ?.style.setProperty('display', '');
+    } else {
+      // Hide options for other methods until valid input
+      document.querySelector('[step-name="options"]')?.closest('.horizontal-slide_wrapper')
+        ?.style.setProperty('display', 'none');
+      this.sessionState.update("method", { 
+        ...currentMethod, 
+        selected: value, 
+        validated: false 
+      });
+    }
+  });
+    
     this.eventBus.on(EventTypes.PATENT_SEARCH_INITIATED, async ({ value }) => {
       try {
         const loader = document.querySelector("#patent-loader");
@@ -205,6 +269,7 @@ this.eventBus.on(EventTypes.CODE_ADDED, ({ code }) => {
         if (loader) loader.style.display = "none";
       }
     });
+    
     this.eventBus.on(EventTypes.PATENT_INFO_RECEIVED, ({ patentInfo }) => {
       const currentState = this.sessionState.get();
       this.sessionState.update("method", {
@@ -214,10 +279,12 @@ this.eventBus.on(EventTypes.CODE_ADDED, ({ code }) => {
         validated: true
       });
     });
+    
     this.eventBus.on(EventTypes.DESCRIPTION_UPDATED, ({ value, isValid }) => {
       const currentDesc = this.sessionState.get().method.description;
       this.sessionState.update("method.description", { ...currentDesc, value, isValid });
     });
+    
     this.eventBus.on(EventTypes.DESCRIPTION_IMPROVED, async () => {
       const state = this.sessionState.get();
       const description = state.method?.description?.value;
@@ -246,6 +313,7 @@ this.eventBus.on(EventTypes.CODE_ADDED, ({ code }) => {
         }
       }
     });
+    
     this.eventBus.on(EventTypes.FILTER_ADDED, ({ filterName }) => {
       const currentFilters = this.sessionState.get().filters;
       if (!currentFilters.find(f => f.name === filterName)) {
