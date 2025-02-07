@@ -13,6 +13,14 @@ export default class UIManager {
     };
   }
 
+    updateLibraryColumns(library) {
+    // Show/hide columns based on library type
+    document.querySelectorAll('[library-result]').forEach(el => {
+      const resultType = el.getAttribute('library-result');
+      el.style.display = resultType === library ? '' : 'none';
+    });
+  }
+
   updateSearchResultsDisplay(state) {
     const resultBox = document.querySelector('#search-result-box');
     if (!resultBox) return;
@@ -42,6 +50,9 @@ export default class UIManager {
     const wrapper = document.querySelector('[data-attribute="table_contentCell_wrapper"]');
     if (!wrapper) return;
 
+    // Update library-specific columns
+    this.updateLibraryColumns(state.library);
+
     // Get template and parent
     const template = wrapper.cloneNode(true);
     const parent = wrapper.parentNode;
@@ -62,22 +73,30 @@ export default class UIManager {
       const newRow = template.cloneNode(true);
       newRow.style.display = '';
 
-      // Update all data fields
-      const fields = [
-        'patentNumberText',
-        'titleText',
-        'assigneeText',
-        'inventorText',
-        'abstractText',
-        'claimText',
-        'keywordsText'
-      ];
+      // Map standardized fields to UI elements
+      const fieldMappings = {
+        'patentNumberText': 'publication_number',
+        'titleText': 'title',
+        'assigneeText': 'assignee',
+        'inventorText': 'inventors',
+        'abstractText': 'abstract',
+        'claimText': 'claims',
+        'descriptionText': 'description',
+        'grantDateText': 'grant_date',
+        'priorityDateText': 'priority_date',
+        'filingDateText': 'filing_date',
+        'publicationDateText': 'publication_date',
+        'statusText': 'status',
+        'patentUrlText': 'patent_url',
+        'transferOfficeText': 'transfer_office_website'
+      };
 
-      fields.forEach(field => {
-        const el = newRow.querySelector(`[data-attribute="table_contentCell_${field}"]`);
+      // Update all fields if they exist
+      Object.entries(fieldMappings).forEach(([uiAttr, dataField]) => {
+        const el = newRow.querySelector(`[data-attribute="table_contentCell_${uiAttr}"]`);
         if (el) {
-          const key = field.replace('Text', '').toLowerCase();
-          el.textContent = Array.isArray(item[key]) ? item[key].join(', ') : item[key] || '';
+          const value = item[dataField];
+          el.textContent = Array.isArray(value) ? value.join(', ') : (value || '');
         }
       });
 
