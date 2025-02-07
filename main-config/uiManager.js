@@ -13,6 +13,28 @@ export default class UIManager {
     };
   }
 
+  setupSearchEventListeners() {
+    // Search button
+    const searchButton = document.querySelector('#run-search');
+    if (searchButton) {
+      searchButton.addEventListener('click', (e) => {
+        e.preventDefault();
+        searchButton.innerHTML = 'Searching...';
+        searchButton.disabled = true;
+        this.eventBus.emit(EventTypes.SEARCH_INITIATED);
+      });
+    }
+
+    // Pagination
+    document.querySelector('[result-pagination="prev"]')?.addEventListener('click', () => {
+      this.eventBus.emit(EventTypes.SEARCH_PAGE_PREV);
+    });
+
+    document.querySelector('[result-pagination="next"]')?.addEventListener('click', () => {
+      this.eventBus.emit(EventTypes.SEARCH_PAGE_NEXT);
+    });
+  }
+
     updateLibraryColumns(library) {
     // Show/hide columns based on library type
     document.querySelectorAll('[library-result]').forEach(el => {
