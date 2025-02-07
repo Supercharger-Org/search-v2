@@ -13,62 +13,91 @@ class SearchInputGenerator {
       filters: {}
     };
 
-    // Add mainSearchValue based on method
-    if (state.method.selected !== 'basic') {
-      searchInput.query = this.getMainSearchValue(state);
+    // Add mainSearchValue based on method, with safe access
+    if (state?.method?.selected !== 'basic') {
+      const query = this.getMainSearchValue(state);
+      if (query) {
+        searchInput.query = query;
+      }
     }
 
-    // Process filters based on library
-    if (state.library === 'patents') {
-      this.processPatentsFilters(searchInput, state.filters);
-    } else if (state.library === 'tto') {
-      this.processTTOFilters(searchInput, state.filters);
+    // Safely process filters based on library
+    if (state?.filters?.length) {
+      if (state.library === 'patents') {
+        this.processPatentsFilters(searchInput, state.filters);
+      } else if (state.library === 'tto') {
+        this.processTTOFilters(searchInput, state.filters);
+      }
     }
 
     return searchInput;
   }
 
   getMainSearchValue(state) {
+    if (!state?.method?.selected) return null;
+
     switch (state.method.selected) {
       case 'patent':
-        if (!state.method.patent?.data) return null;
-        return `${state.method.patent.data.title || ''} ${state.method.patent.data.abstract || ''}`.trim();
+        if (!state.method?.patent?.data) return null;
+        const title = state.method.patent.data.title || '';
+        const abstract = state.method.patent.data.abstract || '';
+        const content = `${title} ${abstract}`.trim();
+        return content || null;
+        
       case 'descriptive':
-        return state.method.description?.value || null;
+        return state.method?.description?.value || null;
+        
       default:
         return null;
     }
   }
 
   processPatentsFilters(searchInput, filters) {
+    if (!Array.isArray(filters)) return;
+
     filters.forEach(filter => {
+      if (!filter?.name) return;
+
       switch (filter.name) {
         case 'keywords-include':
-          searchInput.filters.mainKeywords = filter.value;
+          if (filter.value) {
+            searchInput.filters.mainKeywords = filter.value;
+          }
           break;
+          
         case 'keywords-exclude':
-          searchInput.filters.excludeKeywords = filter.value;
+          if (filter.value) {
+            searchInput.filters.excludeKeywords = filter.value;
+          }
           break;
+          
         case 'inventor':
-          if (filter.value?.length) {
+          if (Array.isArray(filter.value) && filter.value.length) {
             searchInput.filters.inventorsKeywords = filter.value;
           }
           break;
+          
         case 'assignee':
-          if (filter.value?.length) {
+          if (Array.isArray(filter.value) && filter.value.length) {
             searchInput.filters.assigneesKeywords = filter.value;
           }
           break;
+          
         case 'code':
-          if (filter.value?.length) {
+          if (Array.isArray(filter.value) && filter.value.length) {
             searchInput.filters.cpcCodes = filter.value;
           }
           break;
+          
         case 'date':
           if (filter.value) {
-            const datePrefix = filter.type.split('*')[0]; // e.g., 'priority' from 'priority*date'
-            searchInput.filters[`${datePrefix}DateFrom`] = filter.value.date_from;
-            searchInput.filters[`${datePrefix}DateTo`] = filter.value.date_to;
+            const datePrefix = filter.type?.split('*')[0] || 'priority'; // Default to priority if type is undefined
+            if (filter.value.date_from) {
+              searchInput.filters[`${datePrefix}DateFrom`] = filter.value.date_from;
+            }
+            if (filter.value.date_to) {
+              searchInput.filters[`${datePrefix}DateTo`] = filter.value.date_to;
+            }
           }
           break;
       }
@@ -76,28 +105,44 @@ class SearchInputGenerator {
   }
 
   processTTOFilters(searchInput, filters) {
+    if (!Array.isArray(filters)) return;
+
     filters.forEach(filter => {
+      if (!filter?.name) return;
+
       switch (filter.name) {
         case 'keywords-include':
-          searchInput.filters.mainKeywords = filter.value;
+          if (filter.value) {
+            searchInput.filters.mainKeywords = filter.value;
+          }
           break;
+          
         case 'keywords-exclude':
-          searchInput.filters.excludeKeywords = filter.value;
+          if (filter.value) {
+            searchInput.filters.excludeKeywords = filter.value;
+          }
           break;
+          
         case 'inventor':
-          if (filter.value?.length) {
+          if (Array.isArray(filter.value) && filter.value.length) {
             searchInput.filters.inventorsKeywords = filter.value;
           }
           break;
+          
         case 'assignee':
-          if (filter.value?.length) {
+          if (Array.isArray(filter.value) && filter.value.length) {
             searchInput.filters.universityName = filter.value[0]; // Only use first value for TTO
           }
           break;
+          
         case 'date':
           if (filter.value) {
-            searchInput.filters.patentDateFrom = filter.value.date_from;
-            searchInput.filters.patentDateTo = filter.value.date_to;
+            if (filter.value.date_from) {
+              searchInput.filters.patentDateFrom = filter.value.date_from;
+            }
+            if (filter.value.date_to) {
+              searchInput.filters.patentDateTo = filter.value.date_to;
+            }
           }
           break;
       }
@@ -107,8 +152,8 @@ class SearchInputGenerator {
   validate() {
     const state = this.sessionState.get();
     
-    // Check required fields
-    if (!state.library) {
+    // Check required fields with safe access
+    if (!state?.library) {
       throw new Error('Library selection is required');
     }
 
@@ -116,12 +161,12 @@ class SearchInputGenerator {
       throw new Error('Invalid library selection');
     }
 
-    // Method-specific validation
-    if (state.method.selected === 'patent' && !this.getMainSearchValue(state)) {
+    // Method-specific validation with safe access
+    if (state?.method?.selected === 'patent' && !this.getMainSearchValue(state)) {
       throw new Error('Patent data is required for patent search method');
     }
 
-    if (state.method.selected === 'descriptive' && !this.getMainSearchValue(state)) {
+    if (state?.method?.selected === 'descriptive' && !this.getMainSearchValue(state)) {
       throw new Error('Description is required for descriptive search method');
     }
 
