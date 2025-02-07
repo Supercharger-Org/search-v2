@@ -21,5 +21,15 @@ export const EventTypes = {
   CODE_REMOVED: "codes:removed",   // Changed from code:removed
   INVENTOR_ADDED: "inventors:added",     // Changed from inventor:added
   INVENTOR_REMOVED: "inventors:removed", // Changed from inventor:removed
-  KEYWORDS_ADDITIONAL_GENERATE_INITIATED: "keywords:additional:generate:initiated"
+  KEYWORDS_ADDITIONAL_GENERATE_INITIATED: "keywords:additional:generate:initiated",
+    SEARCH_INITIATED: "search:initiated",
+  SEARCH_COMPLETED: "search:completed",
+  SEARCH_FAILED: "search:failed",
+  SEARCH_RESULTS_RENDERED: "search:results:rendered",
+  SEARCH_FILTERS_CHANGED: "search:filters:changed",
+  SEARCH_PAGE_NEXT: "search:page:next",
+  SEARCH_PAGE_PREV: "search:page:prev",
+  SEARCH_ITEM_SELECTED: "search:item:selected",
+  SEARCH_ITEM_DESELECTED: "search:item:deselected",
+  SEARCH_RESULTS_RELOAD: "search:results:reload"
 };
