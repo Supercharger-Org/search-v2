@@ -9,7 +9,7 @@ export default class UIManager {
     this.initialHideConfig = {
       ids: ["validate-description", "description-summary", "patent-loader", "patent-info-wrapper"],
       classes: [".horizontal-slide_wrapper"],
-      dataAttributes: ["[data-method-display]"]
+      dataAttributes: ["[data-method-display], [data-state='search-reload']"]
     };
   }
 
