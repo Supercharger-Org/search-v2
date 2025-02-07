@@ -6,13 +6,13 @@ export default class APIConfig {
         patents: "https://production-patent-api.com",
         tto: "https://production-tto-api.com",
         lambda: "https://t4g7cxqt59.execute-api.us-east-1.amazonaws.com/production",
-        search: "https://zd3xbpudc2.us-east-2.awsapprunner.com"
+        search: "https://8wvyy8ismw.us-east-2.awsapprunner.com"
       },
       staging: {
         patents: "https://staging-patent-api.com",
         tto: "https://staging-tto-api.com",
         lambda: "https://t4g7cxqt59.execute-api.us-east-1.amazonaws.com/production",
-        search: "https://zd3xbpudc2.us-east-2.awsapprunner.com"
+        search: "https://8wvyy8ismw.us-east-2.awsapprunner.com"
       },
     };
     this.endpoints = {
