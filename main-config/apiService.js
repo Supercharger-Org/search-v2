@@ -119,4 +119,16 @@ export default class APIService {
 
     return result.keywords || [];
   }
+  async executeSearch(searchInput) {
+    if (!searchInput || !searchInput.library) {
+      throw new Error("Invalid search input");
+    }
+
+    return await this.makeRequest("execute", {
+      method: "POST",
+      body: searchInput,
+      baseType: "search",
+      wrapBody: false
+    });
+  }
 }
