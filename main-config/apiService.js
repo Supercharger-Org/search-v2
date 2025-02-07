@@ -100,4 +100,21 @@ export default class APIService {
     });
     return result.keywords;
   }
+  async generateAdditionalKeywords(currentKeywords, description = '', method = '') {
+    const body = { keywords: currentKeywords };
+    
+    if (method === 'descriptive' && description) {
+      body.description = description.trim();
+    } else if (method === 'patent' && description) {
+      body.description = description.trim();
+    }
+    
+    const result = await this.makeRequest("generateKeywords", {
+      method: "POST",
+      body,
+      wrapBody: false,
+    });
+    
+    return result.keywords;
+  }
 }
