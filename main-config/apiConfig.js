@@ -12,7 +12,7 @@ export default class APIConfig {
         patents: "https://staging-patent-api.com",
         tto: "https://staging-tto-api.com",
         lambda: "https://t4g7cxqt59.execute-api.us-east-1.amazonaws.com/production",
-        search: "https://pymdebjbpn.us-east-1.awsapprunner.com"
+        search: "https://wmnscy2q9w.us-east-1.awsapprunner.com"
       },
     };
     this.endpoints = {
