@@ -47,40 +47,60 @@ class SearchApp {
   }
 });
 
-     this.eventBus.on(EventTypes.KEYWORDS_ADDITIONAL_GENERATE_INITIATED, async () => {
-    const state = this.sessionState.get();
-    const keywordsFilter = state.filters.find(f => f.name === "keywords-include");
-    const currentKeywords = keywordsFilter?.value || [];
-    
-    let description = "";
-    try {
-      if (state.method.selected === "patent") {
-        const patent = state.method.patent.data;
-        description = [
-          patent.title || "",
-          patent.abstract || "",
-          ...(Array.isArray(patent.claims) ? patent.claims : [])
-        ].filter(Boolean).join(" ");
-      } else if (state.method.selected === "descriptive") {
-        description = state.method.description.value || "";
-      }
-      
-      const keywords = await this.apiService.generateAdditionalKeywords(
-        currentKeywords,
-        description,
-        state.method.selected
-      );
-      
-      this.updateFilter("keywords-include", filter => {
-        filter.value = Array.from(new Set([...currentKeywords, ...keywords]));
-      });
-      
-      this.eventBus.emit(EventTypes.KEYWORDS_GENERATE_COMPLETED, { keywords });
-    } catch (error) {
-      Logger.error("Failed to generate additional keywords:", error);
-      alert(error.message || "Failed to generate additional keywords");
+   this.eventBus.on(EventTypes.KEYWORDS_ADDITIONAL_GENERATE_INITIATED, async () => {
+  const state = this.sessionState.get();
+  const keywordsFilter = state.filters.find(f => f.name === "keywords-include");
+  const currentKeywords = keywordsFilter?.value || [];
+  
+  let description = "";
+  try {
+    if (state.method.selected === "patent") {
+      const patent = state.method.patent.data;
+      description = [
+        patent.title || "",
+        patent.abstract || "",
+        ...(Array.isArray(patent.claims) ? patent.claims : [])
+      ].filter(Boolean).join(" ");
+    } else if (state.method.selected === "descriptive") {
+      description = state.method.description.value || "";
     }
-  });
+    
+    const keywords = await this.apiService.generateAdditionalKeywords(
+      currentKeywords,
+      description,
+      state.method.selected
+    );
+    
+    this.updateFilter("keywords-include", filter => {
+      filter.value = Array.from(new Set([...currentKeywords, ...keywords]));
+    });
+    
+    // Reset button state
+    const newGenButton = document.querySelector("#keywords-include-new-gen");
+    if (newGenButton) {
+      const buttonLabel = newGenButton.querySelector('label');
+      if (buttonLabel) {
+        buttonLabel.textContent = "Generate Additional Keywords";
+      }
+      newGenButton.disabled = false;
+    }
+    
+    this.eventBus.emit(EventTypes.KEYWORDS_GENERATE_COMPLETED, { keywords });
+  } catch (error) {
+    Logger.error("Failed to generate additional keywords:", error);
+    alert(error.message || "Failed to generate additional keywords");
+    
+    // Reset button state on error
+    const newGenButton = document.querySelector("#keywords-include-new-gen");
+    if (newGenButton) {
+      const buttonLabel = newGenButton.querySelector('label');
+      if (buttonLabel) {
+        buttonLabel.textContent = "Generate Additional Keywords";
+      }
+      newGenButton.disabled = false;
+    }
+  }
+});
     
 this.eventBus.on(EventTypes.KEYWORDS_GENERATE_INITIATED, async () => {
   const state = this.sessionState.get();
@@ -248,31 +268,54 @@ this.eventBus.on(EventTypes.CODE_ADDED, ({ code }) => {
     });
     
 this.eventBus.on(EventTypes.METHOD_SELECTED, ({ value }) => {
-    const currentMethod = this.sessionState.get().method;
-    if (value === 'basic') {
-      // Clear filters and reset state for basic method
-      this.sessionState.update("filters", []);
-      this.sessionState.update("method", {
-        selected: value,
-        description: { value: "", isValid: false },
-        patent: null,
-        searchValue: "",
-        validated: false
-      });
-      // Show options immediately for basic method
-      document.querySelector('[step-name="options"]')?.closest('.horizontal-slide_wrapper')
-        ?.style.setProperty('display', '');
-    } else {
-      // Hide options for other methods until valid input
-      document.querySelector('[step-name="options"]')?.closest('.horizontal-slide_wrapper')
-        ?.style.setProperty('display', 'none');
-      this.sessionState.update("method", { 
-        ...currentMethod, 
-        selected: value, 
-        validated: false 
-      });
+  const currentState = this.sessionState.get();
+  if (value === 'basic') {
+    // Clear all filters completely
+    this.sessionState.update("filters", []);
+    
+    // Reset method state
+    this.sessionState.update("method", {
+      selected: value,
+      description: {
+        value: "",
+        previousValue: null,
+        isValid: false,
+        improved: false,
+        modificationSummary: null
+      },
+      patent: null,
+      searchValue: "",
+      validated: false
+    });
+
+    // Show options immediately
+    const optionsStep = document.querySelector('[step-name="options"]');
+    if (optionsStep) {
+      const optionsWrapper = optionsStep.closest('.horizontal-slide_wrapper');
+      if (optionsWrapper) optionsWrapper.style.display = '';
     }
-  });
+  } else {
+    // Reset button text when switching back to descriptive/patent
+    const manageKeywordsButton = document.querySelector("#manage-keywords-button");
+    if (manageKeywordsButton) {
+      manageKeywordsButton.textContent = "Confirm this search value";
+      manageKeywordsButton.disabled = false;
+    }
+
+    // Hide options until valid input
+    const optionsStep = document.querySelector('[step-name="options"]');
+    if (optionsStep) {
+      const optionsWrapper = optionsStep.closest('.horizontal-slide_wrapper');
+      if (optionsWrapper) optionsWrapper.style.display = 'none';
+    }
+
+    this.sessionState.update("method", {
+      ...currentState.method,
+      selected: value,
+      validated: false
+    });
+  }
+});
     
     this.eventBus.on(EventTypes.PATENT_SEARCH_INITIATED, async ({ value }) => {
       try {
