@@ -21,7 +21,6 @@ class SearchApp {
     this.valueSelectManager = new ValueSelectManager(this.eventBus);
     this.valueSelectManager.init();
     this.setupEventHandlers();
-    this.setupSearchEventHandlers();
   }
   
   updateFilter(filterName, updateFn) {
