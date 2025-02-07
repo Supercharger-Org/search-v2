@@ -21,6 +21,7 @@ class SearchApp {
     this.valueSelectManager = new ValueSelectManager(this.eventBus);
     this.valueSelectManager.init();
     this.setupEventHandlers();
+    this.setupSearchEventHandlers();
   }
   
   updateFilter(filterName, updateFn) {
@@ -34,6 +35,103 @@ class SearchApp {
       currentFilters.push(filter);
     }
     this.sessionState.update("filters", currentFilters);
+  }
+
+  setupSearchEventHandlers() {
+    // Handle search initiation
+    this.eventBus.on(EventTypes.SEARCH_INITIATED, async () => {
+      try {
+        const searchInput = this.sessionState.generateSearchInput();
+        const results = await this.apiService.executeSearch(searchInput);
+        
+        // Update session with results
+        this.sessionState.updateSearchState({
+          results: results,
+          current_page: 1,
+          total_pages: Math.ceil(results.length / this.sessionState.get().search.items_per_page),
+          reload_required: false
+        });
+
+        this.eventBus.emit(EventTypes.SEARCH_COMPLETED, { results });
+      } catch (error) {
+        Logger.error("Search failed:", error);
+        this.eventBus.emit(EventTypes.SEARCH_FAILED, { error });
+      }
+    });
+
+    // Handle search completion
+    this.eventBus.on(EventTypes.SEARCH_COMPLETED, () => {
+      const searchButton = document.querySelector('#run-search');
+      if (searchButton) {
+        searchButton.innerHTML = 'Search';
+        searchButton.disabled = false;
+      }
+    });
+
+    // Handle search failure
+    this.eventBus.on(EventTypes.SEARCH_FAILED, ({ error }) => {
+      const searchButton = document.querySelector('#run-search');
+      if (searchButton) {
+        searchButton.innerHTML = 'Search';
+        searchButton.disabled = false;
+      }
+      alert(error.message || 'Search failed. Please try again.');
+    });
+
+    // Handle pagination
+    this.eventBus.on(EventTypes.SEARCH_PAGE_NEXT, () => {
+      const state = this.sessionState.get();
+      if (state.search.current_page < state.search.total_pages) {
+        this.sessionState.updateSearchState({
+          current_page: state.search.current_page + 1
+        });
+      }
+    });
+
+    this.eventBus.on(EventTypes.SEARCH_PAGE_PREV, () => {
+      const state = this.sessionState.get();
+      if (state.search.current_page > 1) {
+        this.sessionState.updateSearchState({
+          current_page: state.search.current_page - 1
+        });
+      }
+    });
+
+    // Handle item selection
+    this.eventBus.on(EventTypes.SEARCH_ITEM_SELECTED, ({ item }) => {
+      this.sessionState.updateSearchState({
+        active_item: item
+      });
+      // TODO: Implement popup display logic
+    });
+
+    this.eventBus.on(EventTypes.SEARCH_ITEM_DESELECTED, () => {
+      this.sessionState.updateSearchState({
+        active_item: null
+      });
+      // TODO: Implement popup hide logic
+    });
+
+    // Mark reload required when filters change
+    const filterChangeEvents = [
+      EventTypes.KEYWORD_ADDED,
+      EventTypes.KEYWORD_REMOVED,
+      EventTypes.KEYWORD_EXCLUDED_ADDED,
+      EventTypes.KEYWORD_EXCLUDED_REMOVED,
+      EventTypes.CODE_ADDED,
+      EventTypes.CODE_REMOVED,
+      EventTypes.INVENTOR_ADDED,
+      EventTypes.INVENTOR_REMOVED,
+      EventTypes.ASSIGNEE_ADDED,
+      EventTypes.ASSIGNEE_REMOVED,
+      EventTypes.FILTER_UPDATED
+    ];
+
+    filterChangeEvents.forEach(eventType => {
+      this.eventBus.on(eventType, () => {
+        this.sessionState.markSearchReloadRequired();
+      });
+    });
   }
   
   setupEventHandlers() {
