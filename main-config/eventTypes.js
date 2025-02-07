@@ -21,4 +21,5 @@ export const EventTypes = {
   CODE_REMOVED: "codes:removed",   // Changed from code:removed
   INVENTOR_ADDED: "inventors:added",     // Changed from inventor:added
   INVENTOR_REMOVED: "inventors:removed", // Changed from inventor:removed
+  KEYWORDS_ADDITIONAL_GENERATE_INITIATED: "keywords:additional:generate:initiated"
 };
