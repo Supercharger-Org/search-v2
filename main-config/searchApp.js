@@ -82,33 +82,52 @@ class SearchApp {
     }
   });
     
-    // Manage Keywords Generation
-    this.eventBus.on(EventTypes.KEYWORDS_GENERATE_INITIATED, async () => {
-      const state = this.sessionState.get();
-      let description = "";
-      try {
-        if (state.method.selected === "patent") {
-          const patent = state.method.patent.data;
-          description = [ patent.title || "", patent.abstract || "", ...(Array.isArray(patent.claims) ? patent.claims : []) ]
-            .filter(Boolean)
-            .join(" ");
-        } else {
-          description = state.method.description.value || "";
+this.eventBus.on(EventTypes.KEYWORDS_GENERATE_INITIATED, async () => {
+  const state = this.sessionState.get();
+  let description = "";
+  try {
+    if (state.method.selected === "patent") {
+      const patent = state.method.patent.data;
+      description = [ patent.title || "", patent.abstract || "", ...(Array.isArray(patent.claims) ? patent.claims : []) ]
+        .filter(Boolean)
+        .join(" ");
+    } else {
+      description = state.method.description.value || "";
+    }
+    if (!description) throw new Error("No content available for keyword generation");
+    const keywords = await this.apiService.generateKeywords(description);
+    
+    // Add keywords filter if it doesn't exist
+    if (!this.sessionState.get().filters.some(f => f.name === "keywords-include")) {
+      this.eventBus.emit(EventTypes.FILTER_ADDED, { filterName: "keywords-include" });
+      
+      // Wait for DOM update then initialize and open the step
+      setTimeout(() => {
+        const keywordsStep = document.querySelector('[step-name="keywords-include"]')
+          ?.closest('.horizontal-slide_wrapper');
+        if (keywordsStep) {
+          this.uiManager.initializeNewStep(keywordsStep);
+          const trigger = keywordsStep.querySelector('[data-accordion="trigger"]');
+          if (trigger) {
+            this.uiManager.toggleAccordion(trigger, true);
+          }
         }
-        if (!description) throw new Error("No content available for keyword generation");
-        const keywords = await this.apiService.generateKeywords(description);
-        this.updateFilter("keywords-include", filter => {
-          const current = Array.isArray(filter.value) ? filter.value : [];
-          filter.value = Array.from(new Set([...current, ...keywords]));
-        });
-        this.eventBus.emit(EventTypes.KEYWORDS_GENERATE_COMPLETED, { keywords });
-        const manageKeywordsButton = document.querySelector("#manage-keywords-button");
-        if (manageKeywordsButton) manageKeywordsButton.style.display = "none";
-      } catch (error) {
-        Logger.error("Failed to generate keywords:", error);
-        alert(error.message || "Failed to generate keywords");
-      }
+      }, 50);
+    }
+    
+    this.updateFilter("keywords-include", filter => {
+      const current = Array.isArray(filter.value) ? filter.value : [];
+      filter.value = Array.from(new Set([...current, ...keywords]));
     });
+    
+    this.eventBus.emit(EventTypes.KEYWORDS_GENERATE_COMPLETED, { keywords });
+    const manageKeywordsButton = document.querySelector("#manage-keywords-button");
+    if (manageKeywordsButton) manageKeywordsButton.style.display = "none";
+  } catch (error) {
+    Logger.error("Failed to generate keywords:", error);
+    alert(error.message || "Failed to generate keywords");
+  }
+});
     
     // Included Keywords events.
     this.eventBus.on(EventTypes.KEYWORD_ADDED, ({ keyword }) => {
