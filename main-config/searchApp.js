@@ -36,8 +36,10 @@ class SearchApp {
     }
     this.sessionState.update("filters", currentFilters);
   }
+  
+  setupEventHandlers() {
 
-  setupSearchEventHandlers() {
+
     // Handle search initiation
     this.eventBus.on(EventTypes.SEARCH_INITIATED, async () => {
       try {
@@ -138,9 +140,7 @@ class SearchApp {
         }
       });
     });
-  }
-  
-  setupEventHandlers() {
+    
     this.eventBus.on('VALUE_TYPE_UPDATED', ({ filterType, type }) => {
   if (filterType === 'date') {
     const currentFilter = this.sessionState.get().filters.find(f => f.name === 'date');
