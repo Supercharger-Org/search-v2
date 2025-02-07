@@ -87,8 +87,18 @@ export default class UIManager {
       .slice(1)
       .forEach(child => child.remove());
 
-    // Get current page items
-    const items = state.search.getSearchPageItems();
+    // Calculate current page items directly
+    const start = (state.search.current_page - 1) * state.search.items_per_page;
+    const end = start + state.search.items_per_page;
+    const items = state.search.results ? state.search.results.slice(start, end) : [];
+
+    // Log for debugging
+    Logger.log('Rendering results:', {
+      totalResults: state.search.results?.length || 0,
+      currentPage: state.search.current_page,
+      itemsPerPage: state.search.items_per_page,
+      displayedItems: items.length
+    });
 
     // Render each item
     items.forEach(item => {
@@ -129,7 +139,7 @@ export default class UIManager {
 
       parent.appendChild(newRow);
     });
-  }
+}
 
   updatePagination(state) {
     // Update pagination elements
