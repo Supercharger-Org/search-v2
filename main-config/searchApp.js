@@ -46,9 +46,9 @@ class SearchApp {
         
         // Update session with results
         this.sessionState.updateSearchState({
-          results: results,
+          results: results || [], // Ensure results is always an array
           current_page: 1,
-          total_pages: Math.ceil(results.length / this.sessionState.get().search.items_per_page),
+          total_pages: Math.ceil((results?.length || 0) / this.sessionState.get().search.items_per_page),
           reload_required: false
         });
 
@@ -81,27 +81,29 @@ class SearchApp {
     // Handle pagination
     this.eventBus.on(EventTypes.SEARCH_PAGE_NEXT, () => {
       const state = this.sessionState.get();
-      if (state.search.current_page < state.search.total_pages) {
+      if (state.search?.current_page < state.search?.total_pages) {
         this.sessionState.updateSearchState({
-          current_page: state.search.current_page + 1
+          current_page: (state.search?.current_page || 0) + 1
         });
       }
     });
 
     this.eventBus.on(EventTypes.SEARCH_PAGE_PREV, () => {
       const state = this.sessionState.get();
-      if (state.search.current_page > 1) {
+      if (state.search?.current_page > 1) {
         this.sessionState.updateSearchState({
-          current_page: state.search.current_page - 1
+          current_page: (state.search?.current_page || 2) - 1
         });
       }
     });
 
-    // Handle item selection
-    this.eventBus.on(EventTypes.SEARCH_ITEM_SELECTED, ({ item }) => {
-      this.sessionState.updateSearchState({
-        active_item: item
-      });
+    // Handle item selection - safely handle potential undefined values
+    this.eventBus.on(EventTypes.SEARCH_ITEM_SELECTED, (event) => {
+      if (event?.item) {
+        this.sessionState.updateSearchState({
+          active_item: event.item
+        });
+      }
       // TODO: Implement popup display logic
     });
 
@@ -112,7 +114,7 @@ class SearchApp {
       // TODO: Implement popup hide logic
     });
 
-    // Mark reload required when filters change
+    // Mark reload required when filters change - safely handle filter events
     const filterChangeEvents = [
       EventTypes.KEYWORD_ADDED,
       EventTypes.KEYWORD_REMOVED,
@@ -129,7 +131,11 @@ class SearchApp {
 
     filterChangeEvents.forEach(eventType => {
       this.eventBus.on(eventType, () => {
-        this.sessionState.markSearchReloadRequired();
+        // Only mark reload required if we have existing results
+        const state = this.sessionState.get();
+        if (state.search?.results?.length) {
+          this.sessionState.markSearchReloadRequired();
+        }
       });
     });
   }
