@@ -365,6 +365,7 @@ updateFilterStepOrder(state) {
   this.updateAssigneesDisplay(state);
   this.updateDateDisplay(state);
     this.updateStepVisibility(state);
+    this.updateSearchResultsDisplay(state);
     
     // Library selection active state.
     document.querySelectorAll("[data-library-option]").forEach(el => {
@@ -820,6 +821,26 @@ setupCodesUI() {
   }
   
   setupEventListeners() {
+
+const searchButton = document.querySelector('#run-search');
+    if (searchButton) {
+      searchButton.addEventListener('click', (e) => {
+        e.preventDefault();
+        searchButton.innerHTML = 'Searching...';
+        searchButton.disabled = true;
+        this.eventBus.emit(EventTypes.SEARCH_INITIATED);
+      });
+    }
+
+    // Pagination
+    document.querySelector('[result-pagination="prev"]')?.addEventListener('click', () => {
+      this.eventBus.emit(EventTypes.SEARCH_PAGE_PREV);
+    });
+
+    document.querySelector('[result-pagination="next"]')?.addEventListener('click', () => {
+      this.eventBus.emit(EventTypes.SEARCH_PAGE_NEXT);
+    });
+    
     // Patent search.
     const patentInput = document.querySelector("#main-search-patent-input");
     if (patentInput) {
@@ -902,6 +923,7 @@ document.querySelectorAll('[data-filter-option]').forEach(button => {
   initialize() {
     this.setInitialUIState();
     this.setupEventListeners();
+    this.setupSearchEventListeners();
   }
 }
 
