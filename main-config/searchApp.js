@@ -47,13 +47,23 @@ class SearchApp {
   }
 });
 
-   this.eventBus.on(EventTypes.KEYWORDS_ADDITIONAL_GENERATE_INITIATED, async () => {
+  this.eventBus.on(EventTypes.KEYWORDS_ADDITIONAL_GENERATE_INITIATED, async () => {
   const state = this.sessionState.get();
   const keywordsFilter = state.filters.find(f => f.name === "keywords-include");
-  const currentKeywords = keywordsFilter?.value || [];
+  const currentKeywords = Array.isArray(keywordsFilter?.value) ? keywordsFilter.value : [];
   
   let description = "";
   try {
+    // Update button state immediately
+    const newGenButton = document.querySelector("#keywords-include-new-gen");
+    if (newGenButton) {
+      const buttonLabel = newGenButton.querySelector('label');
+      if (buttonLabel) {
+        buttonLabel.textContent = "Generating additional keywords...";
+      }
+      newGenButton.disabled = true;
+    }
+
     if (state.method.selected === "patent") {
       const patent = state.method.patent.data;
       description = [
@@ -71,26 +81,18 @@ class SearchApp {
       state.method.selected
     );
     
-    this.updateFilter("keywords-include", filter => {
-      filter.value = Array.from(new Set([...currentKeywords, ...keywords]));
-    });
-    
-    // Reset button state
-    const newGenButton = document.querySelector("#keywords-include-new-gen");
-    if (newGenButton) {
-      const buttonLabel = newGenButton.querySelector('label');
-      if (buttonLabel) {
-        buttonLabel.textContent = "Generate Additional Keywords";
-      }
-      newGenButton.disabled = false;
+    if (Array.isArray(keywords) && keywords.length > 0) {
+      this.updateFilter("keywords-include", filter => {
+        filter.value = Array.from(new Set([...currentKeywords, ...keywords]));
+      });
+      
+      this.eventBus.emit(EventTypes.KEYWORDS_GENERATE_COMPLETED, { keywords });
     }
-    
-    this.eventBus.emit(EventTypes.KEYWORDS_GENERATE_COMPLETED, { keywords });
   } catch (error) {
     Logger.error("Failed to generate additional keywords:", error);
     alert(error.message || "Failed to generate additional keywords");
-    
-    // Reset button state on error
+  } finally {
+    // Always reset button state
     const newGenButton = document.querySelector("#keywords-include-new-gen");
     if (newGenButton) {
       const buttonLabel = newGenButton.querySelector('label');
