@@ -1,7 +1,7 @@
 // sessionManager.js
 import { EventTypes } from './eventTypes.js';
 import { Logger } from './logger.js';
-import AuthManager from './authManager.js';
+import { AuthManager } from './authManager.js';
 
 const SESSION_SAVE_DELAY = 10000; // 10 seconds
 const SESSION_API = {
