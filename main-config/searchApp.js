@@ -13,14 +13,39 @@ class SearchApp {
   constructor() {
     this.eventBus = new EventBus();
     this.apiConfig = new APIConfig();
+    this.sessionManager = new SessionManager(this.eventBus);
     this.uiManager = new UIManager(this.eventBus);
     this.sessionState = new SessionState(this.uiManager);
     this.apiService = new APIService(this.apiConfig);
     this.assigneeSearchManager = new AssigneeSearchManager(this.eventBus, EventTypes);
-    this.assigneeSearchManager.init();
     this.valueSelectManager = new ValueSelectManager(this.eventBus);
-    this.valueSelectManager.init();
+    
+    // Make app instance globally available for session manager
+    window.app = this;
+    
     this.setupEventHandlers();
+  }
+
+  async initialize() {
+    try {
+      // Check for existing session before initializing UI
+      const hasExistingSession = await this.sessionManager.initialize();
+      
+      if (!hasExistingSession) {
+        // Only initialize UI if no session was loaded
+        this.uiManager.initialize();
+      }
+      
+      // Initialize other components that don't depend on session state
+      this.assigneeSearchManager.init();
+      this.valueSelectManager.init();
+    } catch (error) {
+      Logger.error('Initialization error:', error);
+      // Fall back to normal initialization
+      this.uiManager.initialize();
+      this.assigneeSearchManager.init();
+      this.valueSelectManager.init();
+    }
   }
   
   updateFilter(filterName, updateFn) {
@@ -489,14 +514,6 @@ this.eventBus.on(EventTypes.METHOD_SELECTED, ({ value }) => {
       const state = this.sessionState.get();
       this.uiManager.updateAll(state);
     });
-  }
-  
-  initialize() {
-    this.uiManager.initialize();
-  }
-  
-  loadSession(sessionData) {
-    this.eventBus.emit(EventTypes.LOAD_SESSION, sessionData);
   }
 }
 
