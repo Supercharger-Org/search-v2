@@ -9,7 +9,7 @@ const SESSION_API = {
   SAVE: 'https://xobg-f2pu-pqfs.n7.xano.io/api:fr-l0x4x/dashboard/patent-search/session-save'
 };
 
-export class SessionManager {
+export default class SessionManager  {
   constructor(eventBus) {
     this.eventBus = eventBus;
     this.saveTimeout = null;
