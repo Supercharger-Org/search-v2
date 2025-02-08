@@ -1,6 +1,6 @@
 // authManager.js
 import { Logger } from "./logger.js";
-import { EventBus } from "./eventBus.js";
+import EventBus from "./eventBus.js";  // Changed to default import
 
 const AUTH_CONFIG = {
   endpoints: {
