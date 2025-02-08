@@ -1,6 +1,5 @@
 // constants/eventTypes.js
 export const EventTypes = {
-  LOAD_SESSION: "session:load",
   LIBRARY_SELECTED: "library:selected",
   METHOD_SELECTED: "method:selected",
   DESCRIPTION_UPDATED: "description:updated",
@@ -31,5 +30,10 @@ export const EventTypes = {
   SEARCH_PAGE_PREV: "search:page:prev",
   SEARCH_ITEM_SELECTED: "search:item:selected",
   SEARCH_ITEM_DESELECTED: "search:item:deselected",
-  SEARCH_RESULTS_RELOAD: "search:results:reload"
+  SEARCH_RESULTS_RELOAD: "search:results:reload",
+  SESSION_CREATED: "session:created",    // Fired when a new session is created
+  SESSION_SAVED: "session:saved",        // Fired when session is successfully saved
+  SESSION_LOADED: "session:loaded",      // Fired when session is successfully loaded from server
+  SESSION_SAVE_FAILED: "session:save:failed",  // Fired when session save fails
+  SESSION_LOAD_FAILED: "session:load:failed"   // Fired when session load fails
 };
