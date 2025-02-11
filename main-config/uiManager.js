@@ -13,7 +13,7 @@ export default class UIManager {
     };
   }
 
-  setupPatentSidebar() {
+setupPatentSidebar() {
   // Initial setup
   const sidebar = document.querySelector('#patent-table-sidebar');
   if (!sidebar) return;
@@ -42,7 +42,7 @@ export default class UIManager {
       }
     }
   });
-
+}
 
   setupSearchEventListeners() {
     // Search button
