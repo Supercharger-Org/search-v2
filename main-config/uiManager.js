@@ -337,6 +337,47 @@ updateBadgeDisplayForItems(items, wrapperSelector, formatFn, removeEventType) {
     }
   }
 
+  updateStepVisibility(state) {
+  // Get all step wrappers
+  const stepWrappers = document.querySelectorAll('.horizontal-slide_wrapper[step-name]');
+  
+  stepWrappers.forEach(wrapper => {
+    const stepName = wrapper.getAttribute('step-name');
+    
+    // Initially hide all steps
+    wrapper.style.display = 'none';
+    
+    // Always show library step
+    if (stepName === 'library') {
+      wrapper.style.display = '';
+      return;
+    }
+    
+    // Show method step only if library is selected
+    if (stepName === 'method') {
+      wrapper.style.display = state.library ? '' : 'none';
+      return;
+    }
+    
+    // Show options step only for basic method or when keywords-include exists
+    if (stepName === 'options') {
+      const hasKeywordsInclude = state.filters.some(f => f.name === 'keywords-include');
+      wrapper.style.display = (state.method?.selected === 'basic' || hasKeywordsInclude) ? '' : 'none';
+      return;
+    }
+    
+    // For all other steps, they must:
+    // 1. Exist in filters array
+    // 2. Have proper method validation based on method type
+    const filterExists = state.filters.some(filter => filter.name === stepName);
+    const isMethodValid = state.method?.selected === 'basic' || 
+      (state.method?.selected === 'descriptive' && state.method?.description?.isValid) ||
+      (state.method?.selected === 'patent' && state.method?.patent?.data);
+    
+    wrapper.style.display = (filterExists && isMethodValid) ? '' : 'none';
+  });
+}
+
 updateFilterOptionsVisibility(state) {
   const optionsStep = document.querySelector('[step-name="options"]');
   const optionsWrapper = optionsStep?.closest('.horizontal-slide_wrapper');
