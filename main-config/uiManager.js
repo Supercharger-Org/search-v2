@@ -68,132 +68,85 @@ export default class UIManager {
     }
   }
 
-  renderSearchResults(state) {
-    const wrapper = document.querySelector('[data-attribute="table_contentCell_wrapper"]');
-    if (!wrapper) return;
+  // Update the renderSearchResults method to handle arrays and HTML content
+renderSearchResults(state) {
+  const wrapper = document.querySelector('[data-attribute="table_contentCell_wrapper"]');
+  if (!wrapper) return;
 
-    // Update library-specific columns
-    this.updateLibraryColumns(state.library);
+  this.updateLibraryColumns(state.library);
+  const template = wrapper.cloneNode(true);
+  const parent = wrapper.parentNode;
+  wrapper.style.display = 'none';
 
-    // Get template and parent
-    const template = wrapper.cloneNode(true);
-    const parent = wrapper.parentNode;
+  Array.from(parent.children)
+    .slice(1)
+    .forEach(child => child.remove());
 
-    // Hide template
-    wrapper.style.display = 'none';
+  const start = (state.search.current_page - 1) * state.search.items_per_page;
+  const end = start + state.search.items_per_page;
+  const items = state.search.results ? state.search.results.slice(start, end) : [];
 
-    // Remove existing results
-    Array.from(parent.children)
-      .slice(1)
-      .forEach(child => child.remove());
+  items.forEach(item => {
+    const newRow = template.cloneNode(true);
+    newRow.style.display = '';
 
-    // Calculate current page items directly
-    const start = (state.search.current_page - 1) * state.search.items_per_page;
-    const end = start + state.search.items_per_page;
-    const items = state.search.results ? state.search.results.slice(start, end) : [];
+    // Map fields with special handling for arrays and HTML
+    const fieldMappings = {
+      'patentNumberText': 'publication_number',
+      'titleText': 'title',
+      'assigneeText': item.assignee ? Array.isArray(item.assignee) ? item.assignee.join(', ') : item.assignee : '',
+      'inventorText': item.inventors ? Array.isArray(item.inventors) ? item.inventors.join(', ') : item.inventors : '',
+      'abstractText': 'abstract',
+      'claimText': item.claims_html || '',
+      'descriptionText': 'description',
+      'grantDateText': 'grant_date',
+      'priorityDateText': 'priority_date',
+      'filingDateText': 'filing_date',
+      'publicationDateText': 'publication_date',
+      'statusText': 'status',
+      'patentUrlText': 'patent_url',
+      'transferOfficeText': 'transfer_office_website'
+    };
 
-    // Log for debugging
-    Logger.log('Rendering results:', {
-      totalResults: state.search.results?.length || 0,
-      currentPage: state.search.current_page,
-      itemsPerPage: state.search.items_per_page,
-      displayedItems: items.length
-    });
-
-    // Render each item
-    items.forEach(item => {
-      const newRow = template.cloneNode(true);
-      newRow.style.display = '';
-
-      // Map standardized fields to UI elements
-      const fieldMappings = {
-        'patentNumberText': 'publication_number',
-        'titleText': 'title',
-        'assigneeText': 'assignee',
-        'inventorText': 'inventors',
-        'abstractText': 'abstract',
-        'claimText': 'claims',
-        'descriptionText': 'description',
-        'grantDateText': 'grant_date',
-        'priorityDateText': 'priority_date',
-        'filingDateText': 'filing_date',
-        'publicationDateText': 'publication_date',
-        'statusText': 'status',
-        'patentUrlText': 'patent_url',
-        'transferOfficeText': 'transfer_office_website'
-      };
-
-      // Update all fields if they exist
-      Object.entries(fieldMappings).forEach(([uiAttr, dataField]) => {
-        const el = newRow.querySelector(`[data-attribute="table_contentCell_${uiAttr}"]`);
-        if (el) {
-          const value = item[dataField];
-          el.textContent = Array.isArray(value) ? value.join(', ') : (value || '');
+    Object.entries(fieldMappings).forEach(([uiAttr, dataField]) => {
+      const el = newRow.querySelector(`[data-attribute="table_contentCell_${uiAttr}"]`);
+      if (el) {
+        if (typeof dataField === 'string') {
+          el.textContent = item[dataField] || '';
+        } else {
+          // For pre-processed values (like joined arrays)
+          if (uiAttr === 'claimText') {
+            el.innerHTML = dataField; // Use innerHTML for claims_html
+          } else {
+            el.textContent = dataField;
+          }
         }
-      });
-
-      // Add click handler
-      newRow.addEventListener('click', () => {
-        this.eventBus.emit(EventTypes.SEARCH_ITEM_SELECTED, { item });
-      });
-
-      parent.appendChild(newRow);
+      }
     });
+
+    // Add click handler for row selection
+    newRow.addEventListener('click', () => {
+      this.eventBus.emit(EventTypes.SEARCH_ITEM_SELECTED, { item });
+    });
+
+    parent.appendChild(newRow);
+  });
 }
 
   updatePagination(state) {
-    // Update pagination elements
-    document.querySelector('[result-pagination="current"]').textContent = state.search.current_page;
-    document.querySelector('[result-pagination="total"]').textContent = state.search.total_pages;
+  const currentPageEl = document.querySelector('[result-pagination="current"]');
+  const totalPageEl = document.querySelector('[result-pagination="total"]');
+  const prevBtn = document.querySelector('[result-pagination="prev"]');
+  const nextBtn = document.querySelector('[result-pagination="next"]');
 
-    // Update prev/next buttons state
-    const prevBtn = document.querySelector('[result-pagination="prev"]');
-    const nextBtn = document.querySelector('[result-pagination="next"]');
+  if (currentPageEl) currentPageEl.textContent = state.search?.current_page || 1;
+  if (totalPageEl) totalPageEl.textContent = state.search?.total_pages || 1;
 
-    if (prevBtn) prevBtn.disabled = state.search.current_page === 1;
-    if (nextBtn) nextBtn.disabled = state.search.current_page === state.search.total_pages;
-  }
+  if (prevBtn) prevBtn.disabled = (state.search?.current_page || 1) === 1;
+  if (nextBtn) nextBtn.disabled = (state.search?.current_page || 1) === (state.search?.total_pages || 1);
+}
 
-    updateStepVisibility(state) {
-    // Get all step wrappers
-    const stepWrappers = document.querySelectorAll('.horizontal-slide_wrapper[step-name]');
-    
-    stepWrappers.forEach(wrapper => {
-      const stepName = wrapper.getAttribute('step-name');
-      
-      // Initially hide all steps
-      wrapper.style.display = 'none';
-      
-      // Always show library step
-      if (stepName === 'library') {
-        wrapper.style.display = '';
-        return;
-      }
-      
-      // Show method step only if library is selected
-      if (stepName === 'method') {
-        wrapper.style.display = state.library ? '' : 'none';
-        return;
-      }
-      
-      // Show options step only for basic method or when keywords-include exists
-      if (stepName === 'options') {
-        const hasKeywordsInclude = state.filters.some(f => f.name === 'keywords-include');
-        wrapper.style.display = (state.method?.selected === 'basic' || hasKeywordsInclude) ? '' : 'none';
-        return;
-      }
-      
-      // For all other steps, they must:
-      // 1. Exist in filters array
-      // 2. Have proper method validation based on method type
-      const filterExists = state.filters.some(filter => filter.name === stepName);
-      const isMethodValid = state.method?.selected === 'basic' || 
-        (state.method?.selected === 'descriptive' && state.method?.description?.isValid) ||
-        (state.method?.selected === 'patent' && state.method?.patent?.data);
-      
-      wrapper.style.display = (filterExists && isMethodValid) ? '' : 'none';
-    });
-  }
+
 
   // Hide initial elements.
   setInitialUIState() {
@@ -422,6 +375,47 @@ updateFilterStepOrder(state) {
     document.querySelectorAll("[data-library-option]").forEach(el => {
       el.classList.toggle("active", el.dataset.libraryOption === state.library);
     });
+
+    const sidebar = document.querySelector('#patent-table-sidebar');
+  if (sidebar) {
+    const activeItem = state.search?.active_item;
+    
+    if (activeItem) {
+      // Update content
+      const sidebarFields = {
+        'title': activeItem.title || '',
+        'abstract': activeItem.abstract || '',
+        'claims': activeItem.claims_html || '',
+        'assignee': Array.isArray(activeItem.assignee) ? activeItem.assignee.join(', ') : (activeItem.assignee || ''),
+        'inventor': Array.isArray(activeItem.inventors) ? activeItem.inventors.join(', ') : (activeItem.inventors || ''),
+        'score': activeItem.score || '',
+        'number': activeItem.publication_number || ''
+      };
+
+      Object.entries(sidebarFields).forEach(([field, value]) => {
+        const el = sidebar.querySelector(`[data-sidebar-info="${field}"]`);
+        if (el) {
+          if (field === 'claims') {
+            el.innerHTML = value; // Use innerHTML for claims
+          } else {
+            el.textContent = value;
+          }
+        }
+      });
+
+      // Show sidebar with animation
+      sidebar.style.display = 'block';
+      requestAnimationFrame(() => {
+        sidebar.style.transform = 'translateX(0)';
+      });
+    } else {
+      // Hide sidebar with animation
+      sidebar.style.transform = 'translateX(100%)';
+      setTimeout(() => {
+        sidebar.style.display = 'none';
+      }, 300); // Match transition duration
+    }
+  }
     
     // Method step.
     const methodWrapper = document.querySelector('[step-name="method"]')?.closest(".horizontal-slide_wrapper");
@@ -962,6 +956,40 @@ document.querySelectorAll('[data-filter-option]').forEach(button => {
       }, 50);
     });
   });
+
+
+setupPatentSidebar() {
+  // Initial setup
+  const sidebar = document.querySelector('#patent-table-sidebar');
+  if (!sidebar) return;
+
+  // Initialize sidebar state
+  sidebar.style.transform = 'translateX(100%)';
+  sidebar.style.display = 'none';
+  sidebar.style.transition = 'transform 0.3s ease-out';
+
+  // Setup close button
+  const closeBtn = document.querySelector('#close-patent-sidebar');
+  if (closeBtn) {
+    closeBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      this.eventBus.emit(EventTypes.SEARCH_ITEM_DESELECTED);
+    });
+  }
+
+  // Setup click outside handler
+  document.addEventListener('click', (e) => {
+    if (sidebar.style.display !== 'none') {
+      const isClickInside = sidebar.contains(e.target);
+      const isClickOnResultRow = e.target.closest('[data-attribute="table_contentCell_wrapper"]');
+      if (!isClickInside && !isClickOnResultRow) {
+        this.eventBus.emit(EventTypes.SEARCH_ITEM_DESELECTED);
+      }
+    }
+  });
+}
+
+    
     // Setup all filter UIs.
     this.setupKeywordsUI();
     this.setupExcludedKeywordsUI();
@@ -975,6 +1003,7 @@ document.querySelectorAll('[data-filter-option]').forEach(button => {
     this.setInitialUIState();
     this.setupEventListeners();
     this.setupSearchEventListeners();
+    this.setupPatentSidebar(); // Add this line
   }
 }
 
