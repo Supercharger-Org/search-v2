@@ -71,35 +71,25 @@ export class AuthManager {
 
     Logger.info('Create account response status:', createResponse.status);
     
-    // Clone the response so we can read it multiple times
-    const responseClone = createResponse.clone();
-    const rawResponse = await responseClone.text();
-    Logger.info('Raw create account response:', rawResponse);
-
     if (!createResponse.ok) {
       const errorData = await createResponse.json();
       Logger.error('Create account failed:', errorData);
       throw new Error(errorData.message || 'Account creation failed');
     }
     
-    const data = await createResponse.json();
-    Logger.info('Create account parsed response data:', data);
-    
-    if (!data.authToken) {
-      Logger.error('No auth token received in response');
-      throw new Error('No auth token received from server');
-    }
+    // Get the token directly as text since it's not JSON
+    const authToken = await createResponse.text();
+    Logger.info('Received auth token:', authToken);
     
     // Store the auth token
-    Logger.info('Setting auth token:', data.authToken);
-    this.setAuthToken(data.authToken);
+    this.setAuthToken(authToken);
     
     // Get user info with the new token
     Logger.info('Fetching user info with new token');
     const userResponse = await fetch(AUTH_CONFIG.endpoints.getUserInfo, {
       headers: {
-        'Authorization': `Bearer ${data.authToken}`,
-        'X-Xano-Authorization': `Bearer ${data.authToken}`,
+        'Authorization': `Bearer ${authToken}`,
+        'X-Xano-Authorization': `Bearer ${authToken}`,
         'X-Xano-Authorization-Only': 'true'
       }
     });
@@ -119,7 +109,7 @@ export class AuthManager {
     this.isAuthorized = true;
     
     this.eventBus.emit(AUTH_EVENTS.USER_INFO_LOADED, { user: this.userSession });
-    this.eventBus.emit(AUTH_EVENTS.USER_AUTHORIZED, { token: data.authToken });
+    this.eventBus.emit(AUTH_EVENTS.USER_AUTHORIZED, { token: authToken });
     this.eventBus.emit(AUTH_EVENTS.AUTH_STATE_CHANGED, { isAuthorized: true });
     this.eventBus.emit(AUTH_EVENTS.ACCOUNT_CREATED);
     
