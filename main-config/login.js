@@ -37,7 +37,3 @@ if (createAccountForm) {
     }
   });
 }
-
-// Initialize forms
-setupLoginForm();
-setupCreateAccountForm();
