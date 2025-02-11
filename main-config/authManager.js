@@ -306,4 +306,5 @@ setAuthToken(token) {
   this.setCookie(AUTH_CONFIG.cookies.auth, token, 30);
   Logger.info('Auth token set in cookie');
 }
+}
 export { AUTH_EVENTS };
