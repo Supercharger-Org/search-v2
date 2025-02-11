@@ -1,5 +1,5 @@
 import { Logger } from "./logger.js";
-import { EventBus } from "./eventBus.js";
+import EventBus from './eventBus.js';
 const AUTH_CONFIG = {
   endpoints: {
     signIn: 'https://xobg-f2pu-pqfs.n7.xano.io/api:fr-l0x4x/auth/sign-in',
