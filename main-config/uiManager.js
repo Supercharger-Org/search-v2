@@ -177,8 +177,6 @@ renderSearchResults(state) {
   if (nextBtn) nextBtn.disabled = (state.search?.current_page || 1) === (state.search?.total_pages || 1);
 }
 
-
-
   // Hide initial elements.
   setInitialUIState() {
     const { scrollX, scrollY } = window;
@@ -896,88 +894,71 @@ setupCodesUI() {
     }
   }
   
-  setupEventListeners() {
+ setupEventListeners() {
+  // Patent search
+  const patentInput = document.querySelector("#main-search-patent-input");
+  if (patentInput) {
+    patentInput.addEventListener("keypress", e => {
+      if (e.key === "Enter") {
+        this.eventBus.emit(EventTypes.PATENT_SEARCH_INITIATED, { value: e.target.value });
+      }
+    });
+  }
+  
+  const patentButton = document.querySelector("#main-search-patent-button");
+  if (patentButton) {
+    patentButton.addEventListener("click", e => {
+      e.preventDefault();
+      const value = document.querySelector("#main-search-patent-input")?.value;
+      this.eventBus.emit(EventTypes.PATENT_SEARCH_INITIATED, { value });
+    });
+  }
+  
+  // Library and method selection
+  document.querySelectorAll("[data-library-option]").forEach(el => {
+    el.addEventListener("click", e => {
+      e.preventDefault();
+      const library = e.target.closest("[data-library-option]").dataset.libraryOption;
+      this.eventBus.emit(EventTypes.LIBRARY_SELECTED, { value: library });
+    });
+  });
 
-const searchButton = document.querySelector('#run-search');
-    if (searchButton) {
-      searchButton.addEventListener('click', (e) => {
-        e.preventDefault();
-        searchButton.innerHTML = 'Searching...';
-        searchButton.disabled = true;
-        this.eventBus.emit(EventTypes.SEARCH_INITIATED);
-      });
-    }
+  document.querySelectorAll("[data-method-option]").forEach(el => {
+    el.addEventListener("click", e => {
+      e.preventDefault();
+      const method = e.target.closest("[data-method-option]").dataset.methodOption;
+      this.eventBus.emit(EventTypes.METHOD_SELECTED, { value: method });
+    });
+  });
+  
+  // Description input
+  const descriptionInput = document.querySelector("#main-search-description");
+  if (descriptionInput) {
+    descriptionInput.addEventListener("input", e => {
+      const value = e.target.value;
+      const isValid = value.trim().length >= 10;
+      this.eventBus.emit(EventTypes.DESCRIPTION_UPDATED, { value, isValid });
+      const improveButton = document.querySelector("#validate-description");
+      if (improveButton) improveButton.style.display = isValid ? "flex" : "none";
+    });
+  }
 
-    // Pagination
-    document.querySelector('[result-pagination="prev"]')?.addEventListener('click', () => {
-      this.eventBus.emit(EventTypes.SEARCH_PAGE_PREV);
+  const improveButton = document.querySelector("#validate-description");
+  if (improveButton) {
+    improveButton.textContent = "Improve Description";
+    improveButton.addEventListener("click", e => {
+      e.preventDefault();
+      this.eventBus.emit(EventTypes.DESCRIPTION_IMPROVED);
     });
-
-    document.querySelector('[result-pagination="next"]')?.addEventListener('click', () => {
-      this.eventBus.emit(EventTypes.SEARCH_PAGE_NEXT);
-    });
-    
-    // Patent search.
-    const patentInput = document.querySelector("#main-search-patent-input");
-    if (patentInput) {
-      patentInput.addEventListener("keypress", e => {
-        if (e.key === "Enter") {
-          this.eventBus.emit(EventTypes.PATENT_SEARCH_INITIATED, { value: e.target.value });
-        }
-      });
-    }
-    const patentButton = document.querySelector("#main-search-patent-button");
-    if (patentButton) {
-      patentButton.addEventListener("click", e => {
-        e.preventDefault();
-        const value = document.querySelector("#main-search-patent-input")?.value;
-        this.eventBus.emit(EventTypes.PATENT_SEARCH_INITIATED, { value });
-      });
-    }
-    
-    // Library and method selection.
-    document.querySelectorAll("[data-library-option]").forEach(el => {
-      el.addEventListener("click", e => {
-        e.preventDefault();
-        const library = e.target.closest("[data-library-option]").dataset.libraryOption;
-        this.eventBus.emit(EventTypes.LIBRARY_SELECTED, { value: library });
-      });
-    });
-    document.querySelectorAll("[data-method-option]").forEach(el => {
-      el.addEventListener("click", e => {
-        e.preventDefault();
-        const method = e.target.closest("[data-method-option]").dataset.methodOption;
-        this.eventBus.emit(EventTypes.METHOD_SELECTED, { value: method });
-      });
-    });
-    
-    // Description input.
-    const descriptionInput = document.querySelector("#main-search-description");
-    if (descriptionInput) {
-      descriptionInput.addEventListener("input", e => {
-        const value = e.target.value;
-        const isValid = value.trim().length >= 10;
-        this.eventBus.emit(EventTypes.DESCRIPTION_UPDATED, { value, isValid });
-        const improveButton = document.querySelector("#validate-description");
-        if (improveButton) improveButton.style.display = isValid ? "flex" : "none";
-      });
-    }
-    const improveButton = document.querySelector("#validate-description");
-    if (improveButton) {
-      improveButton.textContent = "Improve Description";
-      improveButton.addEventListener("click", e => {
-        e.preventDefault();
-        this.eventBus.emit(EventTypes.DESCRIPTION_IMPROVED);
-      });
-    }
-    
-document.querySelectorAll('[data-filter-option]').forEach(button => {
+  }
+  
+  // Filter options
+  document.querySelectorAll('[data-filter-option]').forEach(button => {
     button.addEventListener('click', e => {
       e.preventDefault();
       const filterName = button.getAttribute('data-filter-option');
       this.eventBus.emit(EventTypes.FILTER_ADDED, { filterName });
       
-      // Initialize the new step after a short delay to ensure DOM is updated
       setTimeout(() => {
         const newStep = document.querySelector(`[step-name="${filterName}"]`)
           ?.closest('.horizontal-slide_wrapper');
@@ -987,19 +968,15 @@ document.querySelectorAll('[data-filter-option]').forEach(button => {
       }, 50);
     });
   });
-
-
-
-
-    
-    // Setup all filter UIs.
-    this.setupKeywordsUI();
-    this.setupExcludedKeywordsUI();
-    this.setupCodesUI();
-    this.setupInventorsUI();
-    this.setupAssigneesUI();
-    this.setupDateUI();
-  }
+  
+  // Setup all filter UIs
+  this.setupKeywordsUI();
+  this.setupExcludedKeywordsUI();
+  this.setupCodesUI();
+  this.setupInventorsUI();
+  this.setupAssigneesUI();
+  this.setupDateUI();
+}
   
   initialize() {
     this.setInitialUIState();
