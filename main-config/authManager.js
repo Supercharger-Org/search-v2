@@ -71,6 +71,11 @@ export class AuthManager {
 
     Logger.info('Create account response status:', createResponse.status);
     
+    // Clone the response so we can read it multiple times
+    const responseClone = createResponse.clone();
+    const rawResponse = await responseClone.text();
+    Logger.info('Raw create account response:', rawResponse);
+
     if (!createResponse.ok) {
       const errorData = await createResponse.json();
       Logger.error('Create account failed:', errorData);
@@ -78,9 +83,15 @@ export class AuthManager {
     }
     
     const data = await createResponse.json();
-    Logger.info('Create account success, received token:', data.authToken);
+    Logger.info('Create account parsed response data:', data);
+    
+    if (!data.authToken) {
+      Logger.error('No auth token received in response');
+      throw new Error('No auth token received from server');
+    }
     
     // Store the auth token
+    Logger.info('Setting auth token:', data.authToken);
     this.setAuthToken(data.authToken);
     
     // Get user info with the new token
