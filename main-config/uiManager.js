@@ -45,26 +45,34 @@ setupPatentSidebar() {
 }
 
   setupSearchEventListeners() {
-    // Search button
-    const searchButton = document.querySelector('#run-search');
-    if (searchButton) {
-      searchButton.addEventListener('click', (e) => {
-        e.preventDefault();
-        searchButton.innerHTML = 'Searching...';
-        searchButton.disabled = true;
-        this.eventBus.emit(EventTypes.SEARCH_INITIATED);
-      });
-    }
+  // Search button
+  const searchButton = document.querySelector('#run-search');
+  if (searchButton) {
+    searchButton.addEventListener('click', (e) => {
+      e.preventDefault();
+      searchButton.innerHTML = 'Searching...';
+      searchButton.disabled = true;
+      this.eventBus.emit(EventTypes.SEARCH_INITIATED);
+    });
+  }
 
-    // Pagination
-    document.querySelector('[result-pagination="prev"]')?.addEventListener('click', () => {
+  // Pagination
+  const prevButton = document.querySelector('[result-pagination="prev"]');
+  const nextButton = document.querySelector('[result-pagination="next"]');
+  
+  if (prevButton) {
+    prevButton.addEventListener('click', () => {
       this.eventBus.emit(EventTypes.SEARCH_PAGE_PREV);
     });
+  }
 
-    document.querySelector('[result-pagination="next"]')?.addEventListener('click', () => {
+  if (nextButton) {
+    nextButton.addEventListener('click', () => {
       this.eventBus.emit(EventTypes.SEARCH_PAGE_NEXT);
     });
   }
+}
+
 
     updateLibraryColumns(library) {
     // Show/hide columns based on library type
