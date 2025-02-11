@@ -13,6 +13,37 @@ export default class UIManager {
     };
   }
 
+  setupPatentSidebar() {
+  // Initial setup
+  const sidebar = document.querySelector('#patent-table-sidebar');
+  if (!sidebar) return;
+
+  // Initialize sidebar state
+  sidebar.style.transform = 'translateX(100%)';
+  sidebar.style.display = 'none';
+  sidebar.style.transition = 'transform 0.3s ease-out';
+
+  // Setup close button
+  const closeBtn = document.querySelector('#close-patent-sidebar');
+  if (closeBtn) {
+    closeBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      this.eventBus.emit(EventTypes.SEARCH_ITEM_DESELECTED);
+    });
+  }
+
+  // Setup click outside handler
+  document.addEventListener('click', (e) => {
+    if (sidebar.style.display !== 'none') {
+      const isClickInside = sidebar.contains(e.target);
+      const isClickOnResultRow = e.target.closest('[data-attribute="table_contentCell_wrapper"]');
+      if (!isClickInside && !isClickOnResultRow) {
+        this.eventBus.emit(EventTypes.SEARCH_ITEM_DESELECTED);
+      }
+    }
+  });
+}
+
   setupSearchEventListeners() {
     // Search button
     const searchButton = document.querySelector('#run-search');
@@ -958,36 +989,7 @@ document.querySelectorAll('[data-filter-option]').forEach(button => {
   });
 
 
-setupPatentSidebar() {
-  // Initial setup
-  const sidebar = document.querySelector('#patent-table-sidebar');
-  if (!sidebar) return;
 
-  // Initialize sidebar state
-  sidebar.style.transform = 'translateX(100%)';
-  sidebar.style.display = 'none';
-  sidebar.style.transition = 'transform 0.3s ease-out';
-
-  // Setup close button
-  const closeBtn = document.querySelector('#close-patent-sidebar');
-  if (closeBtn) {
-    closeBtn.addEventListener('click', (e) => {
-      e.preventDefault();
-      this.eventBus.emit(EventTypes.SEARCH_ITEM_DESELECTED);
-    });
-  }
-
-  // Setup click outside handler
-  document.addEventListener('click', (e) => {
-    if (sidebar.style.display !== 'none') {
-      const isClickInside = sidebar.contains(e.target);
-      const isClickOnResultRow = e.target.closest('[data-attribute="table_contentCell_wrapper"]');
-      if (!isClickInside && !isClickOnResultRow) {
-        this.eventBus.emit(EventTypes.SEARCH_ITEM_DESELECTED);
-      }
-    }
-  });
-}
 
     
     // Setup all filter UIs.
