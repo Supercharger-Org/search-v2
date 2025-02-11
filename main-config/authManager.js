@@ -57,7 +57,7 @@ export class AuthManager {
     }
   }
   
-  async createAccount(email, password) {
+ async createAccount(email, password) {
   try {
     Logger.info('Creating account for email:', email);
     
