@@ -56,28 +56,44 @@ export class AuthManager {
       throw error;
     }
   }
+  
   async createAccount(email, password) {
-    try {
-      const response = await fetch(AUTH_CONFIG.endpoints.createAccount, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ email, password })
-      });
-      if (!response.ok) throw new Error('Account creation failed');
-      
-      const data = await response.json();
-      this.setAuthToken(data.authToken);
-      await this.getUserInfo(data.authToken);
-      
-      this.eventBus.emit(AUTH_EVENTS.ACCOUNT_CREATED);
-      window.location.href = '/dashboard/patent-search-v2';
-    } catch (error) {
-      Logger.error('Account creation failed:', error);
-      throw error;
+  try {
+    // First create the account
+    const response = await fetch(AUTH_CONFIG.endpoints.createAccount, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ email, password })
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.message || 'Account creation failed');
     }
+    
+    const data = await response.json();
+    
+    // Set the auth token BEFORE trying to get user info
+    this.setAuthToken(data.authToken);
+    
+    // Now get user info with the new token
+    try {
+      await this.getUserInfo(data.authToken);
+    } catch (userInfoError) {
+      // If getting user info fails, we still created the account successfully
+      console.warn('Account created but failed to fetch user info:', userInfoError);
+    }
+    
+    this.eventBus.emit(AUTH_EVENTS.ACCOUNT_CREATED);
+    window.location.href = '/dashboard/patent-search-v2';
+  } catch (error) {
+    Logger.error('Account creation failed:', error);
+    throw error;
   }
+}
+  
   async getUserInfo(token) {
     try {
       const response = await fetch(AUTH_CONFIG.endpoints.getUserInfo, {
