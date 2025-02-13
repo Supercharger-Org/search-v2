@@ -69,30 +69,34 @@ export default class SessionManager {
     });
   }
 
-  async initialize() {
+  async checkAndLoadSession() {
     const urlParams = new URLSearchParams(window.location.search);
     const sessionId = urlParams.get('id');
 
-    if (sessionId) {
-      // If auth isn't ready, store session ID for later
-      if (!this.isAuthReady) {
-        this.pendingSessionLoad = sessionId;
-        return false;
-      }
+    if (sessionId && this.isAuthReady) {
       try {
         await this.loadSession(sessionId);
         this.sessionId = sessionId;
         this.isInitialized = true;
         this.eventBus.emit(EventTypes.SESSION_LOADED);
-        return true;
       } catch (error) {
         Logger.error('Failed to load session:', error);
-        return false;
       }
     }
+  }
 
+  async initialize() {
+    // Only set initialized flag, actual session loading happens after auth
     this.isInitialized = true;
-    return false;
+    
+    // If we're already authenticated, check for session
+    if (AuthManager.getUserAuthToken()) {
+      this.isAuthReady = true;
+      await this.checkAndLoadSession();
+    }
+    
+    // Return whether we have a session ID
+    return !!this.sessionId;
   }
 
   async loadSession(sessionId) {
@@ -111,10 +115,7 @@ export default class SessionManager {
           'X-Xano-Authorization-Only': 'true'
         },
         mode: 'cors',
-        body: JSON.stringify({ 
-          id: sessionId,
-          dbo: { id: sessionId } // Add this line to fix the ParseError
-        })
+        body: JSON.stringify({ id: sessionId })
       });
 
       if (!response.ok) {
@@ -124,12 +125,11 @@ export default class SessionManager {
       }
 
       const sessionData = await response.json();
-      
-      // Add validation for session data
       if (!sessionData?.selections) {
         throw new Error('Invalid session data format');
       }
-      
+
+      // Emit load session event with the data
       this.eventBus.emit(EventTypes.LOAD_SESSION, {
         ...sessionData.selections,
         search: {
@@ -144,6 +144,7 @@ export default class SessionManager {
       throw error;
     }
   }
+  
   createNewSession() {
     this.sessionId = this.generateUniqueId();
     
