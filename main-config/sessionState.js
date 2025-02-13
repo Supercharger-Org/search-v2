@@ -325,6 +325,40 @@ export default class SessionState {
     }
   }
 
+  load(sessionData) {
+    // Deep merge session data with current state
+    this.state = {
+      library: sessionData.library || null,
+      method: {
+        selected: sessionData.method?.selected || null,
+        description: {
+          value: sessionData.method?.description?.value || "",
+          previousValue: sessionData.method?.description?.previousValue || null,
+          isValid: sessionData.method?.description?.isValid || false,
+          improved: sessionData.method?.description?.improved || false,
+          modificationSummary: sessionData.method?.description?.modificationSummary || null
+        },
+        patent: sessionData.method?.patent || null,
+        searchValue: sessionData.method?.searchValue || "",
+        validated: sessionData.method?.validated || false
+      },
+      filters: Array.isArray(sessionData.filters) ? [...sessionData.filters] : [],
+      search: {
+        results: sessionData.search?.results || null,
+        current_page: sessionData.search?.current_page || 1,
+        total_pages: sessionData.search?.total_pages || 0,
+        active_item: sessionData.search?.active_item || null,
+        reload_required: sessionData.search?.reload_required || false,
+        items_per_page: sessionData.search?.items_per_page || 10
+      }
+    };
+
+    // Trigger UI update after loading session
+    if (this.uiManager) {
+      this.uiManager.updateAll(this.get());
+    }
+  }
+
   logSession() {
     Logger.log("Current Session State:", JSON.stringify(this.state, null, 2));
   }
