@@ -374,31 +374,31 @@ export default class UIManager {
     }
   }
 
-  updateStepVisibility(state) {
-    const stepWrappers = document.querySelectorAll('.horizontal-slide_wrapper[step-name]');
-    stepWrappers.forEach(wrapper => {
-      const stepName = wrapper.getAttribute('step-name');
-      wrapper.style.display = 'none';
-      if (stepName === 'library') {
-        wrapper.style.display = '';
-        return;
-      }
-      if (stepName === 'method') {
-        wrapper.style.display = state.library ? '' : 'none';
-        return;
-      }
-      if (stepName === 'options') {
-        const hasKeywordsInclude = state.filters.some(f => f.name === 'keywords-include');
-        wrapper.style.display = (state.method?.selected === 'basic' || hasKeywordsInclude) ? '' : 'none';
-        return;
-      }
-      const filterExists = state.filters.some(filter => filter.name === stepName);
-      const isMethodValid = state.method?.selected === 'basic' ||
-        (state.method?.selected === 'descriptive' && state.method?.description?.isValid) ||
-        (state.method?.selected === 'patent' && state.method?.patent?.data);
-      wrapper.style.display = (filterExists && isMethodValid) ? '' : 'none';
-    });
-  }
+  // In ui/uiManager.js – Replace your updateStepVisibility() method with:
+updateStepVisibility(state) {
+  const stepWrappers = document.querySelectorAll('.horizontal-slide_wrapper[step-name]');
+  stepWrappers.forEach(wrapper => {
+    const stepName = wrapper.getAttribute('step-name');
+    if (stepName === 'library') {
+      wrapper.style.display = "block"; // always show library step
+      return;
+    }
+    if (stepName === 'method') {
+      wrapper.style.display = state.library ? "block" : "none";
+      return;
+    }
+    if (stepName === 'options') {
+      const hasKeywordsInclude = state.filters.some(f => f.name === 'keywords-include');
+      wrapper.style.display = (state.method?.selected === 'basic' || hasKeywordsInclude) ? "block" : "none";
+      return;
+    }
+    const filterExists = state.filters.some(filter => filter.name === stepName);
+    const isMethodValid = state.method?.selected === 'basic' ||
+      (state.method?.selected === 'descriptive' && state.method?.description?.isValid) ||
+      (state.method?.selected === 'patent' && state.method?.patent?.data);
+    wrapper.style.display = (filterExists && isMethodValid) ? "block" : "none";
+  });
+}
 
   updateFilterOptionsVisibility(state) {
     const optionsStep = document.querySelector('[step-name="options"]');
