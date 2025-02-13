@@ -165,19 +165,24 @@ export default class UIManager {
         this.eventBus.emit(EventTypes.DESCRIPTION_IMPROVED);
       });
     }
-    document.querySelectorAll('[data-filter-option]').forEach(button => {
-      button.addEventListener('click', e => {
-        e.preventDefault();
-        const filterName = button.getAttribute('data-filter-option');
-        this.eventBus.emit(EventTypes.FILTER_ADDED, { filterName });
-        setTimeout(() => {
-          const newStep = document.querySelector(`[step-name="${filterName}"]`)?.closest('.horizontal-slide_wrapper');
-          if (newStep) {
-            this.initializeNewStep(newStep);
-          }
-        }, 50);
-      });
+      // In ui/uiManager.js – inside setupEventListeners():
+  document.querySelectorAll('[data-filter-option]').forEach(button => {
+    button.addEventListener('click', e => {
+      e.preventDefault();
+      const filterName = button.getAttribute('data-filter-option');
+      if (!filterName) {
+        Logger.error("Element is missing a valid data-filter-option attribute:", button);
+        return;
+      }
+      this.eventBus.emit(EventTypes.FILTER_ADDED, { filterName });
+      setTimeout(() => {
+        const newStep = document.querySelector(`[step-name="${filterName}"]`)?.closest('.horizontal-slide_wrapper');
+        if (newStep) {
+          this.initializeNewStep(newStep);
+        }
+      }, 50);
     });
+  });
     this.setupKeywordsUI();
     this.setupExcludedKeywordsUI();
     this.setupCodesUI();
