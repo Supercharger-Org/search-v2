@@ -60,10 +60,32 @@ class SearchApp {
       const state = this.sessionState.get();
       Logger.info("Session State after load:", JSON.stringify(state, null, 2));
       this.uiManager.updateAll(state);
+      // Set UI manager on sessionState so updates occur
+    this.sessionState.setUIManager(this.uiManager);
+
+    // Initialize other managers
+    this.assigneeSearchManager.init();
+    this.valueSelectManager.init();
+
+    if (!this._listenersSet) {
+      this.setupEventHandlers();
+      this._listenersSet = true;
+    }
     } else {
       // Otherwise, initialize the UI with no session data
       Logger.info("No session id found – initializing fresh UI");
       this.uiManager.initialize();
+      // Set UI manager on sessionState so updates occur
+    this.sessionState.setUIManager(this.uiManager);
+
+    // Initialize other managers
+    this.assigneeSearchManager.init();
+    this.valueSelectManager.init();
+
+    if (!this._listenersSet) {
+      this.setupEventHandlers();
+      this._listenersSet = true;
+    }
     }
 
     // Set UI manager on sessionState so updates occur
