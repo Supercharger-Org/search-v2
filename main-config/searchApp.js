@@ -67,9 +67,15 @@ class SearchApp {
       const state = this.sessionState.get();
       Logger.info("Session State after load:", JSON.stringify(state, null, 2));
       this.uiManager.updateAll(state);
+      this.sessionState.setUIManager(this.uiManager);
+    this.assigneeSearchManager.init();
+    this.valueSelectManager.init();
     } else {
       Logger.info("No session id found – initializing fresh UI");
       this.uiManager.initialize();
+      this.sessionState.setUIManager(this.uiManager);
+    this.assigneeSearchManager.init();
+    this.valueSelectManager.init();
     }
 
     // Set UI manager on sessionState for future updates.
@@ -88,6 +94,7 @@ class SearchApp {
     this.valueSelectManager.init();
   }
 }
+
 
 
 
