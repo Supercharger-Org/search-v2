@@ -41,6 +41,16 @@ export class AuthManager {
       this.updateVisibility(isAuthorized);
     });
   }
+
+  getRequestHeaders(token) {
+  const cleanToken = token ? token.replace(/^"(.*)"$/, '$1') : '';
+  return {
+    'Content-Type': 'application/json',
+    'X-Xano-Authorization': `Bearer ${cleanToken}`,
+    'X-Xano-Authorization-Only': 'true'
+  };
+  }
+  
   async login(email, password) {
     try {
       const response = await fetch(AUTH_CONFIG.endpoints.signIn, {
