@@ -30,9 +30,11 @@ class SearchApp {
   async initialize() {
   try {
     Logger.info("Initializing SearchApp...");
+
+    // Get auth token regardless
     const authToken = this.authManager.getUserAuthToken();
     if (authToken) {
-      // If we have a token, you might wait for auth to be ready:
+      // Wait for USER_AUTHORIZED event if needed
       await new Promise((resolve) => {
         const authHandler = () => {
           this.eventBus.off(EventTypes.USER_AUTHORIZED, authHandler);
@@ -41,36 +43,49 @@ class SearchApp {
         this.eventBus.on(EventTypes.USER_AUTHORIZED, authHandler);
       });
     } else {
-      // If no auth token, log and proceed (free user mode)
       Logger.info("No auth token found – proceeding as free user");
-      // Optionally, you can manually set isAuthReady to true here.
+      // Mark auth as ready for free users
       this.sessionManager.isAuthReady = true;
     }
-    
-    const hasExistingSession = await this.sessionManager.initialize();
-    if (hasExistingSession) {
-      Logger.info("Found existing session, loading session data");
+
+    // Check for session id in URL parameters
+    const urlParams = new URLSearchParams(window.location.search);
+    const sessionId = urlParams.get("id");
+
+    if (sessionId) {
+      // If an id exists, load the session and update the UI accordingly
+      Logger.info("Session id found in URL, loading session...");
+      await this.sessionManager.loadSession(sessionId);
+      this.sessionManager.isInitialized = true;
       const state = this.sessionState.get();
       Logger.info("Session State after load:", JSON.stringify(state, null, 2));
       this.uiManager.updateAll(state);
     } else {
-      Logger.info("No existing session, initializing fresh UI");
+      // Otherwise, initialize the UI with no session data
+      Logger.info("No session id found – initializing fresh UI");
       this.uiManager.initialize();
     }
+
+    // Set UI manager on sessionState so updates occur
     this.sessionState.setUIManager(this.uiManager);
+
+    // Initialize other managers
     this.assigneeSearchManager.init();
     this.valueSelectManager.init();
+
     if (!this._listenersSet) {
       this.setupEventHandlers();
       this._listenersSet = true;
     }
   } catch (error) {
     Logger.error("SearchApp initialization error:", error);
+    // Fallback UI initialization
     this.uiManager.initialize();
     this.assigneeSearchManager.init();
     this.valueSelectManager.init();
   }
 }
+
 
 
   updateFilter(filterName, updateFn) {
