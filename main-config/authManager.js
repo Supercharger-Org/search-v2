@@ -312,36 +312,28 @@ async getUserInfo(token) {
     });
   }
 
-  const selector = isAuthorized ? 
-    '[state-visibility="user-authorized"]' : 
-    '[state-visibility="free-user"]';
-  
-  document.querySelectorAll(selector).forEach(el => {
-    el.style.display = '';
-  });
+  generateUniqueId() {
+    return Date.now().toString(36) + Math.random().toString(36).substr(2);
+  }
+
+  setCookie(name, value, days) {
+    const date = new Date();
+    date.setTime(date.getTime() + (days * 24 * 60 * 60 * 1000));
+    document.cookie = `${name}=${value};expires=${date.toUTCString()};path=/`;
+    Logger.info(`Cookie set: ${name}`);
+  }
+
+  getCookie(name) {
+    const value = `; ${document.cookie}`;
+    const parts = value.split(`; ${name}=`);
+    if (parts.length === 2) return parts.pop().split(';').shift();
+    return null;
+  }
+
+  setAuthToken(token) {
+    this.setCookie(AUTH_CONFIG.cookies.auth, token, 30);
+    Logger.info('Auth token set in cookie');
+  }
 }
 
-generateUniqueId() {
-  return Date.now().toString(36) + Math.random().toString(36).substr(2);
-}
-
-setCookie(name, value, days) {
-  const date = new Date();
-  date.setTime(date.getTime() + (days * 24 * 60 * 60 * 1000));
-  document.cookie = `${name}=${value};expires=${date.toUTCString()};path=/`;
-  Logger.info(`Cookie set: ${name}`);
-}
-
-getCookie(name) {
-  const value = `; ${document.cookie}`;
-  const parts = value.split(`; ${name}=`);
-  if (parts.length === 2) return parts.pop().split(';').shift();
-  return null;
-}
-
-setAuthToken(token) {
-  this.setCookie(AUTH_CONFIG.cookies.auth, token, 30);
-  Logger.info('Auth token set in cookie');
-}
-}
 export { AUTH_EVENTS };
