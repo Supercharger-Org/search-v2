@@ -10,7 +10,7 @@ import ValueSelectManager from "./value-select-manager.js";
 import SessionManager from "./sessionManager.js";
 import { authManager } from "./authCheck.js";
 
-console.log('v3 working');
+console.log('v4 working');
 
 class SearchApp {
   constructor() {
