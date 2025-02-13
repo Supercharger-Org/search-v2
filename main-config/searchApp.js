@@ -592,6 +592,7 @@ handleAdvancedMethodSelection(value) {
     validated: false
   });
 }
+}
 
 const app = new SearchApp();
 app.initialize();
