@@ -9,24 +9,25 @@ import SessionState from "./sessionState.js";
 import AssigneeSearchManager from "./assignee-search-manager.js";
 import ValueSelectManager from "./value-select-manager.js";
 import SessionManager from './sessionManager.js';
-import { AuthManager } from './authManager.js';  // Change this from default import
+import { authManager } from './authCheck.js';
 
 class SearchApp {
   constructor() {
-    this.eventBus = new EventBus();
-    this.apiConfig = new APIConfig();
-    this.sessionManager = new SessionManager(this.eventBus);
-    this.uiManager = new UIManager(this.eventBus);
-    this.sessionState = new SessionState(this.uiManager);
-    this.apiService = new APIService(this.apiConfig);
-    this.assigneeSearchManager = new AssigneeSearchManager(this.eventBus, EventTypes);
-    this.valueSelectManager = new ValueSelectManager(this.eventBus);
-    
-    // Make app instance globally available for session manager
-    window.app = this;
-    
-    this.setupEventHandlers();
-  }
+  this.eventBus = new EventBus();
+  this.apiConfig = new APIConfig();
+  this.sessionManager = new SessionManager(this.eventBus);
+  this.uiManager = new UIManager(this.eventBus);
+  this.sessionState = new SessionState(this.uiManager);
+  this.apiService = new APIService(this.apiConfig);
+  this.assigneeSearchManager = new AssigneeSearchManager(this.eventBus, EventTypes);
+  this.valueSelectManager = new ValueSelectManager(this.eventBus);
+  
+  // Use the singleton auth manager
+  this.authManager = authManager;
+  
+  window.app = this;
+  this.setupEventHandlers();
+}
 
   async initialize() {
   try {
