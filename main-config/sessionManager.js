@@ -107,6 +107,14 @@ export default class SessionManager {
     }
 
     const cleanToken = token.replace(/^"(.*)"$/, '$1');
+    
+    // Simplified request payload
+    const requestPayload = {
+      field_value: sessionId
+    };
+
+    Logger.info('Loading session with payload:', requestPayload);
+
     const response = await fetch(SESSION_API.GET, {
       method: 'POST',
       headers: {
@@ -115,15 +123,13 @@ export default class SessionManager {
         'X-Xano-Authorization-Only': 'true'
       },
       mode: 'cors',
-      body: JSON.stringify({ 
-        dbo: { id: sessionId }  // Changed to match API expectation
-      })
+      body: JSON.stringify(requestPayload)
     });
 
     if (!response.ok) {
       const errorData = await response.json();
       Logger.error('Session load failed:', errorData);
-      throw new Error('Failed to fetch session data');
+      throw new Error(errorData.message || 'Failed to fetch session data');
     }
 
     const sessionData = await response.json();
