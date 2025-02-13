@@ -15,6 +15,15 @@ export default class SessionManager {
     this.saveTimeout = null;
     this.sessionId = null;
     this.isInitialized = false;
+    this.isAuthReady = false;
+    
+    // Listen for auth events
+    this.eventBus.on('user_authorized', () => {
+      this.isAuthReady = true;
+      // Check URL params after auth is confirmed
+      this.checkAndLoadSession();
+    });
+    
     this.setupEventListeners();
   }
 
