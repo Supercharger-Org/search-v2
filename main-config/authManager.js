@@ -128,146 +128,189 @@ export class AuthManager {
 }
 
 async getUserInfo(token) {
-  try {
-    Logger.info('Getting user info with token');
-    
-    // Remove any quotes from the token if present
-    const cleanToken = token.replace(/^"(.*)"$/, '$1');
-
-    Logger.info("Token:", token);
-    
-    const response = await fetch(AUTH_CONFIG.endpoints.getUserInfo, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Xano-Authorization': `Bearer ${cleanToken}`,
-        'X-Xano-Authorization-Only': 'true'
-      },
-      // Removed credentials: 'include' since it conflicts with CORS '*'
-      mode: 'cors' // Explicitly set CORS mode
-    });
-
-    Logger.info('Get user info response status:', response.status);
-    
-    if (!response.ok) {
-      const errorData = await response.json();
-      Logger.error('Get user info failed:', errorData);
+    try {
+      Logger.info('Getting user info with token');
       
-      if (response.status === 401) {
-        Logger.error('Authentication failed. Token structure:', {
-          originalToken: token,
-          cleanToken: cleanToken,
-          authHeader: `Bearer ${cleanToken}`
+      const cleanToken = token.replace(/^"(.*)"$/, '$1');
+      Logger.info("Token:", token);
+      
+      const response = await fetch(AUTH_CONFIG.endpoints.getUserInfo, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Xano-Authorization': `Bearer ${cleanToken}`,
+          'X-Xano-Authorization-Only': 'true'
+        },
+        mode: 'cors'
+      });
+
+      Logger.info('Get user info response status:', response.status);
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        Logger.error('Get user info failed:', errorData);
+        throw new Error(`Failed to get user info: ${response.status}`);
+      }
+      
+      const userData = await response.json();
+      Logger.info('User info retrieved:', userData);
+      
+      this.userSession = new UserSession(userData);
+      this.isAuthorized = true;
+      
+      // Emit events in specific order
+      this.eventBus.emit(AUTH_EVENTS.USER_INFO_LOADED, { user: this.userSession });
+      this.eventBus.emit(AUTH_EVENTS.USER_AUTHORIZED, { token: cleanToken });
+      this.eventBus.emit(AUTH_EVENTS.AUTH_STATE_CHANGED, { isAuthorized: true });
+      
+      return this.userSession;
+    } catch (error) {
+      Logger.error('Failed to get user info:', error);
+      // Ensure we update visibility on failure too
+      this.eventBus.emit(AUTH_EVENTS.AUTH_STATE_CHANGED, { isAuthorized: false });
+      throw error;
+    }
+  }
+
+  async loadUserSessions(token) {
+    try {
+      Logger.info('Loading user sessions with token');
+      const cleanToken = token.replace(/^"(.*)"$/, '$1');
+      
+      const response = await fetch(AUTH_CONFIG.endpoints.getUserSessions, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Xano-Authorization': `Bearer ${cleanToken}`,
+          'X-Xano-Authorization-Only': 'true'
+        },
+        mode: 'cors'
+      });
+
+      Logger.info('Load sessions response status:', response.status);
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        Logger.error('Load sessions failed:', errorData);
+        throw new Error('Failed to load sessions');
+      }
+      
+      const sessions = await response.json();
+      Logger.info('Sessions loaded successfully:', sessions.length);
+      
+      this.renderSessionHistory(sessions);
+      this.eventBus.emit(AUTH_EVENTS.SESSIONS_LOADED, { sessions });
+      
+      return sessions;
+    } catch (error) {
+      Logger.error('Failed to load sessions:', error);
+      throw error;
+    }
+  }
+
+  async checkAuthStatus() {
+    const authToken = this.getCookie(AUTH_CONFIG.cookies.auth);
+    Logger.info('Checking auth status, token exists:', !!authToken);
+    
+    if (authToken) {
+      try {
+        await this.getUserInfo(authToken);
+        // Only try to load sessions if getUserInfo succeeded
+        try {
+          await this.loadUserSessions(authToken);
+        } catch (sessionError) {
+          Logger.error('Failed to load sessions, but user is still authenticated:', sessionError);
+        }
+      } catch (error) {
+        Logger.error('Auth validation failed:', error);
+        this.handleFreeUser();
+      }
+    } else {
+      this.handleFreeUser();
+    }
+  }
+
+  handleFreeUser() {
+    let freeUserId = this.getCookie(AUTH_CONFIG.cookies.freeUser);
+    let searchCount = parseInt(this.getCookie(AUTH_CONFIG.cookies.searchCount) || '0');
+    
+    if (!freeUserId) {
+      freeUserId = this.generateUniqueId();
+      searchCount = 0;
+      
+      this.setCookie(AUTH_CONFIG.cookies.freeUser, freeUserId, 30);
+      this.setCookie(AUTH_CONFIG.cookies.searchCount, searchCount.toString(), 30);
+    }
+
+    Logger.info('Handling free user:', { freeUserId, searchCount });
+    
+    this.eventBus.emit(AUTH_EVENTS.FREE_USAGE_UPDATED, {
+      searchesRemaining: 5 - searchCount
+    });
+    
+    // Ensure visibility is updated for free users
+    this.isAuthorized = false;
+    this.eventBus.emit(AUTH_EVENTS.AUTH_STATE_CHANGED, { isAuthorized: false });
+  }
+
+  renderSessionHistory(sessions) {
+    const template = document.querySelector('[history-item="link-block"]');
+    if (!template) {
+      Logger.warn('Session history template not found');
+      return;
+    }
+
+    const container = template.parentElement;
+    template.style.display = 'none';
+
+    sessions.forEach(item => {
+      const clone = template.cloneNode(true);
+      clone.style.display = '';
+      
+      clone.href = `${clone.href}?id=${item.id}`;
+      
+      const previewEl = clone.querySelector('[history-item="preview-value"]');
+      if (previewEl) {
+        let previewText = 'Custom filter search';
+        if (item.method.selected === 'descriptive') {
+          previewText = item.method.description.value;
+        } else if (item.method.selected === 'patent') {
+          previewText = item.method.patent.title;
+        }
+        previewEl.textContent = previewText;
+      }
+      
+      const timestampEl = clone.querySelector('[history-item="timestamp"]');
+      if (timestampEl) {
+        const date = new Date(item.created_at);
+        timestampEl.textContent = date.toLocaleString('en-US', {
+          month: '2-digit',
+          day: '2-digit',
+          year: '2-digit',
+          hour: '2-digit',
+          minute: '2-digit'
         });
       }
       
-      throw new Error(`Failed to get user info: ${response.status}`);
-    }
-    
-    const userData = await response.json();
-    Logger.info('User info retrieved:', userData);
-    
-    this.userSession = new UserSession(userData);
-    this.isAuthorized = true;
-    
-    this.eventBus.emit(AUTH_EVENTS.USER_INFO_LOADED, { user: this.userSession });
-    this.eventBus.emit(AUTH_EVENTS.USER_AUTHORIZED, { token: cleanToken });
-    this.eventBus.emit(AUTH_EVENTS.AUTH_STATE_CHANGED, { isAuthorized: true });
-    
-    return this.userSession;
-  } catch (error) {
-    Logger.error('Failed to get user info:', error);
-    throw error;
-  }
-}
-
-async checkAuthStatus() {
-  const authToken = this.getCookie(AUTH_CONFIG.cookies.auth);
-  Logger.info('Checking auth status, token exists:', !!authToken);
-  
-  if (authToken) {
-    try {
-      await this.getUserInfo(authToken);
-      await this.loadUserSessions(authToken);
-    } catch (error) {
-      Logger.error('Auth validation failed:', error);
-      this.handleFreeUser();
-    }
-  } else {
-    this.handleFreeUser();
-  }
-}
-
-handleFreeUser() {
-  let freeUserId = this.getCookie(AUTH_CONFIG.cookies.freeUser);
-  let searchCount = parseInt(this.getCookie(AUTH_CONFIG.cookies.searchCount) || '0');
-  
-  if (!freeUserId) {
-    freeUserId = this.generateUniqueId();
-    searchCount = 0;
-    
-    this.setCookie(AUTH_CONFIG.cookies.freeUser, freeUserId, 30);
-    this.setCookie(AUTH_CONFIG.cookies.searchCount, searchCount.toString(), 30);
+      container.appendChild(clone);
+    });
   }
 
-  Logger.info('Handling free user:', { freeUserId, searchCount });
-  
-  this.eventBus.emit(AUTH_EVENTS.FREE_USAGE_UPDATED, {
-    searchesRemaining: 5 - searchCount
-  });
-  
-  this.eventBus.emit(AUTH_EVENTS.AUTH_STATE_CHANGED, {
-    isAuthorized: false
-  });
-}
+  updateVisibility(isAuthorized) {
+    Logger.info('Updating visibility for auth state:', isAuthorized);
+    
+    document.querySelectorAll('[state-visibility]').forEach(el => {
+      el.style.display = 'none';
+    });
 
-renderSessionHistory(sessions) {
-  const template = document.querySelector('[history-item="link-block"]');
-  if (!template) {
-    Logger.warn('Session history template not found');
-    return;
+    const selector = isAuthorized ? 
+      '[state-visibility="user-authorized"]' : 
+      '[state-visibility="free-user"]';
+    
+    document.querySelectorAll(selector).forEach(el => {
+      el.style.display = '';
+    });
   }
-
-  const container = template.parentElement;
-  template.style.display = 'none';
-
-  sessions.forEach(item => {
-    const clone = template.cloneNode(true);
-    clone.style.display = '';
-    
-    clone.href = `${clone.href}?id=${item.id}`;
-    
-    const previewEl = clone.querySelector('[history-item="preview-value"]');
-    if (previewEl) {
-      let previewText = 'Custom filter search';
-      if (item.method.selected === 'descriptive') {
-        previewText = item.method.description.value;
-      } else if (item.method.selected === 'patent') {
-        previewText = item.method.patent.title;
-      }
-      previewEl.textContent = previewText;
-    }
-    
-    const timestampEl = clone.querySelector('[history-item="timestamp"]');
-    if (timestampEl) {
-      const date = new Date(item.created_at);
-      timestampEl.textContent = date.toLocaleString('en-US', {
-        month: '2-digit',
-        day: '2-digit',
-        year: '2-digit',
-        hour: '2-digit',
-        minute: '2-digit'
-      });
-    }
-    
-    container.appendChild(clone);
-  });
-}
-
-updateVisibility(isAuthorized) {
-  document.querySelectorAll('[state-visibility]').forEach(el => {
-    el.style.display = 'none';
-  });
 
   const selector = isAuthorized ? 
     '[state-visibility="user-authorized"]' : 
