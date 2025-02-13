@@ -65,6 +65,11 @@ export default class SessionManager {
     const sessionId = urlParams.get('id');
 
     if (sessionId) {
+      // If auth isn't ready, store session ID for later
+      if (!this.isAuthReady) {
+        this.pendingSessionLoad = sessionId;
+        return false;
+      }
       try {
         await this.loadSession(sessionId);
         this.sessionId = sessionId;
@@ -97,7 +102,10 @@ export default class SessionManager {
           'X-Xano-Authorization-Only': 'true'
         },
         mode: 'cors',
-        body: JSON.stringify({ id: sessionId })
+        body: JSON.stringify({ 
+          id: sessionId,
+          dbo: { id: sessionId } // Add this line to fix the ParseError
+        })
       });
 
       if (!response.ok) {
@@ -108,11 +116,16 @@ export default class SessionManager {
 
       const sessionData = await response.json();
       
+      // Add validation for session data
+      if (!sessionData?.selections) {
+        throw new Error('Invalid session data format');
+      }
+      
       this.eventBus.emit(EventTypes.LOAD_SESSION, {
         ...sessionData.selections,
         search: {
           ...sessionData.selections.search,
-          ...sessionData.results
+          ...(sessionData.results || {})
         }
       });
 
@@ -122,7 +135,6 @@ export default class SessionManager {
       throw error;
     }
   }
-
   createNewSession() {
     this.sessionId = this.generateUniqueId();
     
