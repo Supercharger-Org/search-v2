@@ -1,19 +1,34 @@
 // authCheck.js
 import { AuthManager, AUTH_EVENTS } from './authManager.js';
 
-const auth = new AuthManager();
+// Create singleton instance
+export const authManager = new AuthManager();
 
-// Listen for auth state changes
-auth.eventBus.on(AUTH_EVENTS.AUTH_STATE_CHANGED, ({ isAuthorized }) => {
-  auth.updateVisibility(isAuthorized);
-});
+// Initialize auth state
+const initAuth = async () => {
+  try {
+    // Listen for auth state changes
+    authManager.eventBus.on(AUTH_EVENTS.AUTH_STATE_CHANGED, ({ isAuthorized }) => {
+      authManager.updateVisibility(isAuthorized);
+    });
+    
+    // Update free usage counter
+    authManager.eventBus.on(AUTH_EVENTS.FREE_USAGE_UPDATED, ({ searchesRemaining }) => {
+      const searchCountEl = document.querySelector('#free-search-number');
+      if (searchCountEl) {
+        searchCountEl.textContent = searchesRemaining.toString();
+      }
+    });
 
-auth.eventBus.on(AUTH_EVENTS.FREE_USAGE_UPDATED, ({ searchesRemaining }) => {
-  const searchCountEl = document.querySelector('#free-search-number');
-  if (searchCountEl) {
-    searchCountEl.innerHTML = searchesRemaining.toString();
+    // Initialize auth check
+    await authManager.checkAuthStatus();
+  } catch (error) {
+    console.error('Auth initialization failed:', error);
   }
-});
+};
 
-// Initialize auth check
-auth.checkAuthStatus();
+// Only initialize once
+if (!window.authInitialized) {
+  window.authInitialized = true;
+  initAuth();
+}
