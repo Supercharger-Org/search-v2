@@ -9,7 +9,7 @@ const SESSION_API = {
   SAVE: 'https://xobg-f2pu-pqfs.n7.xano.io/api:fr-l0x4x/dashboard/patent-search/session-save'
 };
 
-export default class SessionManager  {
+export default class SessionManager {
   constructor(eventBus) {
     this.eventBus = eventBus;
     this.saveTimeout = null;
@@ -19,7 +19,6 @@ export default class SessionManager  {
   }
 
   setupEventListeners() {
-    // Listen for any state changes that should trigger a session save
     const sessionUpdateEvents = [
       EventTypes.LIBRARY_SELECTED,
       EventTypes.METHOD_SELECTED,
@@ -47,7 +46,6 @@ export default class SessionManager  {
       });
     });
 
-    // Listen for first-time filter or keyword generation events
     const sessionCreationEvents = [
       EventTypes.FILTER_ADDED,
       EventTypes.KEYWORDS_GENERATE_COMPLETED
@@ -85,22 +83,31 @@ export default class SessionManager  {
 
   async loadSession(sessionId) {
     try {
+      const token = AuthManager.getUserAuthToken();
+      if (!token) {
+        throw new Error('No auth token available');
+      }
+
+      const cleanToken = token.replace(/^"(.*)"$/, '$1');
       const response = await fetch(SESSION_API.GET, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${this.getAuthToken()}`
+          'X-Xano-Authorization': `Bearer ${cleanToken}`,
+          'X-Xano-Authorization-Only': 'true'
         },
+        mode: 'cors',
         body: JSON.stringify({ id: sessionId })
       });
 
       if (!response.ok) {
+        const errorData = await response.json();
+        Logger.error('Session load failed:', errorData);
         throw new Error('Failed to fetch session data');
       }
 
       const sessionData = await response.json();
       
-      // Emit event with complete session data
       this.eventBus.emit(EventTypes.LOAD_SESSION, {
         ...sessionData.selections,
         search: {
@@ -119,15 +126,11 @@ export default class SessionManager  {
   createNewSession() {
     this.sessionId = this.generateUniqueId();
     
-    // Update URL without page reload
     const newUrl = new URL(window.location.href);
     newUrl.searchParams.set('id', this.sessionId);
     window.history.pushState({ sessionId: this.sessionId }, '', newUrl);
 
-    // Trigger immediate save
     this.saveSession();
-    
-    // Emit session created event
     this.eventBus.emit(EventTypes.SESSION_CREATED, { sessionId: this.sessionId });
   }
 
@@ -145,6 +148,12 @@ export default class SessionManager  {
     if (!this.sessionId) return;
 
     try {
+      const token = AuthManager.getUserAuthToken();
+      if (!token) {
+        throw new Error('No auth token available');
+      }
+
+      const cleanToken = token.replace(/^"(.*)"$/, '$1');
       const state = window.app.sessionState.get();
       const payload = {
         id: this.sessionId,
@@ -167,12 +176,16 @@ export default class SessionManager  {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${AuthManager.getUserAuthToken()}`
+          'X-Xano-Authorization': `Bearer ${cleanToken}`,
+          'X-Xano-Authorization-Only': 'true'
         },
+        mode: 'cors',
         body: JSON.stringify(payload)
       });
 
       if (!response.ok) {
+        const errorData = await response.json();
+        Logger.error('Session save failed:', errorData);
         throw new Error('Failed to save session');
       }
 
@@ -180,15 +193,6 @@ export default class SessionManager  {
     } catch (error) {
       Logger.error('Session save error:', error);
     }
-  }
-
-  getAuthToken() {
-    // Get auth token from cookie
-    const cookieName = 'auth_token';
-    const value = `; ${document.cookie}`;
-    const parts = value.split(`; ${cookieName}=`);
-    if (parts.length === 2) return parts.pop().split(';').shift();
-    return null;
   }
 
   generateUniqueId() {
