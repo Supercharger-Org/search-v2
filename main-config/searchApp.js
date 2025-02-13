@@ -29,29 +29,43 @@ class SearchApp {
 
   async initialize() {
     try {
-      // Check for existing session before initializing UI
+      Logger.info('Initializing SearchApp...');
+      
+      // Wait for auth to be ready before initializing session
+      await new Promise(resolve => {
+        if (this.sessionManager.isAuthReady) {
+          resolve();
+        } else {
+          this.eventBus.once('user_authorized', () => resolve());
+        }
+      });
+
+      Logger.info('Auth ready, checking for existing session...');
       const hasExistingSession = await this.sessionManager.initialize();
       
       if (!hasExistingSession) {
-        // Only initialize UI if no session was loaded
+        Logger.info('No existing session, initializing fresh UI');
         this.uiManager.initialize();
       } else {
-        // Initialize UI with loaded session data
+        Logger.info('Found existing session, initializing UI with session data');
         const state = this.sessionState.get();
-        this.uiManager.initialize(state); // Pass state to initialize
+        Logger.info('Current session state:', state);
+        this.uiManager.initialize(state);
       }
       
-      // Initialize other components that don't depend on session state
+      // Initialize other components
       this.assigneeSearchManager.init();
       this.valueSelectManager.init();
+      
     } catch (error) {
-      Logger.error('Initialization error:', error);
+      Logger.error('SearchApp initialization error:', error);
       // Fall back to normal initialization
       this.uiManager.initialize();
       this.assigneeSearchManager.init();
       this.valueSelectManager.init();
     }
   }
+
   
   updateFilter(filterName, updateFn) {
     const currentFilters = this.sessionState.get().filters;
