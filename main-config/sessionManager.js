@@ -67,6 +67,54 @@ export default class SessionManager {
     });
   }
 
+  async createNewSession() {
+  if (!this.isAuthReady) {
+    Logger.info("User is not authorized – cannot create session.");
+    return;
+  }
+  // Generate a new unique session id
+  this.sessionId = this.generateUniqueId();
+
+  // Update URL with the new session id (using key "id")
+  const newUrl = new URL(window.location.href);
+  newUrl.searchParams.set("id", this.sessionId);
+  window.history.pushState({ sessionId: this.sessionId }, "", newUrl);
+
+  Logger.info("Creating new session with uniqueID:", this.sessionId);
+
+  // Build payload using standardized keys
+  const state = window.app.sessionState.get();
+  const payload = {
+    uniqueID: this.sessionId,
+    selections: { ...state },
+    results: { results: state.search.results }
+  };
+
+  // Send PATCH request to the session-create endpoint
+  const token = AuthManager.getUserAuthToken();
+  const cleanToken = token ? token.replace(/^"(.*)"$/, "$1") : "";
+  const response = await fetch(SESSION_API.CREATE, {
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json",
+      "X-Xano-Authorization": `Bearer ${cleanToken}`,
+      "X-Xano-Authorization-Only": "true"
+    },
+    mode: "cors",
+    body: JSON.stringify(payload)
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json();
+    Logger.error("Session creation failed:", errorData);
+    throw new Error(errorData.message || "Failed to create session");
+  }
+
+  Logger.info("Session created successfully:", this.sessionId);
+  this.eventBus.emit(EventTypes.SESSION_CREATED, { sessionId: this.sessionId });
+}
+
+
   async checkAndLoadSession() {
     const urlParams = new URLSearchParams(window.location.search);
     const sessionId = urlParams.get('id');
