@@ -100,50 +100,51 @@ export default class SessionManager {
   }
 
   async loadSession(sessionId) {
-    try {
-      const token = AuthManager.getUserAuthToken();
-      if (!token) {
-        throw new Error('No auth token available');
-      }
-
-      const cleanToken = token.replace(/^"(.*)"$/, '$1');
-      const response = await fetch(SESSION_API.GET, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Xano-Authorization': `Bearer ${cleanToken}`,
-          'X-Xano-Authorization-Only': 'true'
-        },
-        mode: 'cors',
-        body: JSON.stringify({ id: sessionId })
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        Logger.error('Session load failed:', errorData);
-        throw new Error('Failed to fetch session data');
-      }
-
-      const sessionData = await response.json();
-      if (!sessionData?.selections) {
-        throw new Error('Invalid session data format');
-      }
-
-      // Emit load session event with the data
-      this.eventBus.emit(EventTypes.LOAD_SESSION, {
-        ...sessionData.selections,
-        search: {
-          ...sessionData.selections.search,
-          ...(sessionData.results || {})
-        }
-      });
-
-      return true;
-    } catch (error) {
-      Logger.error('Session load error:', error);
-      throw error;
+  try {
+    const token = AuthManager.getUserAuthToken();
+    if (!token) {
+      throw new Error('No auth token available');
     }
+
+    const cleanToken = token.replace(/^"(.*)"$/, '$1');
+    const response = await fetch(SESSION_API.GET, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Xano-Authorization': `Bearer ${cleanToken}`,
+        'X-Xano-Authorization-Only': 'true'
+      },
+      mode: 'cors',
+      body: JSON.stringify({ 
+        dbo: { id: sessionId }  // Changed to match API expectation
+      })
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      Logger.error('Session load failed:', errorData);
+      throw new Error('Failed to fetch session data');
+    }
+
+    const sessionData = await response.json();
+    if (!sessionData?.selections) {
+      throw new Error('Invalid session data format');
+    }
+
+    this.eventBus.emit(EventTypes.LOAD_SESSION, {
+      ...sessionData.selections,
+      search: {
+        ...sessionData.selections.search,
+        ...(sessionData.results || {})
+      }
+    });
+
+    return true;
+  } catch (error) {
+    Logger.error('Session load error:', error);
+    throw error;
   }
+}
   
   createNewSession() {
     this.sessionId = this.generateUniqueId();
