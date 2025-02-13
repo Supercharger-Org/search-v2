@@ -124,14 +124,19 @@ export class AuthManager {
 
 async getUserInfo(token) {
   try {
-    Logger.info('Getting user info with token:', token);
+    Logger.info('Getting user info with token');
+    
+    // Remove any quotes from the token if present
+    const cleanToken = token.replace(/^"(.*)"$/, '$1');
     
     const response = await fetch(AUTH_CONFIG.endpoints.getUserInfo, {
+      method: 'GET',
       headers: {
-        'Authorization': `Bearer ${token}`,
-        'X-Xano-Authorization': `Bearer ${token}`,
-        'X-Xano-Authorization-Only': 'true'
-      }
+        'Content-Type': 'application/json',
+        'X-Xano-Authorization': `Bearer ${cleanToken}`,
+        'X-Xano-Authorization-Only': 'true'  // This is crucial for Xano's alternative auth header
+      },
+      credentials: 'include'
     });
 
     Logger.info('Get user info response status:', response.status);
@@ -139,7 +144,16 @@ async getUserInfo(token) {
     if (!response.ok) {
       const errorData = await response.json();
       Logger.error('Get user info failed:', errorData);
-      throw new Error('Failed to get user info');
+      
+      if (response.status === 401) {
+        Logger.error('Authentication failed. Token structure:', {
+          originalToken: token,
+          cleanToken: cleanToken,
+          authHeader: `Bearer ${cleanToken}`
+        });
+      }
+      
+      throw new Error(`Failed to get user info: ${response.status}`);
     }
     
     const userData = await response.json();
@@ -149,41 +163,12 @@ async getUserInfo(token) {
     this.isAuthorized = true;
     
     this.eventBus.emit(AUTH_EVENTS.USER_INFO_LOADED, { user: this.userSession });
-    this.eventBus.emit(AUTH_EVENTS.USER_AUTHORIZED, { token });
+    this.eventBus.emit(AUTH_EVENTS.USER_AUTHORIZED, { token: cleanToken });
     this.eventBus.emit(AUTH_EVENTS.AUTH_STATE_CHANGED, { isAuthorized: true });
     
     return this.userSession;
   } catch (error) {
     Logger.error('Failed to get user info:', error);
-    throw error;
-  }
-}
-  async loadUserSessions(token) {
-  try {
-    Logger.info('Loading user sessions with token');
-    const response = await fetch(AUTH_CONFIG.endpoints.getUserSessions, {
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'X-Xano-Authorization': `Bearer ${token}`,
-        'X-Xano-Authorization-Only': 'true'
-      }
-    });
-
-    Logger.info('Load sessions response status:', response.status);
-    
-    if (!response.ok) {
-      const errorData = await response.json();
-      Logger.error('Load sessions failed:', errorData);
-      throw new Error('Failed to load sessions');
-    }
-    
-    const sessions = await response.json();
-    Logger.info('Sessions loaded successfully:', sessions.length);
-    
-    this.renderSessionHistory(sessions);
-    this.eventBus.emit(AUTH_EVENTS.SESSIONS_LOADED, { sessions });
-  } catch (error) {
-    Logger.error('Failed to load sessions:', error);
     throw error;
   }
 }
