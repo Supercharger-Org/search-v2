@@ -99,57 +99,93 @@ export default class SessionManager {
     return !!this.sessionId;
   }
 
-  async loadSession(sessionId) {
-    try {
-      const token = AuthManager.getUserAuthToken();
-      if (!token) {
-        throw new Error('No auth token available');
-      }
+  // In SessionManager
 
-      const cleanToken = token.replace(/^"(.*)"$/, '$1');
-      
-      const requestPayload = {
-        sessionId: sessionId
-      };
-
-      Logger.info('Loading session with payload:', requestPayload);
-
-      const response = await fetch(SESSION_API.GET, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Xano-Authorization': `Bearer ${cleanToken}`,
-          'X-Xano-Authorization-Only': 'true'
-        },
-        mode: 'cors',
-        body: JSON.stringify(requestPayload)
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        Logger.error('Session load failed:', errorData);
-        throw new Error(errorData.message || 'Failed to fetch session data');
-      }
-
-      const sessionData = await response.json();
-      if (!sessionData?.selections) {
-        throw new Error('Invalid session data format');
-      }
-
-      this.eventBus.emit(EventTypes.LOAD_SESSION, {
-        ...sessionData.selections,
-        search: {
-          ...sessionData.selections.search,
-          ...(sessionData.results || {})
-        }
-      });
-
-      return true;
-    } catch (error) {
-      Logger.error('Session load error:', error);
-      throw error;
+async loadSession(sessionId) {
+  try {
+    const token = AuthManager.getUserAuthToken();
+    if (!token) {
+      throw new Error('No auth token available');
     }
+
+    const cleanToken = token.replace(/^"(.*)"$/, '$1');
+    
+    // Request payload
+    const requestPayload = {
+      sessionId: sessionId
+    };
+
+    Logger.info('Loading session with payload:', requestPayload);
+
+    const response = await fetch(SESSION_API.GET, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Xano-Authorization': `Bearer ${cleanToken}`,
+        'X-Xano-Authorization-Only': 'true'
+      },
+      mode: 'cors',
+      body: JSON.stringify(requestPayload)
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      Logger.error('Session load failed:', errorData);
+      throw new Error(errorData.message || 'Failed to fetch session data');
+    }
+
+    const rawData = await response.text();
+    Logger.info('Raw session response:', rawData);
+    
+    let sessionData;
+    try {
+      sessionData = JSON.parse(rawData);
+      Logger.info('Parsed session data:', sessionData);
+    } catch (e) {
+      Logger.error('Failed to parse session data:', e);
+      throw new Error('Invalid JSON in session response');
+    }
+
+    // Handle different potential response formats
+    const selections = sessionData.selections || sessionData;
+    Logger.info('Extracted selections:', selections);
+
+    // Construct session state with defaults
+    const sessionState = {
+      library: selections.library || null,
+      method: {
+        selected: selections.method?.selected || null,
+        description: {
+          value: selections.method?.description?.value || "",
+          previousValue: selections.method?.description?.previousValue || null,
+          isValid: selections.method?.description?.isValid || false,
+          improved: selections.method?.description?.improved || false,
+          modificationSummary: selections.method?.description?.modificationSummary || null
+        },
+        patent: selections.method?.patent || null,
+        searchValue: selections.method?.searchValue || "",
+        validated: selections.method?.validated || false
+      },
+      filters: Array.isArray(selections.filters) ? selections.filters : [],
+      search: {
+        results: selections.search?.results || sessionData.results?.results || null,
+        current_page: selections.search?.current_page || 1,
+        total_pages: selections.search?.total_pages || 0,
+        active_item: selections.search?.active_item || null,
+        reload_required: selections.search?.reload_required || false,
+        items_per_page: selections.search?.items_per_page || 10
+      }
+    };
+
+    Logger.info('Emitting session state:', sessionState);
+    this.eventBus.emit(EventTypes.LOAD_SESSION, sessionState);
+
+    return true;
+  } catch (error) {
+    Logger.error('Session load error:', error);
+    throw error;
   }
+}
   
   createNewSession() {
     this.sessionId = this.generateUniqueId();
