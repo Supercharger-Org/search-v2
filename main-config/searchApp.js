@@ -34,23 +34,18 @@ class SearchApp {
     // Check for auth token.
     const authToken = this.authManager.getUserAuthToken();
     if (authToken) {
-      // Wait for USER_AUTHORIZED event.
-      await new Promise((resolve) => {
-        const authHandler = () => {
-          this.eventBus.off(EventTypes.USER_AUTHORIZED, authHandler);
-          resolve();
-        };
-        this.eventBus.on(EventTypes.USER_AUTHORIZED, authHandler);
-      });
+      Logger.info("Auth token found. Proceeding immediately.");
+      // Optionally, set isAuthReady to true if you want logged-in users to create sessions.
+      this.sessionManager.isAuthReady = true;
     } else {
       Logger.info("No auth token found – proceeding as free user");
-      // For free users, we mark auth as ready.
-      this.sessionManager.isAuthReady = false; // Prevent session creation!
-      // Also, initialize UI immediately.
+      // For free users, prevent session creation
+      this.sessionManager.isAuthReady = false;
+      // Initialize the UI immediately with no session data.
       this.uiManager.initialize();
     }
 
-    // Check for session id in URL.
+    // Check for session id in URL parameters.
     const urlParams = new URLSearchParams(window.location.search);
     const sessionId = urlParams.get("id");
 
@@ -58,30 +53,21 @@ class SearchApp {
       Logger.info("Session id found in URL, loading session...");
       await this.sessionManager.loadSession(sessionId);
       this.sessionManager.isInitialized = true;
-      // Now wait for the LOAD_SESSION event to update session state.
-      await new Promise(resolve => {
-        this.eventBus.on(EventTypes.LOAD_SESSION, () => {
-          resolve();
-        });
-      });
       const state = this.sessionState.get();
       Logger.info("Session State after load:", JSON.stringify(state, null, 2));
       this.uiManager.updateAll(state);
-      this.sessionState.setUIManager(this.uiManager);
-    this.assigneeSearchManager.init();
-    this.valueSelectManager.init();
     } else {
       Logger.info("No session id found – initializing fresh UI");
       this.uiManager.initialize();
-      this.sessionState.setUIManager(this.uiManager);
-    this.assigneeSearchManager.init();
-    this.valueSelectManager.init();
     }
 
-    // Set UI manager on sessionState for future updates.
+    // Ensure sessionState is connected to UI manager for subsequent updates.
     this.sessionState.setUIManager(this.uiManager);
+
+    // Initialize other managers.
     this.assigneeSearchManager.init();
     this.valueSelectManager.init();
+
     if (!this._listenersSet) {
       this.setupEventHandlers();
       this._listenersSet = true;
@@ -94,9 +80,6 @@ class SearchApp {
     this.valueSelectManager.init();
   }
 }
-
-
-
 
 
   updateFilter(filterName, updateFn) {
