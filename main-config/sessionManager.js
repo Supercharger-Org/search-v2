@@ -55,19 +55,20 @@ export default class SessionManager {
       });
     });
 
-    const sessionCreationEvents = [
-      EventTypes.FILTER_ADDED,
-      EventTypes.KEYWORDS_GENERATE_COMPLETED
-    ];
-
-    sessionCreationEvents.forEach(eventType => {
-      this.eventBus.on(eventType, () => {
-        if (!this.sessionId) {
-          this.createNewSession();
-        }
-      });
+      // In sessionManager.js, within setupEventListeners():
+  const sessionCreationEvents = [
+    EventTypes.FILTER_ADDED,
+    EventTypes.KEYWORDS_GENERATE_COMPLETED
+  ];
+  sessionCreationEvents.forEach(eventType => {
+    this.eventBus.on(eventType, () => {
+      // Only create a session if user is authorized (isAuthReady is true)
+      if (this.isAuthReady && !this.sessionId) {
+        this.createNewSession();
+      }
     });
-  }
+  });
+
 
   async checkAndLoadSession() {
     const urlParams = new URLSearchParams(window.location.search);
