@@ -296,6 +296,25 @@ async getUserInfo(token) {
     });
   }
 
+  getUserAuthToken() {
+    const token = this.getCookie(AUTH_CONFIG.cookies.auth);
+    if (!token) {
+      Logger.info('No auth token found in cookies');
+      return null;
+    }
+    return token.replace(/^"(.*)"$/, '$1'); // Clean the token
+  }
+
+  static getUserAuthToken() {
+    const value = `; ${document.cookie}`;
+    const parts = value.split(`; ${AUTH_CONFIG.cookies.auth}=`);
+    if (parts.length === 2) {
+      const token = parts.pop().split(';').shift();
+      return token ? token.replace(/^"(.*)"$/, '$1') : null;
+    }
+    return null;
+  }
+
   updateVisibility(isAuthorized) {
     Logger.info('Updating visibility for auth state:', isAuthorized);
     
