@@ -54,6 +54,7 @@ export default class SessionManager {
         }
       });
     });
+  }
 
       // In sessionManager.js, within setupEventListeners():
   const sessionCreationEvents = [
@@ -67,6 +68,7 @@ export default class SessionManager {
         this.createNewSession();
       }
     });
+  }
 
   async checkAndLoadSession() {
     const urlParams = new URLSearchParams(window.location.search);
