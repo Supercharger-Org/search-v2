@@ -269,9 +269,10 @@ export default class SessionState {
   }
 
   // In sessionState.js – Replace your load() method with:
+// In sessionState.js – update the load() method:
 load(sessionData) {
-  // Use sessionData.selections if available; otherwise fallback to sessionData.
-  const selections = sessionData.selections || sessionData;
+  // Use sessionData.selections (if present) for the selection data.
+  const selections = sessionData.selections || {};
   this.state = {
     library: selections.library || null,
     method: {
@@ -289,7 +290,7 @@ load(sessionData) {
     },
     filters: Array.isArray(selections.filters) ? selections.filters : [],
     search: {
-      // Always use the standardized key "results" for search result data.
+      // Always use the standardized key "results" from the raw session data.
       results: sessionData.results || null,
       current_page: selections.search?.current_page || 1,
       total_pages: selections.search?.total_pages || 0,
@@ -304,6 +305,7 @@ load(sessionData) {
     this.uiManager.updateAll(this.get());
   }
 }
+
 
 
 
