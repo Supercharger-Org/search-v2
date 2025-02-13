@@ -136,8 +136,10 @@ async getUserInfo(token) {
       headers: {
         'Content-Type': 'application/json',
         'X-Xano-Authorization': `Bearer ${cleanToken}`,
+        'X-Xano-Authorization-Only': 'true'
       },
-      credentials: 'include'
+      // Removed credentials: 'include' since it conflicts with CORS '*'
+      mode: 'cors' // Explicitly set CORS mode
     });
 
     Logger.info('Get user info response status:', response.status);
