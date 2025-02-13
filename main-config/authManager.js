@@ -224,8 +224,10 @@ async getUserInfo(token) {
     
     if (authToken) {
       try {
+        // Get user info first
         await this.getUserInfo(authToken);
-        // Only try to load sessions if getUserInfo succeeded
+        
+        // Only after user info is loaded, try to load sessions
         try {
           await this.loadUserSessions(authToken);
         } catch (sessionError) {
@@ -239,7 +241,7 @@ async getUserInfo(token) {
       this.handleFreeUser();
     }
   }
-
+  
   handleFreeUser() {
     let freeUserId = this.getCookie(AUTH_CONFIG.cookies.freeUser);
     let searchCount = parseInt(this.getCookie(AUTH_CONFIG.cookies.searchCount) || '0');
