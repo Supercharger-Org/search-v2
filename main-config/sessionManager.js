@@ -100,57 +100,56 @@ export default class SessionManager {
   }
 
   async loadSession(sessionId) {
-  try {
-    const token = AuthManager.getUserAuthToken();
-    if (!token) {
-      throw new Error('No auth token available');
-    }
-
-    const cleanToken = token.replace(/^"(.*)"$/, '$1');
-    
-    // Simplified request payload
-    const requestPayload = {
-      id: sessionId
-    };
-
-    Logger.info('Loading session with payload:', requestPayload);
-
-    const response = await fetch(SESSION_API.GET, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Xano-Authorization': `Bearer ${cleanToken}`,
-        'X-Xano-Authorization-Only': 'true'
-      },
-      mode: 'cors',
-      body: JSON.stringify(requestPayload)
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json();
-      Logger.error('Session load failed:', errorData);
-      throw new Error(errorData.message || 'Failed to fetch session data');
-    }
-
-    const sessionData = await response.json();
-    if (!sessionData?.selections) {
-      throw new Error('Invalid session data format');
-    }
-
-    this.eventBus.emit(EventTypes.LOAD_SESSION, {
-      ...sessionData.selections,
-      search: {
-        ...sessionData.selections.search,
-        ...(sessionData.results || {})
+    try {
+      const token = AuthManager.getUserAuthToken();
+      if (!token) {
+        throw new Error('No auth token available');
       }
-    });
 
-    return true;
-  } catch (error) {
-    Logger.error('Session load error:', error);
-    throw error;
+      const cleanToken = token.replace(/^"(.*)"$/, '$1');
+      
+      const requestPayload = {
+        sessionId: sessionId
+      };
+
+      Logger.info('Loading session with payload:', requestPayload);
+
+      const response = await fetch(SESSION_API.GET, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Xano-Authorization': `Bearer ${cleanToken}`,
+          'X-Xano-Authorization-Only': 'true'
+        },
+        mode: 'cors',
+        body: JSON.stringify(requestPayload)
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        Logger.error('Session load failed:', errorData);
+        throw new Error(errorData.message || 'Failed to fetch session data');
+      }
+
+      const sessionData = await response.json();
+      if (!sessionData?.selections) {
+        throw new Error('Invalid session data format');
+      }
+
+      this.eventBus.emit(EventTypes.LOAD_SESSION, {
+        ...sessionData.selections,
+        search: {
+          ...sessionData.selections.search,
+          ...(sessionData.results || {})
+        }
+      });
+
+      return true;
+    } catch (error) {
+      Logger.error('Session load error:', error);
+      throw error;
+    }
   }
-}
   
   createNewSession() {
     this.sessionId = this.generateUniqueId();
@@ -185,7 +184,7 @@ export default class SessionManager {
       const cleanToken = token.replace(/^"(.*)"$/, '$1');
       const state = window.app.sessionState.get();
       const payload = {
-        id: this.sessionId,
+        sessionId: this.sessionId,
         selections: {
           ...state,
           search: {
