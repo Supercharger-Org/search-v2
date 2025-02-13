@@ -168,12 +168,14 @@ async getUserInfo(token) {
       this.userSession = new UserSession(userData);
       this.isAuthorized = true;
       
-      // Emit events in specific order
-      this.eventBus.emit(AUTH_EVENTS.USER_INFO_LOADED, { user: this.userSession });
-      this.eventBus.emit(AUTH_EVENTS.USER_AUTHORIZED, { token: cleanToken });
-      this.eventBus.emit(AUTH_EVENTS.AUTH_STATE_CHANGED, { isAuthorized: true });
+      setTimeout(() => {
+        this.eventBus.emit(AUTH_EVENTS.USER_INFO_LOADED, { user: this.userSession });
+        this.eventBus.emit(AUTH_EVENTS.USER_AUTHORIZED, { token: cleanToken });
+        this.eventBus.emit(AUTH_EVENTS.AUTH_STATE_CHANGED, { isAuthorized: true });
+      }, 0);
       
       return this.userSession;
+      
     } catch (error) {
       Logger.error('Failed to get user info:', error);
       // Ensure we update visibility on failure too
