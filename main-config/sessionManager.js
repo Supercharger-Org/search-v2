@@ -110,7 +110,7 @@ export default class SessionManager {
     
     // Simplified request payload
     const requestPayload = {
-      field_value: sessionId
+      id: sessionId
     };
 
     Logger.info('Loading session with payload:', requestPayload);
