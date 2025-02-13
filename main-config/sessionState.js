@@ -268,9 +268,10 @@ export default class SessionState {
     }
   }
 
-  load(sessionData) {
-  // Use sessionData.selections (if present) for the selection data.
-  const selections = sessionData.selections || {};
+  // In sessionState.js – Replace your load() method with:
+load(sessionData) {
+  // Use sessionData.selections if available; otherwise fallback to sessionData.
+  const selections = sessionData.selections || sessionData;
   this.state = {
     library: selections.library || null,
     method: {
@@ -286,9 +287,9 @@ export default class SessionState {
       searchValue: selections.method?.searchValue || "",
       validated: selections.method?.validated || false,
     },
-    filters: Array.isArray(selections.filters) ? [...selections.filters] : [],
+    filters: Array.isArray(selections.filters) ? selections.filters : [],
     search: {
-      // Use the standardized key "results" from the raw session data.
+      // Always use the standardized key "results" for search result data.
       results: sessionData.results || null,
       current_page: selections.search?.current_page || 1,
       total_pages: selections.search?.total_pages || 0,
@@ -303,6 +304,7 @@ export default class SessionState {
     this.uiManager.updateAll(this.get());
   }
 }
+
 
 
   logSession() {
