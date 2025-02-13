@@ -269,32 +269,34 @@ export default class SessionState {
   }
 
   load(sessionData) {
-  const data = sessionData.selections || sessionData;
+  // Use sessionData.selections (if present) for the selection data.
+  const selections = sessionData.selections || {};
   this.state = {
-    uniqueID: sessionData.uniqueID || null,  // <-- New: store the uniqueID
-    library: data.library || null,
+    library: selections.library || null,
     method: {
-      selected: data.method?.selected || null,
+      selected: selections.method?.selected || null,
       description: {
-        value: data.method?.description?.value || "",
-        previousValue: data.method?.description?.previousValue || null,
-        isValid: data.method?.description?.isValid || false,
-        improved: data.method?.description?.improved || false,
-        modificationSummary: data.method?.description?.modificationSummary || null
+        value: selections.method?.description?.value || "",
+        previousValue: selections.method?.description?.previousValue || null,
+        isValid: selections.method?.description?.isValid || false,
+        improved: selections.method?.description?.improved || false,
+        modificationSummary: selections.method?.description?.modificationSummary || null,
       },
-      patent: data.method?.patent || null,
-      searchValue: data.method?.searchValue || "",
-      validated: data.method?.validated || false
+      patent: selections.method?.patent || null,
+      searchValue: selections.method?.searchValue || "",
+      validated: selections.method?.validated || false,
     },
-    filters: Array.isArray(data.filters) ? [...data.filters] : [],
+    filters: Array.isArray(selections.filters) ? [...selections.filters] : [],
     search: {
-      results: data.search?.results || null,
-      current_page: data.search?.current_page || 1,
-      total_pages: data.search?.total_pages || 0,
-      active_item: data.search?.active_item || null,
-      reload_required: data.search?.reload_required || false,
-      items_per_page: data.search?.items_per_page || 10
-    }
+      // Use the standardized key "results" from the raw session data.
+      results: sessionData.results || null,
+      current_page: selections.search?.current_page || 1,
+      total_pages: selections.search?.total_pages || 0,
+      active_item: selections.search?.active_item || null,
+      reload_required: selections.search?.reload_required || false,
+      items_per_page: selections.search?.items_per_page || 10,
+    },
+    uniqueID: sessionData.uniqueID || null,
   };
   Logger.log("SessionState loaded:", JSON.stringify(this.state, null, 2));
   if (this.uiManager) {
