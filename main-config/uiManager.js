@@ -380,6 +380,7 @@ export default class UIManager {
   }
 
   // In ui/uiManager.js – Replace your updateStepVisibility() method with:
+// In ui/uiManager.js – updateStepVisibility():
 updateStepVisibility(state) {
   const stepWrappers = document.querySelectorAll('.horizontal-slide_wrapper[step-name]');
   stepWrappers.forEach(wrapper => {
@@ -404,6 +405,7 @@ updateStepVisibility(state) {
     wrapper.style.display = (filterExists && isMethodValid) ? "block" : "none";
   });
 }
+
 
   updateFilterOptionsVisibility(state) {
     const optionsStep = document.querySelector('[step-name="options"]');
