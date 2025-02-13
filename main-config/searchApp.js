@@ -35,6 +35,10 @@ class SearchApp {
       if (!hasExistingSession) {
         // Only initialize UI if no session was loaded
         this.uiManager.initialize();
+      } else {
+        // Initialize UI with loaded session data
+        const state = this.sessionState.get();
+        this.uiManager.initialize(state); // Pass state to initialize
       }
       
       // Initialize other components that don't depend on session state
