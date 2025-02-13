@@ -28,45 +28,50 @@ class SearchApp {
   }
 
   async initialize() {
-    try {
-      Logger.info("Initializing SearchApp...");
-      const authToken = this.authManager.getUserAuthToken();
-      if (!authToken && !this.sessionManager.isAuthReady) {
-        await new Promise((resolve) => {
-          const authHandler = () => {
-            this.eventBus.off(EventTypes.USER_AUTHORIZED, authHandler);
-            resolve();
-          };
-          this.eventBus.on(EventTypes.USER_AUTHORIZED, authHandler);
-        });
-      }
-      const hasExistingSession = await this.sessionManager.initialize();
-      if (hasExistingSession) {
-        Logger.info("Found existing session, loading session data");
-        // The sessionManager will emit LOAD_SESSION event, which the sessionState listens to.
-        // Also, retrieve the state and update the UI.
-        const state = this.sessionState.get();
-        Logger.info("Session State after load:", JSON.stringify(state, null, 2));
-        // Force an update on UI using updateAll (which always updates)
-        this.uiManager.updateAll(state);
-      } else {
-        Logger.info("No existing session, initializing fresh UI");
-        this.uiManager.initialize();
-      }
-      this.sessionState.setUIManager(this.uiManager);
-      this.assigneeSearchManager.init();
-      this.valueSelectManager.init();
-      if (!this._listenersSet) {
-        this.setupEventHandlers();
-        this._listenersSet = true;
-      }
-    } catch (error) {
-      Logger.error("SearchApp initialization error:", error);
-      this.uiManager.initialize();
-      this.assigneeSearchManager.init();
-      this.valueSelectManager.init();
+  try {
+    Logger.info("Initializing SearchApp...");
+    const authToken = this.authManager.getUserAuthToken();
+    if (authToken) {
+      // If we have a token, you might wait for auth to be ready:
+      await new Promise((resolve) => {
+        const authHandler = () => {
+          this.eventBus.off(EventTypes.USER_AUTHORIZED, authHandler);
+          resolve();
+        };
+        this.eventBus.on(EventTypes.USER_AUTHORIZED, authHandler);
+      });
+    } else {
+      // If no auth token, log and proceed (free user mode)
+      Logger.info("No auth token found – proceeding as free user");
+      // Optionally, you can manually set isAuthReady to true here.
+      this.sessionManager.isAuthReady = true;
     }
+    
+    const hasExistingSession = await this.sessionManager.initialize();
+    if (hasExistingSession) {
+      Logger.info("Found existing session, loading session data");
+      const state = this.sessionState.get();
+      Logger.info("Session State after load:", JSON.stringify(state, null, 2));
+      this.uiManager.updateAll(state);
+    } else {
+      Logger.info("No existing session, initializing fresh UI");
+      this.uiManager.initialize();
+    }
+    this.sessionState.setUIManager(this.uiManager);
+    this.assigneeSearchManager.init();
+    this.valueSelectManager.init();
+    if (!this._listenersSet) {
+      this.setupEventHandlers();
+      this._listenersSet = true;
+    }
+  } catch (error) {
+    Logger.error("SearchApp initialization error:", error);
+    this.uiManager.initialize();
+    this.assigneeSearchManager.init();
+    this.valueSelectManager.init();
   }
+}
+
 
   updateFilter(filterName, updateFn) {
     const currentFilters = this.sessionState.get().filters;
