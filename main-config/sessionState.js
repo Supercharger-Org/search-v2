@@ -298,6 +298,7 @@ export default class SessionState {
   if (this.uiManager) {
     this.uiManager.updateAll(this.get());
   }
+  }
 
   logSession() {
     Logger.log("Current Session State:", JSON.stringify(this.state, null, 2));
