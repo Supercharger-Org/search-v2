@@ -128,13 +128,14 @@ async getUserInfo(token) {
     
     // Remove any quotes from the token if present
     const cleanToken = token.replace(/^"(.*)"$/, '$1');
+
+    Logger.info("Token:", token);
     
     const response = await fetch(AUTH_CONFIG.endpoints.getUserInfo, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
         'X-Xano-Authorization': `Bearer ${cleanToken}`,
-        'X-Xano-Authorization-Only': 'true'  // This is crucial for Xano's alternative auth header
       },
       credentials: 'include'
     });
