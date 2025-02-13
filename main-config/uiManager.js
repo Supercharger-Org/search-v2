@@ -9,19 +9,25 @@ export default class UIManager {
       classes: [".horizontal-slide_wrapper"],
       dataAttributes: ["[data-method-display]", "[data-state='search-reload']"]
     };
-    this._initialized = false;
+    this._uiInitialized = false; // one-time DOM setup flag
   }
 
-  // One-time initialization – sets initial UI state and restores selections if provided.
-  initialize(initialState = null) {
-    if (this._initialized) return;
-    this._initialized = true;
+  // One-time DOM setup
+  initUI() {
+    if (this._uiInitialized) return;
     this.setInitialUIState();
-    if (typeof this.initializeBasicElements === "function") {
-      this.initializeBasicElements();
-    }
+    this.setupEventListeners();
+    this.setupSearchEventListeners();
+    this.setupPatentSidebar();
+    this._uiInitialized = true;
+  }
+
+  // Called at first load (if no session) – but subsequent updates use updateDisplay/updateAll
+  initialize(initialState = null) {
+    this.initUI();
     if (initialState) {
       this.updateAll(initialState);
+      // Restore selections:
       if (initialState.method?.selected) {
         const methodRadio = document.querySelector(`input[name="method"][value="${initialState.method.selected}"]`);
         if (methodRadio) methodRadio.checked = true;
@@ -49,10 +55,10 @@ export default class UIManager {
       if (el) el.style.display = "none";
     });
     this.initialHideConfig.classes.forEach(selector => {
-      document.querySelectorAll(selector).forEach(el => el.style.display = "none");
+      document.querySelectorAll(selector).forEach(el => (el.style.display = "none"));
     });
     this.initialHideConfig.dataAttributes.forEach(selector => {
-      document.querySelectorAll(selector).forEach(el => el.style.display = "none");
+      document.querySelectorAll(selector).forEach(el => (el.style.display = "none"));
     });
     const libraryStep = document.querySelector('[step-name="library"]');
     if (libraryStep) {
@@ -69,12 +75,12 @@ export default class UIManager {
     sidebar.style.transition = 'transform 0.3s ease-out';
     const closeBtn = document.querySelector('#close-patent-sidebar');
     if (closeBtn) {
-      closeBtn.addEventListener('click', e => {
+      closeBtn.addEventListener('click', (e) => {
         e.preventDefault();
         this.eventBus.emit(EventTypes.SEARCH_ITEM_DESELECTED);
       });
     }
-    document.addEventListener('click', e => {
+    document.addEventListener('click', (e) => {
       if (sidebar.style.display !== 'none') {
         const isClickInside = sidebar.contains(e.target);
         const isClickOnResultRow = e.target.closest('[data-attribute="table_contentCell_wrapper"]');
@@ -88,7 +94,7 @@ export default class UIManager {
   setupSearchEventListeners() {
     const searchButton = document.querySelector('#run-search');
     if (searchButton) {
-      searchButton.addEventListener('click', e => {
+      searchButton.addEventListener('click', (e) => {
         e.preventDefault();
         searchButton.innerHTML = 'Searching...';
         searchButton.disabled = true;
@@ -107,6 +113,77 @@ export default class UIManager {
         this.eventBus.emit(EventTypes.SEARCH_PAGE_NEXT);
       });
     }
+  }
+
+  setupEventListeners() {
+    // Patent search, library/method selection, description input, filter option buttons, etc.
+    const patentInput = document.querySelector("#main-search-patent-input");
+    if (patentInput) {
+      patentInput.addEventListener("keypress", e => {
+        if (e.key === "Enter") {
+          this.eventBus.emit(EventTypes.PATENT_SEARCH_INITIATED, { value: e.target.value });
+        }
+      });
+    }
+    const patentButton = document.querySelector("#main-search-patent-button");
+    if (patentButton) {
+      patentButton.addEventListener("click", e => {
+        e.preventDefault();
+        const value = document.querySelector("#main-search-patent-input")?.value;
+        this.eventBus.emit(EventTypes.PATENT_SEARCH_INITIATED, { value });
+      });
+    }
+    document.querySelectorAll("[data-library-option]").forEach(el => {
+      el.addEventListener("click", e => {
+        e.preventDefault();
+        const library = e.target.closest("[data-library-option]").dataset.libraryOption;
+        this.eventBus.emit(EventTypes.LIBRARY_SELECTED, { value: library });
+      });
+    });
+    document.querySelectorAll("[data-method-option]").forEach(el => {
+      el.addEventListener("click", e => {
+        e.preventDefault();
+        const method = e.target.closest("[data-method-option]").dataset.methodOption;
+        this.eventBus.emit(EventTypes.METHOD_SELECTED, { value: method });
+      });
+    });
+    const descriptionInput = document.querySelector("#main-search-description");
+    if (descriptionInput) {
+      descriptionInput.addEventListener("input", e => {
+        const value = e.target.value;
+        const isValid = value.trim().length >= 10;
+        this.eventBus.emit(EventTypes.DESCRIPTION_UPDATED, { value, isValid });
+        const improveButton = document.querySelector("#validate-description");
+        if (improveButton) improveButton.style.display = isValid ? "flex" : "none";
+      });
+    }
+    const improveButton = document.querySelector("#validate-description");
+    if (improveButton) {
+      improveButton.textContent = "Improve Description";
+      improveButton.addEventListener("click", e => {
+        e.preventDefault();
+        this.eventBus.emit(EventTypes.DESCRIPTION_IMPROVED);
+      });
+    }
+    document.querySelectorAll('[data-filter-option]').forEach(button => {
+      button.addEventListener('click', e => {
+        e.preventDefault();
+        const filterName = button.getAttribute('data-filter-option');
+        this.eventBus.emit(EventTypes.FILTER_ADDED, { filterName });
+        setTimeout(() => {
+          const newStep = document.querySelector(`[step-name="${filterName}"]`)?.closest('.horizontal-slide_wrapper');
+          if (newStep) {
+            this.initializeNewStep(newStep);
+          }
+        }, 50);
+      });
+    });
+    this.setupKeywordsUI();
+    this.setupExcludedKeywordsUI();
+    this.setupCodesUI();
+    this.setupInventorsUI();
+    this.setupAssigneesUI();
+    this.setupDateUI();
   }
 
   updateLibraryColumns(library) {
@@ -316,7 +393,7 @@ export default class UIManager {
         return;
       }
       const filterExists = state.filters.some(filter => filter.name === stepName);
-      const isMethodValid = state.method?.selected === 'basic' || 
+      const isMethodValid = state.method?.selected === 'basic' ||
         (state.method?.selected === 'descriptive' && state.method?.description?.isValid) ||
         (state.method?.selected === 'patent' && state.method?.patent?.data);
       wrapper.style.display = (filterExists && isMethodValid) ? '' : 'none';
@@ -651,9 +728,7 @@ export default class UIManager {
       newGenButton.addEventListener("click", e => {
         e.preventDefault();
         const buttonLabel = newGenButton.querySelector('label');
-        if (buttonLabel) {
-          buttonLabel.textContent = "Generating additional keywords...";
-        }
+        if (buttonLabel) buttonLabel.textContent = "Generating additional keywords...";
         newGenButton.disabled = true;
         this.eventBus.emit(EventTypes.KEYWORDS_ADDITIONAL_GENERATE_INITIATED);
       });
@@ -794,80 +869,7 @@ export default class UIManager {
     }
   }
 
-  setupEventListeners() {
-    const patentInput = document.querySelector("#main-search-patent-input");
-    if (patentInput) {
-      patentInput.addEventListener("keypress", e => {
-        if (e.key === "Enter") {
-          this.eventBus.emit(EventTypes.PATENT_SEARCH_INITIATED, { value: e.target.value });
-        }
-      });
-    }
-    const patentButton = document.querySelector("#main-search-patent-button");
-    if (patentButton) {
-      patentButton.addEventListener("click", e => {
-        e.preventDefault();
-        const value = document.querySelector("#main-search-patent-input")?.value;
-        this.eventBus.emit(EventTypes.PATENT_SEARCH_INITIATED, { value });
-      });
-    }
-    document.querySelectorAll("[data-library-option]").forEach(el => {
-      el.addEventListener("click", e => {
-        e.preventDefault();
-        const library = e.target.closest("[data-library-option]").dataset.libraryOption;
-        this.eventBus.emit(EventTypes.LIBRARY_SELECTED, { value: library });
-      });
-    });
-    document.querySelectorAll("[data-method-option]").forEach(el => {
-      el.addEventListener("click", e => {
-        e.preventDefault();
-        const method = e.target.closest("[data-method-option]").dataset.methodOption;
-        this.eventBus.emit(EventTypes.METHOD_SELECTED, { value: method });
-      });
-    });
-    const descriptionInput = document.querySelector("#main-search-description");
-    if (descriptionInput) {
-      descriptionInput.addEventListener("input", e => {
-        const value = e.target.value;
-        const isValid = value.trim().length >= 10;
-        this.eventBus.emit(EventTypes.DESCRIPTION_UPDATED, { value, isValid });
-        const improveButton = document.querySelector("#validate-description");
-        if (improveButton) improveButton.style.display = isValid ? "flex" : "none";
-      });
-    }
-    const improveButton = document.querySelector("#validate-description");
-    if (improveButton) {
-      improveButton.textContent = "Improve Description";
-      improveButton.addEventListener("click", e => {
-        e.preventDefault();
-        this.eventBus.emit(EventTypes.DESCRIPTION_IMPROVED);
-      });
-    }
-    document.querySelectorAll('[data-filter-option]').forEach(button => {
-      button.addEventListener('click', e => {
-        e.preventDefault();
-        const filterName = button.getAttribute('data-filter-option');
-        this.eventBus.emit(EventTypes.FILTER_ADDED, { filterName });
-        setTimeout(() => {
-          const newStep = document.querySelector(`[step-name="${filterName}"]`)?.closest('.horizontal-slide_wrapper');
-          if (newStep) {
-            this.initializeNewStep(newStep);
-          }
-        }, 50);
-      });
-    });
-    this.setupKeywordsUI();
-    this.setupExcludedKeywordsUI();
-    this.setupCodesUI();
-    this.setupInventorsUI();
-    this.setupAssigneesUI();
-    this.setupDateUI();
-  }
-
   initialize() {
-    this.setInitialUIState();
-    this.setupEventListeners();
-    this.setupSearchEventListeners();
-    this.setupPatentSidebar();
+    this.initUI();
   }
 }
