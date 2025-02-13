@@ -188,14 +188,13 @@ async loadSession(sessionId) {
 }
   
   createNewSession() {
-    this.sessionId = this.generateUniqueId();
-    
-    const newUrl = new URL(window.location.href);
-    newUrl.searchParams.set('id', this.sessionId);
-    window.history.pushState({ sessionId: this.sessionId }, '', newUrl);
+   this.sessionId = this.generateUniqueId();
+  const newUrl = new URL(window.location.href);
+  newUrl.searchParams.set('uniqueID', this.sessionId);
+  window.history.pushState({ uniqueID: this.sessionId }, '', newUrl);
+  this.saveSession();
+  this.eventBus.emit(EventTypes.SESSION_CREATED, { uniqueID: this.sessionId });
 
-    this.saveSession();
-    this.eventBus.emit(EventTypes.SESSION_CREATED, { sessionId: this.sessionId });
   }
 
   scheduleSessionSave() {
@@ -220,21 +219,11 @@ async loadSession(sessionId) {
       const cleanToken = token.replace(/^"(.*)"$/, '$1');
       const state = window.app.sessionState.get();
       const payload = {
-        sessionId: this.sessionId,
-        selections: {
-          ...state,
-          search: {
-            current_page: state.search.current_page,
-            total_pages: state.search.total_pages,
-            active_item: state.search.active_item,
-            reload_required: state.search.reload_required,
-            items_per_page: state.search.items_per_page
-          }
-        },
-        results: {
-          results: state.search.results
-        }
-      };
+  uniqueID: this.sessionId,
+  selections: { ...state, search: { current_page: state.search.current_page, total_pages: state.search.total_pages, active_item: state.search.active_item, reload_required: state.search.reload_required, items_per_page: state.search.items_per_page } },
+  results: { results: state.search.results }
+};
+
 
       const response = await fetch(SESSION_API.SAVE, {
         method: 'PATCH',
