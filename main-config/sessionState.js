@@ -189,8 +189,8 @@ export default class SessionState {
           improved: false,
           modificationSummary: null
         },
-        patent: null, // Patent object placeholder
-        searchValue: "", // Description or patent abstract
+        patent: null,
+        searchValue: "",
         validated: false
       },
       filters: [],
@@ -204,98 +204,43 @@ export default class SessionState {
       }
     };
   }
-  
 
-    updateSearchState(updates) {
+  // Setter for UI manager
+  setUIManager(uiManager) {
+    this.uiManager = uiManager;
+  }
+
+  updateSearchState(updates) {
     this.state.search = {
       ...this.state.search,
       ...updates
     };
-    
-    // If results are being updated, update pagination
     if (updates.results) {
       const totalPages = Math.ceil(updates.results.length / this.state.search.items_per_page);
       this.state.search.total_pages = totalPages;
       this.state.search.current_page = updates.current_page || 1;
     }
-    
-    // Trigger UI update
     if (this.uiManager) {
       this.uiManager.updateAll(this.get());
     }
   }
 
-  // Get current page items
   getSearchPageItems() {
     if (!this.state.search.results) return [];
-    
     const start = (this.state.search.current_page - 1) * this.state.search.items_per_page;
     const end = start + this.state.search.items_per_page;
-    
     return this.state.search.results.slice(start, end);
   }
 
-  // Mark search as needing reload
   markSearchReloadRequired() {
-    this.updateSearchState({
-      reload_required: true
-    });
+    this.updateSearchState({ reload_required: true });
   }
 
-  // Get the entire state
   get() {
     return this.state;
   }
 
-  // Update specific path in state
-  update(path, value) {
-    const pathArray = path.split(".");
-    let current = this.state;
-    
-    for (let i = 0; i < pathArray.length - 1; i++) {
-      if (!(pathArray[i] in current)) {
-        current[pathArray[i]] = {};
-      }
-      current = current[pathArray[i]];
-    }
-    
-    current[pathArray[pathArray.length - 1]] = value;
-    
-    // Trigger UI update
-    if (this.uiManager) {
-      this.uiManager.updateAll(this.get());
-    }
-  }
-
-  getVisibleFields() {
-    const commonFields = [
-      'publication_number',
-      'title',
-      'abstract',
-      'inventors',
-      'assignee',
-      'grant_date'
-    ];
-
-    const patentSpecificFields = [
-      'claims',
-      'description',
-      'priority_date',
-      'filing_date',
-      'publication_date'
-    ];
-
-    const ttoSpecificFields = [
-      'status',
-      'patent_url',
-      'transfer_office_website'
-    ];
-
-    return this.state.library === 'patents' 
-      ? [...commonFields, ...patentSpecificFields]
-      : [...commonFields, ...ttoSpecificFields];
-  }
-
+  // Single update method
   update(path, value) {
     const parts = path.split(".");
     let current = this.state;
@@ -305,11 +250,9 @@ export default class SessionState {
     }
     current[parts[parts.length - 1]] = value;
     this.logSession();
-    this.uiManager.updateDisplay(this.state);
-    return this.state;
-  }
-
-  get() {
+    if (this.uiManager) {
+      this.uiManager.updateDisplay(this.state);
+    }
     return this.state;
   }
 
@@ -326,7 +269,6 @@ export default class SessionState {
   }
 
   load(sessionData) {
-    // Deep merge session data with current state
     this.state = {
       library: sessionData.library || null,
       method: {
@@ -352,8 +294,6 @@ export default class SessionState {
         items_per_page: sessionData.search?.items_per_page || 10
       }
     };
-
-    // Trigger UI update after loading session
     if (this.uiManager) {
       this.uiManager.updateAll(this.get());
     }
