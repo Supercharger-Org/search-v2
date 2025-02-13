@@ -386,7 +386,7 @@ updateStepVisibility(state) {
   stepWrappers.forEach(wrapper => {
     const stepName = wrapper.getAttribute('step-name');
     if (stepName === 'library') {
-      wrapper.style.display = "block"; // always show library step
+      wrapper.style.display = "block";
       return;
     }
     if (stepName === 'method') {
