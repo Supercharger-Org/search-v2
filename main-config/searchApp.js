@@ -32,13 +32,17 @@ class SearchApp {
       Logger.info('Initializing SearchApp...');
       
       // Wait for auth to be ready before initializing session
-      await new Promise(resolve => {
-        if (this.sessionManager.isAuthReady) {
-          resolve();
-        } else {
-          this.eventBus.once('user_authorized', () => resolve());
-        }
-      });
+      if (!this.sessionManager.isAuthReady) {
+        Logger.info('Waiting for auth to be ready...');
+        await new Promise(resolve => {
+          const authHandler = () => {
+            Logger.info('Auth ready event received');
+            this.eventBus.off('user_authorized', authHandler); // Clean up handler
+            resolve();
+          };
+          this.eventBus.on('user_authorized', authHandler);
+        });
+      }
 
       Logger.info('Auth ready, checking for existing session...');
       const hasExistingSession = await this.sessionManager.initialize();
@@ -65,7 +69,6 @@ class SearchApp {
       this.valueSelectManager.init();
     }
   }
-
   
   updateFilter(filterName, updateFn) {
     const currentFilters = this.sessionState.get().filters;
@@ -409,8 +412,21 @@ this.eventBus.on(EventTypes.CODE_ADDED, ({ code }) => {
     });
     
     // Other events.
+
+    // Add session state handling
     this.eventBus.on(EventTypes.LOAD_SESSION, sessionData => {
-      this.sessionState.load(sessionData);
+      Logger.info('Loading session data:', sessionData);
+      
+      if (!sessionData) {
+        Logger.error('Received empty session data');
+        return;
+      }
+      
+      try {
+        this.sessionState.load(sessionData);
+      } catch (error) {
+        Logger.error('Error loading session data:', error);
+      }
     });
     this.eventBus.on(EventTypes.LIBRARY_SELECTED, ({ value }) => {
       this.sessionState.update("library", value);
