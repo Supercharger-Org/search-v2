@@ -29,11 +29,26 @@ class SearchApp {
   this.setupEventHandlers();
 }
 
+  class SearchApp {
+  constructor() {
+    this.eventBus = new EventBus();
+    this.apiConfig = new APIConfig();
+    this.sessionManager = new SessionManager(this.eventBus);
+    this.uiManager = new UIManager(this.eventBus);
+    this.sessionState = new SessionState(this.uiManager);
+    this.apiService = new APIService(this.apiConfig);
+    this.assigneeSearchManager = new AssigneeSearchManager(this.eventBus, EventTypes);
+    this.valueSelectManager = new ValueSelectManager(this.eventBus);
+    this.sessionManager = new SessionManager(this.eventBus);
+    this.authManager = authManager;
+
+    window.app = this;
+    this.setupEventHandlers(); // Initial setup
+  }
+
   async initialize() {
     try {
       Logger.info('Initializing SearchApp...');
-
-      // Wait for auth to be ready
       const authToken = this.authManager.getUserAuthToken();
       if (!authToken && !this.sessionManager.isAuthReady) {
         await new Promise(resolve => {
@@ -45,10 +60,7 @@ class SearchApp {
         });
       }
 
-      // Initialize session manager first
       const hasExistingSession = await this.sessionManager.initialize();
-      
-      // Now initialize UI with proper state
       if (hasExistingSession) {
         Logger.info('Found existing session, initializing UI with session data');
         const state = this.sessionState.get();
@@ -58,19 +70,15 @@ class SearchApp {
         this.uiManager.initialize();
       }
 
-      // Set up session state connection to UI manager
+      // Set UI manager on session state (fixes error)
       this.sessionState.setUIManager(this.uiManager);
-      
-      // Initialize other components
+
       this.assigneeSearchManager.init();
       this.valueSelectManager.init();
-      
-      // Set up event handlers after everything is initialized
-      this.setupEventHandlers();
+      // Removed duplicate this.setupEventHandlers() here
 
     } catch (error) {
       Logger.error('SearchApp initialization error:', error);
-      // Fallback to basic initialization
       this.uiManager.initialize();
       this.assigneeSearchManager.init();
       this.valueSelectManager.init();
