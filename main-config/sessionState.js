@@ -276,7 +276,7 @@ load(sessionData) {
   this.state = {
     library: selections.library || null,
     method: {
-      selected: selections.method?.selected || null,
+      selected: selections.method?.selected.value || null,
       description: {
         value: selections.method?.description?.value || "",
         previousValue: selections.method?.description?.previousValue || null,
@@ -298,7 +298,7 @@ load(sessionData) {
       reload_required: selections.search?.reload_required || false,
       items_per_page: selections.search?.items_per_page || 10,
     },
-    uniqueID: sessionData.uniqueID || null,
+    uniqueID: sessionData.uniqueID.value || null,
   };
   Logger.log("SessionState loaded:", JSON.stringify(this.state, null, 2));
   if (this.uiManager) {
