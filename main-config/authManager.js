@@ -35,6 +35,11 @@ export class AuthManager {
     this.eventBus = new EventBus();
     this.userSession = null;
     this.isAuthorized = false;
+
+    // Listen for auth state changes and update visibility
+    this.eventBus.on(AUTH_EVENTS.AUTH_STATE_CHANGED, ({ isAuthorized }) => {
+      this.updateVisibility(isAuthorized);
+    });
   }
   async login(email, password) {
     try {
