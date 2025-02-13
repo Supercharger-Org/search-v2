@@ -13,6 +13,47 @@ export default class UIManager {
     };
   }
 
+   initialize(initialState = null) {
+    // Initialize basic UI elements
+    this.initializeBasicElements();
+    
+    if (initialState) {
+      // Update UI with loaded session state
+      this.updateAll(initialState);
+      
+      // Restore selected method
+      if (initialState.method?.selected) {
+        const methodRadio = document.querySelector(`input[name="method"][value="${initialState.method.selected}"]`);
+        if (methodRadio) {
+          methodRadio.checked = true;
+        }
+      }
+      
+      // Restore library selection
+      if (initialState.library) {
+        const librarySelect = document.querySelector(`select[name="library"]`);
+        if (librarySelect) {
+          librarySelect.value = initialState.library;
+        }
+      }
+      
+      // Initialize and open filters based on session data
+      if (Array.isArray(initialState.filters)) {
+        initialState.filters.forEach(filter => {
+          const filterStep = document.querySelector(`[step-name="${filter.name}"]`)
+            ?.closest('.horizontal-slide_wrapper');
+          if (filterStep) {
+            this.initializeNewStep(filterStep);
+            const trigger = filterStep.querySelector('[data-accordion="trigger"]');
+            if (trigger) {
+              this.toggleAccordion(trigger, true);
+            }
+          }
+        });
+      }
+    }
+  }
+
 setupPatentSidebar() {
   // Initial setup
   const sidebar = document.querySelector('#patent-table-sidebar');
