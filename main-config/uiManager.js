@@ -5,39 +5,30 @@ import { EventTypes } from "./eventTypes.js";
 export default class UIManager {
   constructor(eventBus) {
     this.eventBus = eventBus;
-    // Elements to hide on load.
     this.initialHideConfig = {
       ids: ["validate-description", "description-summary", "patent-loader", "patent-info-wrapper"],
       classes: [".horizontal-slide_wrapper"],
       dataAttributes: ["[data-method-display], [data-state='search-reload']"]
     };
+    this._initialized = false;
   }
 
-   initialize(initialState = null) {
-    // Initialize basic UI elements
-    this.initializeBasicElements();
-    
+  initialize(initialState = null) {
+    if (this._initialized) return;
+    this._initialized = true;
+    this.setInitialUIState();
+    this.initializeBasicElements && this.initializeBasicElements();
     if (initialState) {
-      // Update UI with loaded session state
       this.updateAll(initialState);
-      
-      // Restore selected method
+      // Restore selections, method radio, etc.
       if (initialState.method?.selected) {
         const methodRadio = document.querySelector(`input[name="method"][value="${initialState.method.selected}"]`);
-        if (methodRadio) {
-          methodRadio.checked = true;
-        }
+        if (methodRadio) methodRadio.checked = true;
       }
-      
-      // Restore library selection
       if (initialState.library) {
         const librarySelect = document.querySelector(`select[name="library"]`);
-        if (librarySelect) {
-          librarySelect.value = initialState.library;
-        }
+        if (librarySelect) librarySelect.value = initialState.library;
       }
-      
-      // Initialize and open filters based on session data
       if (Array.isArray(initialState.filters)) {
         initialState.filters.forEach(filter => {
           const filterStep = document.querySelector(`[step-name="${filter.name}"]`)
@@ -45,15 +36,30 @@ export default class UIManager {
           if (filterStep) {
             this.initializeNewStep(filterStep);
             const trigger = filterStep.querySelector('[data-accordion="trigger"]');
-            if (trigger) {
-              this.toggleAccordion(trigger, true);
-            }
+            if (trigger) this.toggleAccordion(trigger, true);
           }
         });
       }
     }
   }
 
+  setInitialUIState() {
+    this.initialHideConfig.ids.forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.style.display = "none";
+    });
+    this.initialHideConfig.classes.forEach(selector => {
+      document.querySelectorAll(selector).forEach(el => el.style.display = "none");
+    });
+    this.initialHideConfig.dataAttributes.forEach(selector => {
+      document.querySelectorAll(selector).forEach(el => el.style.display = "none");
+    });
+    const libraryStep = document.querySelector('[step-name="library"]');
+    if (libraryStep) {
+      const libraryWrapper = libraryStep.closest(".horizontal-slide_wrapper");
+      if (libraryWrapper) libraryWrapper.style.display = "";
+    }
+  }
 setupPatentSidebar() {
   // Initial setup
   const sidebar = document.querySelector('#patent-table-sidebar');
@@ -225,28 +231,6 @@ renderSearchResults(state) {
   if (prevBtn) prevBtn.disabled = (state.search?.current_page || 1) === 1;
   if (nextBtn) nextBtn.disabled = (state.search?.current_page || 1) === (state.search?.total_pages || 1);
 }
-
-  // Hide initial elements.
-  setInitialUIState() {
-    const { scrollX, scrollY } = window;
-    this.initialHideConfig.ids.forEach(id => {
-      const el = document.getElementById(id);
-      if (el) el.style.display = "none";
-    });
-    this.initialHideConfig.classes.forEach(selector => {
-      document.querySelectorAll(selector).forEach(el => (el.style.display = "none"));
-    });
-    this.initialHideConfig.dataAttributes.forEach(selector => {
-      document.querySelectorAll(selector).forEach(el => (el.style.display = "none"));
-    });
-    // Show the library step.
-    const libraryStep = document.querySelector('[step-name="library"]');
-    if (libraryStep) {
-      const libraryWrapper = libraryStep.closest(".horizontal-slide_wrapper");
-      if (libraryWrapper) libraryWrapper.style.display = "";
-    }
-    window.scrollTo(scrollX, scrollY);
-  }
 
   // Check if a filter already exists in the state.
   filterExists(filterName, state) {
