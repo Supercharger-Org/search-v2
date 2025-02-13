@@ -28,47 +28,52 @@ class SearchApp {
   }
 
   async initialize() {
-    try {
-      Logger.info('Initializing SearchApp...');
-      
-      // Wait for auth to be ready before initializing session
-      if (!this.sessionManager.isAuthReady) {
-        Logger.info('Waiting for auth to be ready...');
-        await new Promise(resolve => {
-          const authHandler = () => {
-            Logger.info('Auth ready event received');
-            this.eventBus.off('user_authorized', authHandler); // Clean up handler
-            resolve();
-          };
-          this.eventBus.on('user_authorized', authHandler);
-        });
-      }
-
-      Logger.info('Auth ready, checking for existing session...');
-      const hasExistingSession = await this.sessionManager.initialize();
-      
-      if (!hasExistingSession) {
-        Logger.info('No existing session, initializing fresh UI');
-        this.uiManager.initialize();
-      } else {
-        Logger.info('Found existing session, initializing UI with session data');
-        const state = this.sessionState.get();
-        Logger.info('Current session state:', state);
-        this.uiManager.initialize(state);
-      }
-      
-      // Initialize other components
-      this.assigneeSearchManager.init();
-      this.valueSelectManager.init();
-      
-    } catch (error) {
-      Logger.error('SearchApp initialization error:', error);
-      // Fall back to normal initialization
-      this.uiManager.initialize();
-      this.assigneeSearchManager.init();
-      this.valueSelectManager.init();
+  try {
+    Logger.info('Initializing SearchApp...');
+    
+    // First check if we already have an auth token
+    const hasToken = AuthManager.getUserAuthToken();
+    
+    if (hasToken) {
+      Logger.info('Auth token found, proceeding with initialization');
+      this.sessionManager.isAuthReady = true;
+    } else if (!this.sessionManager.isAuthReady) {
+      Logger.info('Waiting for auth to be ready...');
+      await new Promise(resolve => {
+        const authHandler = () => {
+          Logger.info('Auth ready event received');
+          this.eventBus.off('user_authorized', authHandler);
+          resolve();
+        };
+        this.eventBus.on('user_authorized', authHandler);
+      });
     }
+
+    Logger.info('Auth ready, checking for existing session...');
+    const hasExistingSession = await this.sessionManager.initialize();
+    
+    if (!hasExistingSession) {
+      Logger.info('No existing session, initializing fresh UI');
+      this.uiManager.initialize();
+    } else {
+      Logger.info('Found existing session, initializing UI with session data');
+      const state = this.sessionState.get();
+      Logger.info('Current session state:', state);
+      this.uiManager.initialize(state);
+    }
+    
+    // Initialize other components
+    this.assigneeSearchManager.init();
+    this.valueSelectManager.init();
+    
+  } catch (error) {
+    Logger.error('SearchApp initialization error:', error);
+    // Fall back to normal initialization
+    this.uiManager.initialize();
+    this.assigneeSearchManager.init();
+    this.valueSelectManager.init();
   }
+}
   
   updateFilter(filterName, updateFn) {
     const currentFilters = this.sessionState.get().filters;
