@@ -268,43 +268,52 @@ async getUserInfo(token) {
   }
 
   renderSessionHistory(sessions) {
-    const template = document.querySelector('[history-item="link-block"]');
-    if (!template) {
-      Logger.warn('Session history template not found');
+  const template = document.querySelector('[history-item="link-block"]');
+  if (!template) {
+    Logger.warn('Session history template not found');
+    return;
+  }
+
+  const container = template.parentElement;
+  template.style.display = 'none';
+
+  sessions.forEach(item => {
+    // Skip if item is invalid
+    if (!item || !item.id) {
+      Logger.warn('Invalid session item:', item);
       return;
     }
 
-    const container = template.parentElement;
-    template.style.display = 'none';
-
-    sessions.forEach(item => {
-      const clone = template.cloneNode(true);
-      clone.style.display = '';
+    const clone = template.cloneNode(true);
+    clone.style.display = '';
+    
+    clone.href = `${clone.href}?id=${item.id}`;
+    
+    const previewEl = clone.querySelector('[history-item="preview-value"]');
+    if (previewEl) {
+      let previewText = 'Custom filter search';
       
-      clone.href = `${clone.href}?id=${item.id}`;
-      
-      const previewEl = clone.querySelector('[history-item="preview-value"]');
-      if (previewEl) {
-        let previewText = 'Custom filter search';
-        if (item.method.selected === 'descriptive') {
-          previewText = item.method.description.value;
-        } else if (item.method.selected === 'patent') {
-          previewText = item.method.patent.title;
-        }
-        previewEl.textContent = previewText;
+      // Safely access nested properties
+      if (item.selections?.method?.selected === 'descriptive' && item.selections?.method?.description?.value) {
+        previewText = item.selections.method.description.value;
+      } else if (item.selections?.method?.selected === 'patent' && item.selections?.method?.patent?.title) {
+        previewText = item.selections.method.patent.title;
       }
       
-      const timestampEl = clone.querySelector('[history-item="timestamp"]');
-      if (timestampEl) {
-        const date = new Date(item.created_at);
-        timestampEl.textContent = date.toLocaleString('en-US', {
-          month: '2-digit',
-          day: '2-digit',
-          year: '2-digit',
-          hour: '2-digit',
-          minute: '2-digit'
-        });
-      }
+      previewEl.textContent = previewText;
+    }
+    
+    const timestampEl = clone.querySelector('[history-item="timestamp"]');
+    if (timestampEl && item.created_at) {
+      const date = new Date(item.created_at);
+      timestampEl.textContent = date.toLocaleString('en-US', {
+        month: '2-digit',
+        day: '2-digit',
+        year: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+    }
       
       container.appendChild(clone);
     });
