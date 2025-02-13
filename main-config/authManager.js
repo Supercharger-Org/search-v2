@@ -287,7 +287,7 @@ async getUserInfo(token) {
     const clone = template.cloneNode(true);
     clone.style.display = '';
     
-    clone.href = `${clone.href}?id=${item.id}`;
+    clone.href = `${clone.href}?id=${item.uniqueID}`;
     
     const previewEl = clone.querySelector('[history-item="preview-value"]');
     if (previewEl) {
