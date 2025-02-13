@@ -9,6 +9,7 @@ import SessionState from "./sessionState.js";
 import AssigneeSearchManager from "./assignee-search-manager.js";
 import ValueSelectManager from "./value-select-manager.js";
 import SessionManager from './sessionManager.js';
+import authManager from './authManager.js';
 
 class SearchApp {
   constructor() {
