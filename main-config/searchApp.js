@@ -10,6 +10,8 @@ import ValueSelectManager from "./value-select-manager.js";
 import SessionManager from './sessionManager.js';
 import { authManager } from './authCheck.js';
 
+console.log("updated new version init");
+
 class SearchApp {
   constructor() {
     this.eventBus = new EventBus();
