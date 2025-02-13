@@ -31,10 +31,10 @@ class SearchApp {
   try {
     Logger.info("Initializing SearchApp...");
 
-    // Get auth token regardless
+    // Check for auth token.
     const authToken = this.authManager.getUserAuthToken();
     if (authToken) {
-      // Wait for USER_AUTHORIZED event if needed
+      // Wait for USER_AUTHORIZED event.
       await new Promise((resolve) => {
         const authHandler = () => {
           this.eventBus.off(EventTypes.USER_AUTHORIZED, authHandler);
@@ -44,57 +44,38 @@ class SearchApp {
       });
     } else {
       Logger.info("No auth token found – proceeding as free user");
-      // Mark auth as ready for free users
-      this.sessionManager.isAuthReady = true;
+      // For free users, we mark auth as ready.
+      this.sessionManager.isAuthReady = false; // Prevent session creation!
+      // Also, initialize UI immediately.
+      this.uiManager.initialize();
     }
 
-    // Check for session id in URL parameters
+    // Check for session id in URL.
     const urlParams = new URLSearchParams(window.location.search);
     const sessionId = urlParams.get("id");
 
     if (sessionId) {
-      // If an id exists, load the session and update the UI accordingly
       Logger.info("Session id found in URL, loading session...");
       await this.sessionManager.loadSession(sessionId);
       this.sessionManager.isInitialized = true;
+      // Now wait for the LOAD_SESSION event to update session state.
+      await new Promise(resolve => {
+        this.eventBus.on(EventTypes.LOAD_SESSION, () => {
+          resolve();
+        });
+      });
       const state = this.sessionState.get();
       Logger.info("Session State after load:", JSON.stringify(state, null, 2));
       this.uiManager.updateAll(state);
-      // Set UI manager on sessionState so updates occur
-    this.sessionState.setUIManager(this.uiManager);
-
-    // Initialize other managers
-    this.assigneeSearchManager.init();
-    this.valueSelectManager.init();
-
-    if (!this._listenersSet) {
-      this.setupEventHandlers();
-      this._listenersSet = true;
-    }
     } else {
-      // Otherwise, initialize the UI with no session data
       Logger.info("No session id found – initializing fresh UI");
       this.uiManager.initialize();
-      // Set UI manager on sessionState so updates occur
-    this.sessionState.setUIManager(this.uiManager);
-
-    // Initialize other managers
-    this.assigneeSearchManager.init();
-    this.valueSelectManager.init();
-
-    if (!this._listenersSet) {
-      this.setupEventHandlers();
-      this._listenersSet = true;
-    }
     }
 
-    // Set UI manager on sessionState so updates occur
+    // Set UI manager on sessionState for future updates.
     this.sessionState.setUIManager(this.uiManager);
-
-    // Initialize other managers
     this.assigneeSearchManager.init();
     this.valueSelectManager.init();
-
     if (!this._listenersSet) {
       this.setupEventHandlers();
       this._listenersSet = true;
@@ -107,6 +88,7 @@ class SearchApp {
     this.valueSelectManager.init();
   }
 }
+
 
 
 
