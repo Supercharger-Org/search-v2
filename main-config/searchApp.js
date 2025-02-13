@@ -13,24 +13,6 @@ import { authManager } from './authCheck.js';
 
 class SearchApp {
   constructor() {
-  this.eventBus = new EventBus();
-  this.apiConfig = new APIConfig();
-  this.sessionManager = new SessionManager(this.eventBus);
-  this.uiManager = new UIManager(this.eventBus);
-  this.sessionState = new SessionState(this.uiManager);
-  this.apiService = new APIService(this.apiConfig);
-  this.assigneeSearchManager = new AssigneeSearchManager(this.eventBus, EventTypes);
-  this.valueSelectManager = new ValueSelectManager(this.eventBus);
-  
-  // Use the singleton auth manager
-  this.authManager = authManager;
-  
-  window.app = this;
-  this.setupEventHandlers();
-}
-
-  class SearchApp {
-  constructor() {
     this.eventBus = new EventBus();
     this.apiConfig = new APIConfig();
     this.sessionManager = new SessionManager(this.eventBus);
@@ -39,16 +21,16 @@ class SearchApp {
     this.apiService = new APIService(this.apiConfig);
     this.assigneeSearchManager = new AssigneeSearchManager(this.eventBus, EventTypes);
     this.valueSelectManager = new ValueSelectManager(this.eventBus);
-    this.sessionManager = new SessionManager(this.eventBus);
     this.authManager = authManager;
-
     window.app = this;
-    this.setupEventHandlers(); // Initial setup
+    // Removed duplicate call to setupEventHandlers() from here.
   }
 
   async initialize() {
     try {
       Logger.info('Initializing SearchApp...');
+
+      // Wait for auth readiness if needed.
       const authToken = this.authManager.getUserAuthToken();
       if (!authToken && !this.sessionManager.isAuthReady) {
         await new Promise(resolve => {
@@ -60,22 +42,26 @@ class SearchApp {
         });
       }
 
+      // Initialize session manager and check for existing session.
       const hasExistingSession = await this.sessionManager.initialize();
       if (hasExistingSession) {
-        Logger.info('Found existing session, initializing UI with session data');
+        Logger.info('Found existing session, loading session data');
         const state = this.sessionState.get();
+        // Initialize UI with session state.
         this.uiManager.initialize(state);
       } else {
         Logger.info('No existing session, initializing fresh UI');
         this.uiManager.initialize();
       }
 
-      // Set UI manager on session state (fixes error)
+      // Set UIManager on sessionState for later updates.
       this.sessionState.setUIManager(this.uiManager);
 
       this.assigneeSearchManager.init();
       this.valueSelectManager.init();
-      // Removed duplicate this.setupEventHandlers() here
+
+      // Set up event listeners only once.
+      this.setupEventHandlers();
 
     } catch (error) {
       Logger.error('SearchApp initialization error:', error);
@@ -84,7 +70,6 @@ class SearchApp {
       this.valueSelectManager.init();
     }
   }
-  
   updateFilter(filterName, updateFn) {
     const currentFilters = this.sessionState.get().filters;
     let filter = currentFilters.find(f => f.name === filterName);
