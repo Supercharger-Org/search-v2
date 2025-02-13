@@ -67,8 +67,6 @@ export default class SessionManager {
         this.createNewSession();
       }
     });
-  });
-
 
   async checkAndLoadSession() {
     const urlParams = new URLSearchParams(window.location.search);
