@@ -243,6 +243,35 @@ export default class UIManager {
     return state.filters && state.filters.some(f => f.name === filterName);
   }
 
+  setupFilterOptionListeners() {
+    // Filter options
+    document.querySelectorAll('[data-filter-option]').forEach(button => {
+      button.addEventListener('click', e => {
+        e.preventDefault();
+        const filterName = button.getAttribute('data-filter-option');
+        this.eventBus.emit(EventTypes.FILTER_ADDED, { filterName });
+        
+        // Initialize new step after filter is added
+        setTimeout(() => {
+          const newStep = document.querySelector(`[step-name="${filterName}"]`)
+            ?.closest('.horizontal-slide_wrapper');
+          if (newStep) {
+            this.initializeNewStep(newStep);
+          }
+        }, 50);
+      });
+    });
+  }
+
+  setupFilterUIs() {
+    this.setupKeywordsUI();
+    this.setupExcludedKeywordsUI();
+    this.setupCodesUI();
+    this.setupInventorsUI();
+    this.setupAssigneesUI();
+    this.setupDateUI();
+  }
+
   shouldShowKeywordsButton(state) {
     if (!state.method?.selected) return false;
     
