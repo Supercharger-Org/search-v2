@@ -1,4 +1,3 @@
-// sessionState.js
 import { Logger } from "./logger.js";
 
 class SearchInputGenerator {
@@ -13,7 +12,7 @@ class SearchInputGenerator {
       filters: {}
     };
 
-    // Add mainSearchValue based on method, with safe access
+    // Add mainSearchValue based on method
     if (state?.method?.selected !== 'basic') {
       const query = this.getMainSearchValue(state);
       if (query) {
@@ -21,7 +20,7 @@ class SearchInputGenerator {
       }
     }
 
-    // Safely process filters based on library
+    // Process filters based on library
     if (state?.filters?.length) {
       if (state.library === 'patents') {
         this.processPatentsFilters(searchInput, state.filters);
@@ -30,6 +29,7 @@ class SearchInputGenerator {
       }
     }
 
+    Logger.info('Generated search input:', searchInput);
     return searchInput;
   }
 
@@ -60,13 +60,13 @@ class SearchInputGenerator {
 
       switch (filter.name) {
         case 'keywords-include':
-          if (filter.value) {
+          if (Array.isArray(filter.value)) {
             searchInput.filters.mainKeywords = filter.value;
           }
           break;
           
         case 'keywords-exclude':
-          if (filter.value) {
+          if (Array.isArray(filter.value)) {
             searchInput.filters.excludeKeywords = filter.value;
           }
           break;
@@ -91,7 +91,7 @@ class SearchInputGenerator {
           
         case 'date':
           if (filter.value) {
-            const datePrefix = filter.type?.split('*')[0] || 'priority'; // Default to priority if type is undefined
+            const datePrefix = filter.type?.split('*')[0] || 'priority';
             if (filter.value.date_from) {
               searchInput.filters[`${datePrefix}DateFrom`] = filter.value.date_from;
             }
@@ -112,13 +112,13 @@ class SearchInputGenerator {
 
       switch (filter.name) {
         case 'keywords-include':
-          if (filter.value) {
+          if (Array.isArray(filter.value)) {
             searchInput.filters.mainKeywords = filter.value;
           }
           break;
           
         case 'keywords-exclude':
-          if (filter.value) {
+          if (Array.isArray(filter.value)) {
             searchInput.filters.excludeKeywords = filter.value;
           }
           break;
@@ -131,7 +131,7 @@ class SearchInputGenerator {
           
         case 'assignee':
           if (Array.isArray(filter.value) && filter.value.length) {
-            searchInput.filters.universityName = filter.value[0]; // Only use first value for TTO
+            searchInput.filters.universityName = filter.value[0];
           }
           break;
           
@@ -152,7 +152,6 @@ class SearchInputGenerator {
   validate() {
     const state = this.sessionState.get();
     
-    // Check required fields with safe access
     if (!state?.library) {
       throw new Error('Library selection is required');
     }
@@ -161,7 +160,6 @@ class SearchInputGenerator {
       throw new Error('Invalid library selection');
     }
 
-    // Method-specific validation with safe access
     if (state?.method?.selected === 'patent' && !this.getMainSearchValue(state)) {
       throw new Error('Patent data is required for patent search method');
     }
@@ -178,6 +176,10 @@ export default class SessionState {
   constructor(uiManager) {
     this.uiManager = uiManager;
     this.searchInputGenerator = new SearchInputGenerator(this);
+    this.initializeState();
+  }
+
+  initializeState() {
     this.state = {
       library: null,
       method: {
@@ -205,7 +207,6 @@ export default class SessionState {
     };
   }
 
-  // Setter for UI manager
   setUIManager(uiManager) {
     this.uiManager = uiManager;
   }
@@ -215,14 +216,14 @@ export default class SessionState {
       ...this.state.search,
       ...updates
     };
+
     if (updates.results) {
       const totalPages = Math.ceil(updates.results.length / this.state.search.items_per_page);
       this.state.search.total_pages = totalPages;
       this.state.search.current_page = updates.current_page || 1;
     }
-    if (this.uiManager) {
-      this.uiManager.updateAll(this.get());
-    }
+
+    this.notifyStateUpdate();
   }
 
   getSearchPageItems() {
@@ -240,76 +241,79 @@ export default class SessionState {
     return this.state;
   }
 
-  // Single update method
   update(path, value) {
     const parts = path.split(".");
     let current = this.state;
+    
     for (let i = 0; i < parts.length - 1; i++) {
-      if (!(parts[i] in current)) current[parts[i]] = {};
+      if (!(parts[i] in current)) {
+        current[parts[i]] = {};
+      }
       current = current[parts[i]];
     }
+    
     current[parts[parts.length - 1]] = value;
-    this.logSession();
+    this.notifyStateUpdate();
+    return this.state;
+  }
+
+  notifyStateUpdate() {
+    Logger.info('State updated:', JSON.stringify(this.state, null, 2));
     if (this.uiManager) {
       this.uiManager.updateDisplay(this.state);
     }
-    return this.state;
   }
 
   generateSearchInput() {
     try {
       this.searchInputGenerator.validate();
-      const searchInput = this.searchInputGenerator.generateSearchInput();
-      Logger.log("Generated Search Input:", JSON.stringify(searchInput, null, 2));
-      return searchInput;
+      return this.searchInputGenerator.generateSearchInput();
     } catch (error) {
       Logger.error("Search Input Generation Error:", error.message);
       throw error;
     }
   }
 
-  // In sessionState.js – Replace your load() method with:
-// In sessionState.js – update the load() method:
-load(sessionData) {
-  // Use sessionData.selections (if present) for the selection data.
-  const selections = sessionData.selections || {};
-  this.state = {
-    library: selections.library || null,
-    method: {
-      selected: selections.method?.selected.value || null,
-      description: {
-        value: selections.method?.description?.value || "",
-        previousValue: selections.method?.description?.previousValue || null,
-        isValid: selections.method?.description?.isValid || false,
-        improved: selections.method?.description?.improved || false,
-        modificationSummary: selections.method?.description?.modificationSummary || null,
-      },
-      patent: selections.method?.patent || null,
-      searchValue: selections.method?.searchValue || "",
-      validated: selections.method?.validated || false,
-    },
-    filters: Array.isArray(selections.filters) ? selections.filters : [],
-    search: {
-      // Always use the standardized key "results" from the raw session data.
-      results: sessionData.results || null,
-      current_page: selections.search?.current_page || 1,
-      total_pages: selections.search?.total_pages || 0,
-      active_item: selections.search?.active_item || null,
-      reload_required: selections.search?.reload_required || false,
-      items_per_page: selections.search?.items_per_page || 10,
-    },
-    uniqueID: sessionData.uniqueID.value || null,
-  };
-  Logger.log("SessionState loaded:", JSON.stringify(this.state, null, 2));
-  if (this.uiManager) {
-    this.uiManager.updateAll(this.get());
-  }
-}
+  load(sessionData) {
+    try {
+      Logger.info('Loading session data:', sessionData);
+      
+      // Extract selections data
+      const selections = sessionData.selections || {};
+      
+      // Build normalized state
+      this.state = {
+        library: selections.library || null,
+        method: {
+          selected: selections.method?.selected || null,
+          description: {
+            value: selections.method?.description?.value || "",
+            previousValue: selections.method?.description?.previousValue || null,
+            isValid: selections.method?.description?.isValid || false,
+            improved: selections.method?.description?.improved || false,
+            modificationSummary: selections.method?.description?.modificationSummary || null
+          },
+          patent: selections.method?.patent || null,
+          searchValue: selections.method?.searchValue || "",
+          validated: selections.method?.validated || false
+        },
+        filters: Array.isArray(selections.filters) ? selections.filters : [],
+        search: {
+          results: sessionData.results || [],
+          current_page: selections.search?.current_page || 1,
+          total_pages: selections.search?.total_pages || 0,
+          active_item: selections.search?.active_item || null,
+          reload_required: false,
+          items_per_page: selections.search?.items_per_page || 10
+        }
+      };
 
-
-
-
-  logSession() {
-    Logger.log("Current Session State:", JSON.stringify(this.state, null, 2));
+      Logger.info('Session state loaded:', JSON.stringify(this.state, null, 2));
+      this.notifyStateUpdate();
+      
+    } catch (error) {
+      Logger.error('Error loading session state:', error);
+      throw error;
+    }
   }
 }
