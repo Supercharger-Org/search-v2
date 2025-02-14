@@ -345,38 +345,44 @@ isAccordionManaged(element) {
   toggleAccordion(trigger, forceOpen = false) {
     const content = trigger.nextElementSibling;
     const icon = trigger.querySelector('[data-accordion="icon"]');
-    
+
     if (!content?.matches('[data-accordion="content"]')) return;
 
     content.style.transition = 'height 0.3s cubic-bezier(0.4, 0, 0.2, 1)';
     content.style.overflow = 'hidden';
-    
+
     const shouldOpen = forceOpen || !trigger._isOpen;
-    
+
     if (shouldOpen) {
-      content.style.display = '';
-      requestAnimationFrame(() => {
-        const targetHeight = content.scrollHeight;
-        content.style.height = targetHeight + 'px';
-      });
-      trigger._isOpen = true;
-      if (icon) {
-        icon.style.transform = 'rotate(180deg)';
-        icon.style.transition = 'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)';
-      }
+        content.style.display = 'block'; // Ensure it's visible
+        requestAnimationFrame(() => {
+            const targetHeight = content.scrollHeight + 'px';
+            content.style.height = targetHeight;
+        });
+        trigger._isOpen = true;
+        if (icon) {
+            icon.style.transform = 'rotate(180deg)';
+            icon.style.transition = 'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)';
+        }
     } else {
-      const currentHeight = content.scrollHeight;
-      content.style.height = currentHeight + 'px';
-      requestAnimationFrame(() => {
-        content.style.height = '0px';
-      });
-      trigger._isOpen = false;
-      if (icon) {
-        icon.style.transform = 'rotate(0deg)';
-        icon.style.transition = 'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)';
-      }
+        content.style.height = content.scrollHeight + 'px'; // Set current height to avoid collapse jump
+        requestAnimationFrame(() => {
+            content.style.height = '0px';
+        });
+        trigger._isOpen = false;
+        if (icon) {
+            icon.style.transform = 'rotate(0deg)';
+            icon.style.transition = 'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)';
+        }
+
+        content.addEventListener("transitionend", () => {
+            if (!trigger._isOpen) {
+                content.style.display = "none"; // Hide when fully collapsed
+            }
+        }, { once: true });
     }
-  }
+}
+
 
   createContentObserver(content) {
     const config = {
