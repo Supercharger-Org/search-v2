@@ -19,18 +19,29 @@ export default class SessionManager {
   }
 
   setupInitialEventListeners() {
-    // Only setup session creation listeners if user is authorized
-    const sessionCreationEvents = [
-      EventTypes.FILTER_ADDED,
-      EventTypes.KEYWORDS_GENERATE_COMPLETED
-    ];
+    // Session creation events based on method type
+    this.eventBus.on(EventTypes.METHOD_SELECTED, ({ value }) => {
+      this.selectedMethod = value;
+    });
 
-    sessionCreationEvents.forEach(eventType => {
-      this.eventBus.on(eventType, () => {
-        if (AuthManager.getUserAuthToken() && !this.sessionId) {
-          this.createNewSession();
-        }
-      });
+    this.eventBus.on(EventTypes.KEYWORDS_GENERATE_COMPLETED, async () => {
+      if (this.selectedMethod !== 'basic' && !this.sessionId) {
+        await this.createNewSession();
+      }
+    });
+
+    this.eventBus.on(EventTypes.FILTER_ADDED, async () => {
+      if (this.selectedMethod === 'basic' && !this.sessionId) {
+        await this.createNewSession();
+      }
+    });
+
+    // Search result events
+    this.eventBus.on(EventTypes.SEARCH_COMPLETED, ({ results }) => {
+      if (this.sessionId) {
+        Logger.info('Search completed, scheduling session save with results');
+        this.scheduleSessionSave();
+      }
     });
   }
 
@@ -115,57 +126,6 @@ export default class SessionManager {
     } catch (error) {
       Logger.error('Session initialization failed:', error);
       return false;
-    }
-  }
-
-  async createNewSession() {
-    // Double check auth state
-    if (!AuthManager.getUserAuthToken()) {
-      Logger.info("User is not authorized – cannot create session.");
-      return;
-    }
-
-    try {
-      this.sessionId = this.generateUniqueId();
-      Logger.info("Creating new session with uniqueID:", this.sessionId);
-
-      const state = window.app.sessionState.get();
-      const payload = {
-        uniqueID: this.sessionId,
-        selections: { ...state },
-        results: state.search.results || []
-      };
-
-      const token = AuthManager.getUserAuthToken();
-      const response = await fetch(SESSION_API.CREATE, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "X-Xano-Authorization": `Bearer ${token}`,
-          "X-Xano-Authorization-Only": "true"
-        },
-        mode: "cors",
-        body: JSON.stringify(payload)
-      });
-
-      if (!response.ok) {
-        throw new Error(`Failed to create session: ${response.status}`);
-      }
-
-      const data = await response.json();
-      
-      // Update URL with session ID
-      const newUrl = new URL(window.location.href);
-      newUrl.searchParams.set("id", this.sessionId);
-      window.history.pushState({ sessionId: this.sessionId }, "", newUrl);
-
-      Logger.info("Session created successfully:", this.sessionId);
-      this.eventBus.emit(EventTypes.SESSION_CREATED, { sessionId: this.sessionId });
-      
-      return data;
-    } catch (error) {
-      Logger.error("Session creation error:", error);
-      throw error;
     }
   }
 
@@ -260,25 +220,81 @@ export default class SessionManager {
     }
   }
 
-  async saveSession() {
-    if (!this.sessionId || !AuthManager.getUserAuthToken()) return;
-
+  async createNewSession() {
     try {
       const token = AuthManager.getUserAuthToken();
       if (!token) {
-        throw new Error('No auth token available');
+        Logger.info("User not authorized – cannot create session");
+        return;
       }
 
+      this.sessionId = this.generateUniqueId();
+      Logger.info("Creating new session:", {
+        sessionId: this.sessionId,
+        method: this.selectedMethod
+      });
+
       const state = window.app.sessionState.get();
-      
-      // Create a deep copy of the state for the payload
       const payload = {
         uniqueID: this.sessionId,
-        selections: JSON.parse(JSON.stringify(state)), // Deep copy to avoid reference issues
-        results: state.search.results || [] // Directly include search results
+        selections: { ...state },
+        results: state.search?.results || []
       };
 
-      Logger.info('Saving session with payload:', JSON.stringify(payload, null, 2));
+      Logger.info("Session creation payload:", JSON.stringify(payload, null, 2));
+
+      const response = await fetch(SESSION_API.CREATE, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Xano-Authorization": `Bearer ${token}`,
+          "X-Xano-Authorization-Only": "true"
+        },
+        mode: "cors",
+        body: JSON.stringify(payload)
+      });
+
+      const data = await response.json();
+      Logger.info("Session creation response:", JSON.stringify(data, null, 2));
+
+      if (!response.ok) {
+        throw new Error(`Failed to create session: ${response.status}`);
+      }
+
+      // Update URL with session ID
+      const newUrl = new URL(window.location.href);
+      newUrl.searchParams.set("id", this.sessionId);
+      window.history.pushState({ sessionId: this.sessionId }, "", newUrl);
+
+      this.eventBus.emit(EventTypes.SESSION_CREATED, { sessionId: this.sessionId });
+      return data;
+
+    } catch (error) {
+      Logger.error("Session creation error:", error);
+      throw error;
+    }
+  }
+
+  async saveSession() {
+    if (!this.sessionId || !AuthManager.getUserAuthToken()) {
+      Logger.info("Cannot save session - missing session ID or auth token");
+      return;
+    }
+
+    try {
+      const token = AuthManager.getUserAuthToken();
+      const state = window.app.sessionState.get();
+      
+      const payload = {
+        uniqueID: this.sessionId,
+        selections: { ...state },
+        results: state.search?.results || []
+      };
+
+      Logger.info("Saving session:", {
+        sessionId: this.sessionId,
+        payload: JSON.stringify(payload, null, 2)
+      });
 
       const response = await fetch(SESSION_API.SAVE, {
         method: 'PATCH',
@@ -292,30 +308,22 @@ export default class SessionManager {
       });
 
       const responseData = await response.json();
+      Logger.info("Session save response:", JSON.stringify(responseData, null, 2));
       
       if (!response.ok) {
-        Logger.error('Session save failed:', {
-          status: response.status,
-          statusText: response.statusText,
-          response: responseData
-        });
         throw new Error('Failed to save session');
       }
-
-      Logger.info('Session saved successfully:', {
-        sessionId: this.sessionId,
-        status: response.status,
-        response: responseData
-      });
 
       this.eventBus.emit(EventTypes.SESSION_SAVED, { 
         sessionId: this.sessionId,
         data: responseData
       });
+
     } catch (error) {
       Logger.error('Session save error:', error);
     }
   }
+
 
   // Also update the normalizeSessionData method
   normalizeSessionData(sessionData) {
