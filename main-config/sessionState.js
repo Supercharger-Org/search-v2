@@ -6,10 +6,6 @@ class SearchInputGenerator {
     this.sessionState = sessionState;
   }
 
-  logSession() {
-    Logger.info('Current Session State:', this.state);
-  }
-
   generateSearchInput() {
     const state = this.sessionState.get();
     const searchInput = {
@@ -207,6 +203,10 @@ export default class SessionState {
         items_per_page: 10
       }
     };
+  }
+
+    logSession() {
+    Logger.info('Current Session State:', this.state);
   }
   
 
