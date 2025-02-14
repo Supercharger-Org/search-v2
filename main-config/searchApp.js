@@ -44,18 +44,21 @@ class SearchApp {
     }
   }
 
-  async initializeSession() {
+    async initializeSession() {
     try {
-      // Check for existing session
+      // Let SessionManager handle the session initialization
       const hasSession = await this.sessionManager.initialize();
       Logger.info('Session initialization result:', hasSession);
       
-      // Get the current state before UI initialization
-      const initialState = hasSession ? this.sessionState.get() : null;
-      Logger.info('Initial state before UI init:', initialState);
-      
-      // Initialize UI with the state directly
-      this.uiManager.initialize(initialState);
+      // Initialize UI with state if session exists
+      if (hasSession) {
+        const state = this.sessionState.get();
+        Logger.info('Initializing UI with session state:', state);
+        this.uiManager.initialize(state);
+      } else {
+        Logger.info('Initializing UI with fresh state');
+        this.uiManager.initialize();
+      }
       
     } catch (error) {
       Logger.error('Session/UI initialization failed:', error);
@@ -64,48 +67,39 @@ class SearchApp {
     }
   }
 
-  // Also modify the SessionManager's initialize method
-  // In SessionManager class
   async initialize() {
     try {
-      // Check auth state first
-      const token = AuthManager.getUserAuthToken();
-      if (!token) {
-        Logger.info('User not authorized - skipping session initialization');
-        return false;
-      }
+      Logger.info('Initializing SearchApp...');
 
-      // Check for session ID in URL
-      const urlParams = new URLSearchParams(window.location.search);
-      const sessionId = urlParams.get('id');
-
-      if (!sessionId) {
-        Logger.info('No session ID in URL, starting fresh');
-        return false;
-      }
-
-      // Try to load the session
-      const sessionData = await this.loadSession(sessionId);
-      if (!sessionData) {
-        Logger.info('No session data found');
-        return false;
-      }
-
-      this.sessionId = sessionId;
-      this.isInitialized = true;
+      // Setup initial auth event listeners
+      this.setupAuthEventListeners();
       
-      // Update session state before returning
-      window.app.sessionState.load(sessionData);
+      // Initialize auth first
+      await this.initializeAuth();
       
-      this.setupSessionUpdateListeners();
-
-      Logger.info('Session initialized successfully');
-      return true;
-
+      // Initialize session and UI
+      await this.initializeSession();
+      
+      // Setup all event handlers
+      this.setupEventHandlers();
+      
+      // Initialize additional managers
+      this.initializeManagers();
+      
+      Logger.info('SearchApp initialization complete');
     } catch (error) {
-      Logger.error('Session initialization failed:', error);
-      return false;
+      Logger.error('SearchApp initialization error:', error);
+      this.handleInitializationError();
     }
+  }
+
+  handleInitializationError() {
+    Logger.info('Handling initialization error - falling back to basic initialization');
+    // Basic fallback initialization
+    this.uiManager.initialize();
+    this.assigneeSearchManager.init();
+    this.valueSelectManager.init();
+    this.setupEventHandlers();
   }
 
   initializeManagers() {
@@ -115,14 +109,6 @@ class SearchApp {
     } catch (error) {
       Logger.error('Manager initialization failed:', error);
     }
-  }
-
-  handleInitializationError() {
-    // Basic fallback initialization
-    this.uiManager.initialize();
-    this.assigneeSearchManager.init();
-    this.valueSelectManager.init();
-    this.setupEventHandlers();
   }
 
   async initializeComponents() {
