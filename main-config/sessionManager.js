@@ -34,8 +34,12 @@ export default class SessionManager {
     });
   }
 
+  // In SessionManager class
+
   async initialize() {
     try {
+      Logger.info('Initializing SessionManager');
+      
       // Check auth state first
       const token = AuthManager.getUserAuthToken();
       if (!token) {
@@ -52,19 +56,61 @@ export default class SessionManager {
         return false;
       }
 
-      // Try to load the session
-      const sessionData = await this.loadSession(sessionId);
-      if (!sessionData) {
-        Logger.info('No session data found');
+      try {
+        Logger.info('Loading session:', sessionId);
+        
+        const response = await fetch(SESSION_API.GET, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "X-Xano-Authorization": `Bearer ${token}`,
+            "X-Xano-Authorization-Only": "true"
+          },
+          mode: "cors",
+          body: JSON.stringify({ sessionId })
+        });
+
+        const responseData = await response.json();
+
+        if (!response.ok) {
+          Logger.error('Session load failed:', {
+            status: response.status,
+            statusText: response.statusText,
+            response: responseData
+          });
+          throw new Error(`Failed to load session: ${response.status}`);
+        }
+
+        Logger.info('Session data loaded:', JSON.stringify(responseData, null, 2));
+
+        if (!responseData) {
+          throw new Error('No session data received');
+        }
+
+        // Store session ID
+        this.sessionId = sessionId;
+        this.isInitialized = true;
+
+        // Normalize and emit the session data
+        const normalizedData = this.normalizeSessionData(responseData);
+        Logger.info('Normalized session data:', JSON.stringify(normalizedData, null, 2));
+
+        // Update the session state
+        window.app.sessionState.load(normalizedData);
+        
+        // Setup listeners for session updates
+        this.setupSessionUpdateListeners();
+
+        // Emit the load event
+        this.eventBus.emit(EventTypes.LOAD_SESSION, normalizedData);
+
+        Logger.info('Session initialized successfully');
+        return true;
+
+      } catch (error) {
+        Logger.error('Session load error:', error);
         return false;
       }
-
-      this.sessionId = sessionId;
-      this.isInitialized = true;
-      this.setupSessionUpdateListeners();
-
-      Logger.info('Session initialized successfully');
-      return true;
 
     } catch (error) {
       Logger.error('Session initialization failed:', error);
