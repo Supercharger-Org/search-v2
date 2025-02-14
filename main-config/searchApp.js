@@ -35,6 +35,38 @@ class SearchApp {
     window.app = this;
   }
 
+  async initializeAuth() {
+    try {
+      await this.authManager.checkAuthStatus();
+    } catch (error) {
+      Logger.error('Auth initialization failed:', error);
+      // Continue with initialization even if auth fails
+    }
+  }
+
+  async initializeSession() {
+    try {
+      // Check for existing session
+      const hasSession = await this.sessionManager.initialize();
+      Logger.info('Session initialization result:', hasSession);
+      
+      // Initialize UI manager first
+      this.uiManager.initialize();
+      
+      // If we have a session, apply its state
+      if (hasSession) {
+        const state = this.sessionState.get();
+        Logger.info('Applying session state:', state);
+        this.uiManager.initializeWithState(state);
+      }
+      
+    } catch (error) {
+      Logger.error('Session/UI initialization failed:', error);
+      // Fallback to basic UI initialization
+      this.uiManager.initialize();
+    }
+  }
+
   async initialize() {
     try {
       Logger.info('Initializing SearchApp...');
@@ -58,35 +90,6 @@ class SearchApp {
     } catch (error) {
       Logger.error('SearchApp initialization error:', error);
       this.handleInitializationError();
-    }
-  }
-
-  async initializeAuth() {
-    try {
-      await this.authManager.checkAuthStatus();
-    } catch (error) {
-      Logger.error('Auth initialization failed:', error);
-      // Continue with initialization even if auth fails
-    }
-  }
-
-  async initializeSession() {
-    try {
-      // Check for existing session
-      const hasSession = await this.sessionManager.initialize();
-      
-      // Initialize UI with or without session data
-      if (hasSession) {
-        const state = this.sessionState.get();
-        this.uiManager.initialize(state);
-      } else {
-        this.uiManager.initialize();
-      }
-      
-    } catch (error) {
-      Logger.error('Session/UI initialization failed:', error);
-      // Fallback to basic UI initialization
-      this.uiManager.initialize();
     }
   }
 
