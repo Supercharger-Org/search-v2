@@ -45,27 +45,36 @@ class SearchApp {
   }
 
     async initializeSession() {
-    try {
-      // Let SessionManager handle the session initialization
-      const hasSession = await this.sessionManager.initialize();
-      Logger.info('Session initialization result:', hasSession);
-      
-      // Initialize UI with state if session exists
-      if (hasSession) {
-        const state = this.sessionState.get();
-        Logger.info('Initializing UI with session state:', state);
-        this.uiManager.initialize(state);
-      } else {
-        Logger.info('Initializing UI with fresh state');
+      try {
+        Logger.info('Initializing session...');
+        
+        const urlParams = new URLSearchParams(window.location.search);
+        const sessionId = urlParams.get('id');
+        
+        if (sessionId) {
+          // Load existing session
+          Logger.info('Loading existing session:', sessionId);
+          const sessionData = await this.sessionManager.loadSession(sessionId);
+          
+          if (sessionData) {
+            Logger.info('Session loaded successfully');
+            this.sessionState.load(sessionData);
+            this.uiManager.initialize(sessionData);
+          } else {
+            Logger.info('No session data found, initializing fresh UI');
+            this.uiManager.initialize();
+          }
+        } else {
+          Logger.info('No session ID found, initializing fresh UI');
+          this.uiManager.initialize();
+        }
+        
+      } catch (error) {
+        Logger.error('Session/UI initialization failed:', error);
+        // Fallback to basic UI initialization
         this.uiManager.initialize();
       }
-      
-    } catch (error) {
-      Logger.error('Session/UI initialization failed:', error);
-      // Fallback to basic UI initialization
-      this.uiManager.initialize();
     }
-  }
 
   async initialize() {
     try {
