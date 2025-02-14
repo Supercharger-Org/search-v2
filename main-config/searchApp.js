@@ -45,8 +45,14 @@ class SearchApp {
       // Initialize auth first
       await this.initializeAuth();
       
-      // Initialize UI and other components
-      await this.initializeComponents();
+      // Initialize session and UI
+      await this.initializeSession();
+      
+      // Setup all event handlers
+      this.setupEventHandlers();
+      
+      // Initialize additional managers
+      this.initializeManagers();
       
       Logger.info('SearchApp initialization complete');
     } catch (error) {
@@ -55,50 +61,50 @@ class SearchApp {
     }
   }
 
-  setupAuthEventListeners() {
-    // Auth state change handler
-    this.eventBus.on(AUTH_EVENTS.AUTH_STATE_CHANGED, ({ isAuthorized }) => {
-      this.authManager.updateVisibility(isAuthorized);
-    });
-    
-    // Free usage counter handler
-    this.eventBus.on(AUTH_EVENTS.FREE_USAGE_UPDATED, ({ searchesRemaining }) => {
-      const searchCountEl = document.querySelector('#free-search-number');
-      if (searchCountEl) {
-        searchCountEl.textContent = searchesRemaining.toString();
-      }
-    });
-  }
-
   async initializeAuth() {
     try {
-      // Check auth status
       await this.authManager.checkAuthStatus();
-      
-      return new Promise((resolve) => {
-        // If already authorized, resolve immediately
-        if (this.authManager.isAuthorized) {
-          resolve();
-          return;
-        }
-
-        // Otherwise wait for auth event
-        const authHandler = () => {
-          this.eventBus.off('user_authorized', authHandler);
-          resolve();
-        };
-        this.eventBus.on('user_authorized', authHandler);
-
-        // Set timeout in case auth never completes
-        setTimeout(() => {
-          this.eventBus.off('user_authorized', authHandler);
-          resolve();
-        }, 5000);
-      });
     } catch (error) {
       Logger.error('Auth initialization failed:', error);
       // Continue with initialization even if auth fails
     }
+  }
+
+  async initializeSession() {
+    try {
+      // Check for existing session
+      const hasSession = await this.sessionManager.initialize();
+      
+      // Initialize UI with or without session data
+      if (hasSession) {
+        const state = this.sessionState.get();
+        this.uiManager.initialize(state);
+      } else {
+        this.uiManager.initialize();
+      }
+      
+    } catch (error) {
+      Logger.error('Session/UI initialization failed:', error);
+      // Fallback to basic UI initialization
+      this.uiManager.initialize();
+    }
+  }
+
+  initializeManagers() {
+    try {
+      this.assigneeSearchManager.init();
+      this.valueSelectManager.init();
+    } catch (error) {
+      Logger.error('Manager initialization failed:', error);
+    }
+  }
+
+  handleInitializationError() {
+    // Basic fallback initialization
+    this.uiManager.initialize();
+    this.assigneeSearchManager.init();
+    this.valueSelectManager.init();
+    this.setupEventHandlers();
   }
 
   async initializeComponents() {
@@ -126,12 +132,19 @@ class SearchApp {
     }
   }
 
-  handleInitializationError() {
-    // Basic fallback initialization
-    this.uiManager.initialize();
-    this.assigneeSearchManager.init();
-    this.valueSelectManager.init();
-    this.setupEventHandlers();
+  setupAuthEventListeners() {
+    // Auth state change handler
+    this.eventBus.on(AUTH_EVENTS.AUTH_STATE_CHANGED, ({ isAuthorized }) => {
+      this.authManager.updateVisibility(isAuthorized);
+    });
+    
+    // Free usage counter handler
+    this.eventBus.on(AUTH_EVENTS.FREE_USAGE_UPDATED, ({ searchesRemaining }) => {
+      const searchCountEl = document.querySelector('#free-search-number');
+      if (searchCountEl) {
+        searchCountEl.textContent = searchesRemaining.toString();
+      }
+    });
   }
 
   updateFilter(filterName, updateFn) {
