@@ -164,61 +164,6 @@ export default class SessionManager {
     this.saveTimeout = setTimeout(() => this.saveSession(), 1000);
   }
 
-  async saveSession() {
-    if (!this.sessionId || !AuthManager.getUserAuthToken()) return;
-
-    try {
-      const token = AuthManager.getUserAuthToken();
-      if (!token) {
-        throw new Error('No auth token available');
-      }
-
-      const state = window.app.sessionState.get();
-      const payload = {
-        uniqueID: this.sessionId,
-        selections: { ...state },
-        results: { results: state.search.results || [] }
-      };
-
-      Logger.info('Saving session with payload:', JSON.stringify(payload, null, 2));
-
-      const response = await fetch(SESSION_API.SAVE, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Xano-Authorization': `Bearer ${token}`,
-          'X-Xano-Authorization-Only': 'true'
-        },
-        mode: 'cors',
-        body: JSON.stringify(payload)
-      });
-
-      const responseData = await response.json();
-      
-      if (!response.ok) {
-        Logger.error('Session save failed:', {
-          status: response.status,
-          statusText: response.statusText,
-          response: responseData
-        });
-        throw new Error('Failed to save session');
-      }
-
-      Logger.info('Session saved successfully:', {
-        sessionId: this.sessionId,
-        status: response.status,
-        response: responseData
-      });
-
-      this.eventBus.emit(EventTypes.SESSION_SAVED, { 
-        sessionId: this.sessionId,
-        data: responseData
-      });
-    } catch (error) {
-      Logger.error('Session save error:', error);
-    }
-  }
-
   async loadSession(sessionId) {
     try {
       const token = AuthManager.getUserAuthToken();
@@ -269,8 +214,65 @@ export default class SessionManager {
     }
   }
 
+  async saveSession() {
+    if (!this.sessionId || !AuthManager.getUserAuthToken()) return;
+
+    try {
+      const token = AuthManager.getUserAuthToken();
+      if (!token) {
+        throw new Error('No auth token available');
+      }
+
+      const state = window.app.sessionState.get();
+      
+      // Create a deep copy of the state for the payload
+      const payload = {
+        uniqueID: this.sessionId,
+        selections: JSON.parse(JSON.stringify(state)), // Deep copy to avoid reference issues
+        results: state.search.results || [] // Directly include search results
+      };
+
+      Logger.info('Saving session with payload:', JSON.stringify(payload, null, 2));
+
+      const response = await fetch(SESSION_API.SAVE, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Xano-Authorization': `Bearer ${token}`,
+          'X-Xano-Authorization-Only': 'true'
+        },
+        mode: 'cors',
+        body: JSON.stringify(payload)
+      });
+
+      const responseData = await response.json();
+      
+      if (!response.ok) {
+        Logger.error('Session save failed:', {
+          status: response.status,
+          statusText: response.statusText,
+          response: responseData
+        });
+        throw new Error('Failed to save session');
+      }
+
+      Logger.info('Session saved successfully:', {
+        sessionId: this.sessionId,
+        status: response.status,
+        response: responseData
+      });
+
+      this.eventBus.emit(EventTypes.SESSION_SAVED, { 
+        sessionId: this.sessionId,
+        data: responseData
+      });
+    } catch (error) {
+      Logger.error('Session save error:', error);
+    }
+  }
+
+  // Also update the normalizeSessionData method
   normalizeSessionData(sessionData) {
-    // This ensures we have a consistent state structure
     const normalizedData = {
       library: sessionData.selections?.library || null,
       method: {
@@ -289,7 +291,8 @@ export default class SessionManager {
       filters: Array.isArray(sessionData.selections?.filters) ? 
         sessionData.selections.filters : [],
       search: {
-        results: Array.isArray(sessionData.results) ? sessionData.results : [],
+        results: Array.isArray(sessionData.results) ? sessionData.results : 
+                Array.isArray(sessionData.selections?.search?.results) ? sessionData.selections.search.results : [],
         current_page: sessionData.selections?.search?.current_page || 1,
         total_pages: sessionData.selections?.search?.total_pages || 0,
         active_item: sessionData.selections?.search?.active_item || null,
