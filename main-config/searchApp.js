@@ -9,7 +9,7 @@ import SessionState from "./sessionState.js";
 import AssigneeSearchManager from "./assignee-search-manager.js";
 import ValueSelectManager from "./value-select-manager.js";
 import SessionManager from './sessionManager.js';
-import { AuthManager } from './authManager.js';  // Change this from default import
+import { authManager } from './authCheck.js';
 
 class SearchApp {
   constructor() {
