@@ -1,5 +1,7 @@
+// authManager.js
 import { Logger } from "./logger.js";
 import EventBus from './eventBus.js';
+
 const AUTH_CONFIG = {
   endpoints: {
     signIn: 'https://xobg-f2pu-pqfs.n7.xano.io/api:fr-l0x4x/auth/sign-in',
@@ -13,6 +15,7 @@ const AUTH_CONFIG = {
     searchCount: 'search_count'
   }
 };
+
 const AUTH_EVENTS = {
   USER_AUTHORIZED: 'user_authorized',
   ACCOUNT_CREATED: 'account_created',
@@ -21,128 +24,75 @@ const AUTH_EVENTS = {
   FREE_USAGE_UPDATED: 'free_usage_updated',
   USER_INFO_LOADED: 'user_info_loaded'
 };
+
 class UserSession {
   constructor(data) {
     this.id = data.id;
     this.email = data.email;
     this.name = data.name;
     this.created_at = data.created_at;
-    // Add any other user properties
   }
 }
+
 export class AuthManager {
   constructor() {
     this.eventBus = new EventBus();
     this.userSession = null;
     this.isAuthorized = false;
 
-    // Listen for auth state changes and update visibility
     this.eventBus.on(AUTH_EVENTS.AUTH_STATE_CHANGED, ({ isAuthorized }) => {
       this.updateVisibility(isAuthorized);
     });
   }
 
-  getRequestHeaders(token) {
-  const cleanToken = token ? token.replace(/^"(.*)"$/, '$1') : '';
-  return {
-    'Content-Type': 'application/json',
-    'X-Xano-Authorization': `Bearer ${cleanToken}`,
-    'X-Xano-Authorization-Only': 'true'
-  };
-  }
-  
-  async login(email, password) {
+  async createAccount(email, password) {
     try {
-      const response = await fetch(AUTH_CONFIG.endpoints.signIn, {
+      Logger.info('Creating account for email:', email);
+      
+      const createResponse = await fetch(AUTH_CONFIG.endpoints.createAccount, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({ email, password })
       });
-      if (!response.ok) throw new Error('Login failed');
+
+      if (!createResponse.ok) {
+        const errorData = await createResponse.json();
+        Logger.error('Create account failed:', errorData);
+        throw new Error(errorData.message || 'Account creation failed');
+      }
       
-      const data = await response.json();
-      this.setAuthToken(data.authToken);
-      await this.getUserInfo(data.authToken);
-      window.location.href = '/dashboard/patent-search-v2';
+      const authToken = await createResponse.text();
+      Logger.info('Received auth token:', authToken);
+      
+      // Clean and store the auth token
+      const cleanToken = authToken.replace(/^"(.*)"$/, '$1');
+      this.setAuthToken(cleanToken);
+      
+      // Get user info with the new token
+      const userInfo = await this.getUserInfo(cleanToken);
+      
+      this.userSession = new UserSession(userInfo);
+      this.isAuthorized = true;
+      
+      this.eventBus.emit(AUTH_EVENTS.USER_INFO_LOADED, { user: this.userSession });
+      this.eventBus.emit(AUTH_EVENTS.USER_AUTHORIZED, { token: cleanToken });
+      this.eventBus.emit(AUTH_EVENTS.AUTH_STATE_CHANGED, { isAuthorized: true });
+      this.eventBus.emit(AUTH_EVENTS.ACCOUNT_CREATED);
+      
+      return this.userSession;
     } catch (error) {
-      Logger.error('Login failed:', error);
+      Logger.error('Account creation process failed:', error);
       throw error;
     }
   }
-  
- async createAccount(email, password) {
-  try {
-    Logger.info('Creating account for email:', email);
-    
-    const createResponse = await fetch(AUTH_CONFIG.endpoints.createAccount, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({ email, password })
-    });
 
-    Logger.info('Create account response status:', createResponse.status);
-    
-    if (!createResponse.ok) {
-      const errorData = await createResponse.json();
-      Logger.error('Create account failed:', errorData);
-      throw new Error(errorData.message || 'Account creation failed');
-    }
-    
-    // Get the token directly as text since it's not JSON
-    const authToken = await createResponse.text();
-    Logger.info('Received auth token:', authToken);
-    
-    // Store the auth token
-    this.setAuthToken(authToken);
-    
-    // Get user info with the new token
-    Logger.info('Fetching user info with new token');
-    const userResponse = await fetch(AUTH_CONFIG.endpoints.getUserInfo, {
-      headers: {
-        'Authorization': `Bearer ${authToken}`,
-        'X-Xano-Authorization': `Bearer ${authToken}`,
-        'X-Xano-Authorization-Only': 'true'
-      }
-    });
-
-    Logger.info('Get user info response status:', userResponse.status);
-    
-    if (!userResponse.ok) {
-      const userErrorData = await userResponse.json();
-      Logger.error('Get user info failed:', userErrorData);
-      throw new Error('Failed to get user info');
-    }
-    
-    const userData = await userResponse.json();
-    Logger.info('User info retrieved:', userData);
-    
-    this.userSession = new UserSession(userData);
-    this.isAuthorized = true;
-    
-    this.eventBus.emit(AUTH_EVENTS.USER_INFO_LOADED, { user: this.userSession });
-    this.eventBus.emit(AUTH_EVENTS.USER_AUTHORIZED, { token: authToken });
-    this.eventBus.emit(AUTH_EVENTS.AUTH_STATE_CHANGED, { isAuthorized: true });
-    this.eventBus.emit(AUTH_EVENTS.ACCOUNT_CREATED);
-    
-    window.location.href = '/dashboard/patent-search-v2';
-    
-    return this.userSession;
-  } catch (error) {
-    Logger.error('Account creation process failed:', error);
-    throw error;
-  }
-}
-
-async getUserInfo(token) {
+  async getUserInfo(token) {
     try {
       Logger.info('Getting user info with token');
       
       const cleanToken = token.replace(/^"(.*)"$/, '$1');
-      Logger.info("Token:", token);
       
       const response = await fetch(AUTH_CONFIG.endpoints.getUserInfo, {
         method: 'GET',
@@ -154,8 +104,6 @@ async getUserInfo(token) {
         mode: 'cors'
       });
 
-      Logger.info('Get user info response status:', response.status);
-      
       if (!response.ok) {
         const errorData = await response.json();
         Logger.error('Get user info failed:', errorData);
@@ -165,21 +113,49 @@ async getUserInfo(token) {
       const userData = await response.json();
       Logger.info('User info retrieved:', userData);
       
-      this.userSession = new UserSession(userData);
-      this.isAuthorized = true;
-      
-      setTimeout(() => {
-        this.eventBus.emit(AUTH_EVENTS.USER_INFO_LOADED, { user: this.userSession });
-        this.eventBus.emit(AUTH_EVENTS.USER_AUTHORIZED, { token: cleanToken });
-        this.eventBus.emit(AUTH_EVENTS.AUTH_STATE_CHANGED, { isAuthorized: true });
-      }, 0);
-      
-      return this.userSession;
-      
+      return userData;
     } catch (error) {
       Logger.error('Failed to get user info:', error);
-      // Ensure we update visibility on failure too
-      this.eventBus.emit(AUTH_EVENTS.AUTH_STATE_CHANGED, { isAuthorized: false });
+      throw error;
+    }
+  }
+
+//... continuing from previous AuthManager class
+
+  static getUserAuthToken() {
+    const value = `; ${document.cookie}`;
+    const parts = value.split(`; ${AUTH_CONFIG.cookies.auth}=`);
+    if (parts.length === 2) {
+      const token = parts.pop().split(';').shift();
+      return token ? token.replace(/^"(.*)"$/, '$1') : null;
+    }
+    return null;
+  }
+
+  async login(email, password) {
+    try {
+      const response = await fetch(AUTH_CONFIG.endpoints.signIn, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ email, password })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        Logger.error('Login failed:', errorData);
+        throw new Error(errorData.message || 'Login failed');
+      }
+      
+      const data = await response.json();
+      const cleanToken = data.authToken.replace(/^"(.*)"$/, '$1');
+      this.setAuthToken(cleanToken);
+      
+      await this.getUserInfo(cleanToken);
+      return true;
+    } catch (error) {
+      Logger.error('Login failed:', error);
       throw error;
     }
   }
@@ -199,8 +175,6 @@ async getUserInfo(token) {
         mode: 'cors'
       });
 
-      Logger.info('Load sessions response status:', response.status);
-      
       if (!response.ok) {
         const errorData = await response.json();
         Logger.error('Load sessions failed:', errorData);
@@ -268,74 +242,62 @@ async getUserInfo(token) {
   }
 
   renderSessionHistory(sessions) {
-  const template = document.querySelector('[history-item="link-block"]');
-  if (!template) {
-    Logger.warn('Session history template not found');
-    return;
-  }
-
-  const container = template.parentElement;
-  template.style.display = 'none';
-
-  sessions.forEach(item => {
-    // Skip if item is invalid
-    if (!item || !item.id) {
-      Logger.warn('Invalid session item:', item);
+    const template = document.querySelector('[history-item="link-block"]');
+    if (!template) {
+      Logger.warn('Session history template not found');
       return;
     }
 
-    const clone = template.cloneNode(true);
-    clone.style.display = '';
-    
-    clone.href = `${clone.href}?id=${item.uniqueID}`;
-    
-    const previewEl = clone.querySelector('[history-item="preview-value"]');
-    if (previewEl) {
-      let previewText = 'Custom filter search';
+    const container = template.parentElement;
+    template.style.display = 'none';
+
+    sessions.forEach(item => {
+      if (!item || !item.id) {
+        Logger.warn('Invalid session item:', item);
+        return;
+      }
+
+      const clone = template.cloneNode(true);
+      clone.style.display = '';
       
-      // Safely access nested properties
-      if (item.selections?.method?.selected === 'descriptive' && item.selections?.method?.description?.value) {
-        previewText = item.selections.method.description.value;
-      } else if (item.selections?.method?.selected === 'patent' && item.selections?.method?.patent?.title) {
-        previewText = item.selections.method.patent.title;
+      clone.href = `${clone.href}?id=${item.uniqueID}`;
+      
+      const previewEl = clone.querySelector('[history-item="preview-value"]');
+      if (previewEl) {
+        let previewText = 'Custom filter search';
+        
+        if (item.selections?.method?.selected === 'descriptive' && item.selections?.method?.description?.value) {
+          previewText = item.selections.method.description.value;
+        } else if (item.selections?.method?.selected === 'patent' && item.selections?.method?.patent?.title) {
+          previewText = item.selections.method.patent.title;
+        }
+        
+        previewEl.textContent = previewText;
       }
       
-      previewEl.textContent = previewText;
-    }
-    
-    const timestampEl = clone.querySelector('[history-item="timestamp"]');
-    if (timestampEl && item.created_at) {
-      const date = new Date(item.created_at);
-      timestampEl.textContent = date.toLocaleString('en-US', {
-        month: '2-digit',
-        day: '2-digit',
-        year: '2-digit',
-        hour: '2-digit',
-        minute: '2-digit'
-      });
-    }
+      const timestampEl = clone.querySelector('[history-item="timestamp"]');
+      if (timestampEl && item.created_at) {
+        const date = new Date(item.created_at);
+        timestampEl.textContent = date.toLocaleString('en-US', {
+          month: '2-digit',
+          day: '2-digit',
+          year: '2-digit',
+          hour: '2-digit',
+          minute: '2-digit'
+        });
+      }
       
       container.appendChild(clone);
     });
   }
 
-  getUserAuthToken() {
-    const token = this.getCookie(AUTH_CONFIG.cookies.auth);
-    if (!token) {
-      Logger.info('No auth token found in cookies');
-      return null;
-    }
-    return token.replace(/^"(.*)"$/, '$1'); // Clean the token
-  }
-
-  static getUserAuthToken() {
-    const value = `; ${document.cookie}`;
-    const parts = value.split(`; ${AUTH_CONFIG.cookies.auth}=`);
-    if (parts.length === 2) {
-      const token = parts.pop().split(';').shift();
-      return token ? token.replace(/^"(.*)"$/, '$1') : null;
-    }
-    return null;
+  getRequestHeaders(token) {
+    const cleanToken = token ? token.replace(/^"(.*)"$/, '$1') : '';
+    return {
+      'Content-Type': 'application/json',
+      'X-Xano-Authorization': `Bearer ${cleanToken}`,
+      'X-Xano-Authorization-Only': 'true'
+    };
   }
 
   updateVisibility(isAuthorized) {
@@ -375,6 +337,15 @@ async getUserInfo(token) {
   setAuthToken(token) {
     this.setCookie(AUTH_CONFIG.cookies.auth, token, 30);
     Logger.info('Auth token set in cookie');
+  }
+
+  getUserAuthToken() {
+    const token = this.getCookie(AUTH_CONFIG.cookies.auth);
+    if (!token) {
+      Logger.info('No auth token found in cookies');
+      return null;
+    }
+    return token.replace(/^"(.*)"$/, '$1'); // Clean the token
   }
 }
 
