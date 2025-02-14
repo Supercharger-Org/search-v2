@@ -1003,5 +1003,3 @@ export default class UIManager {
     }
   }
 }
-
-export default UIManager;
