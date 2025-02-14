@@ -556,41 +556,28 @@ isAccordionManaged(element) {
   initializeNewStep(stepElement) {
     const trigger = stepElement.querySelector('[data-accordion="trigger"]');
     const content = stepElement.querySelector('[data-accordion="content"]');
-    
+
     if (!trigger || !content) return;
-    
-    // Remove any existing listeners
+
     const newTrigger = trigger.cloneNode(true);
     trigger.parentNode.replaceChild(newTrigger, trigger);
-    
-    // Set up initial state
+
     content.style.height = '0px';
     content.style.transition = 'height 0.3s cubic-bezier(0.4, 0, 0.2, 1)';
     content.style.overflow = 'hidden';
-    
-    // Initialize trigger
+    content.style.display = '';
+
     newTrigger._initialized = true;
     newTrigger._isOpen = false;
     newTrigger.addEventListener('click', () => {
-      this.toggleAccordion(newTrigger);
+        this.toggleAccordion(newTrigger);
     });
-    
-    // Allow DOM to update before animation
-    setTimeout(() => {
-      // First ensure content is displayed
-      content.style.display = '';
-      
-      // Close other accordions if needed
-      if (this.isAccordionManaged(newTrigger)) {
-        this.closeOtherAccordions(newTrigger);
-      }
-      
-      // Then trigger the animation in the next frame
-      requestAnimationFrame(() => {
+
+    // Ensure it's properly expanded
+    requestAnimationFrame(() => {
         this.toggleAccordion(newTrigger, true);
-      });
-    }, 150);
-  }
+    });
+}
 
 
   isAccordionManaged(element) {
