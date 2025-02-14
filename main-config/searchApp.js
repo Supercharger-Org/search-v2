@@ -28,58 +28,110 @@ class SearchApp {
   }
 
   async initialize() {
-  try {
-    Logger.info("Initializing SearchApp...");
+    try {
+      Logger.info("Initializing SearchApp...");
 
-    // Check for auth token.
-    const authToken = this.authManager.getUserAuthToken();
-    if (authToken) {
-      Logger.info("Auth token found. Proceeding immediately.");
-      // Optionally, set isAuthReady to true if you want logged-in users to create sessions.
-      this.sessionManager.isAuthReady = true;
-    } else {
-      Logger.info("No auth token found – proceeding as free user");
-      // For free users, prevent session creation
-      this.sessionManager.isAuthReady = false;
-      // Initialize the UI immediately with no session data.
-      this.uiManager.initialize();
+      // Check for auth token first
+      const authToken = this.authManager.getUserAuthToken();
+      if (authToken) {
+        Logger.info("Auth token found. Proceeding with authorized initialization.");
+        this.sessionManager.isAuthReady = true;
+      } else {
+        Logger.info("No auth token found – initializing as free user");
+        this.sessionManager.isAuthReady = false;
+      }
+
+      // Initialize the UI first
+      await this.uiManager.initialize();
+      this.sessionState.setUIManager(this.uiManager);
+
+      // Check for session ID in URL
+      const urlParams = new URLSearchParams(window.location.search);
+      const sessionId = urlParams.get("id");
+
+      if (sessionId && this.sessionManager.isAuthReady) {
+        Logger.info("Loading existing session...");
+        try {
+          await this.loadExistingSession(sessionId);
+        } catch (error) {
+          Logger.error("Failed to load session:", error);
+          // Continue with fresh UI if session load fails
+          await this.initializeFreshUI();
+        }
+      } else {
+        Logger.info("Initializing fresh UI");
+        await this.initializeFreshUI();
+      }
+
+      // Initialize other managers
+      await this.initializeManagers();
+
+      // Set up event handlers if not already set
+      if (!this._listenersSet) {
+        this.setupEventHandlers();
+        this._listenersSet = true;
+      }
+
+    } catch (error) {
+      Logger.error("SearchApp initialization error:", error);
+      // Ensure basic functionality even if initialization fails
+      this.handleInitializationError();
     }
+  }
 
-    // Check for session id in URL parameters.
-    const urlParams = new URLSearchParams(window.location.search);
-    const sessionId = urlParams.get("id");
-
-    if (sessionId) {
-      Logger.info("Session id found in URL, loading session...");
+  async loadExistingSession(sessionId) {
+    try {
       await this.sessionManager.loadSession(sessionId);
       this.sessionManager.isInitialized = true;
       const state = this.sessionState.get();
-      Logger.info("Session State after load:", JSON.stringify(state, null, 2));
-      this.uiManager.updateAll(state);
-    } else {
-      Logger.info("No session id found – initializing fresh UI");
-      this.uiManager.initialize();
+      Logger.info("Session State loaded:", JSON.stringify(state, null, 2));
+
+      // Force UI update after session load
+      await this.forceUIUpdate(state);
+    } catch (error) {
+      Logger.error("Failed to load session:", error);
+      throw error;
     }
-
-    // Ensure sessionState is connected to UI manager for subsequent updates.
-    this.sessionState.setUIManager(this.uiManager);
-
-    // Initialize other managers.
-    this.assigneeSearchManager.init();
-    this.valueSelectManager.init();
-
-    if (!this._listenersSet) {
-      this.setupEventHandlers();
-      this._listenersSet = true;
-    }
-  } catch (error) {
-    Logger.error("SearchApp initialization error:", error);
-    // Fallback UI initialization
-    this.uiManager.initialize();
-    this.assigneeSearchManager.init();
-    this.valueSelectManager.init();
   }
-}
+
+  async forceUIUpdate(state) {
+    try {
+      // Reset all UI elements first
+      this.uiManager.resetUI();
+
+      // Update UI with current state
+      await this.uiManager.updateAll(state);
+
+      // Force update specific elements
+      if (state.method?.selected) {
+        const methodRadio = document.querySelector(`input[name="method"][value="${state.method.selected}"]`);
+        if (methodRadio) methodRadio.checked = true;
+      }
+
+      if (state.library) {
+        const librarySelect = document.querySelector(`select[name="library"]`);
+        if (librarySelect) librarySelect.value = state.library;
+      }
+
+      // Initialize steps for existing filters
+      if (Array.isArray(state.filters)) {
+        for (const filter of state.filters) {
+          const filterStep = document.querySelector(`[step-name="${filter.name}"]`)?.closest('.horizontal-slide_wrapper');
+          if (filterStep) {
+            await this.uiManager.initializeNewStep(filterStep);
+            const trigger = filterStep.querySelector('[data-accordion="trigger"]');
+            if (trigger) await this.uiManager.toggleAccordion(trigger, true);
+          }
+        }
+      }
+
+      // Force visibility update
+      this.uiManager.updateStepVisibility(state);
+    } catch (error) {
+      Logger.error("Failed to force UI update:", error);
+      throw error;
+    }
+  }
 
 
   updateFilter(filterName, updateFn) {
