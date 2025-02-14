@@ -317,15 +317,14 @@ update(path, value) {
     return this.state;
   }
 
-  // Modify the load method to properly handle search results
   load(sessionData) {
     Logger.info('Loading session data into state:', sessionData);
     
     // Deep merge session data with current state
     this.state = {
-      library: sessionData.library || null,
+      library: sessionData.library,
       method: {
-        selected: sessionData.method?.selected || null,
+        selected: sessionData.method?.selected,
         description: {
           value: sessionData.method?.description?.value || "",
           previousValue: sessionData.method?.description?.previousValue || null,
@@ -340,7 +339,7 @@ update(path, value) {
       filters: Array.isArray(sessionData.filters) ? [...sessionData.filters] : [],
       search: {
         results: Array.isArray(sessionData.search?.results) ? sessionData.search.results : 
-                Array.isArray(sessionData.results) ? sessionData.results : null,
+                Array.isArray(sessionData.results) ? sessionData.results : [],
         current_page: sessionData.search?.current_page || 1,
         total_pages: sessionData.search?.total_pages || 0,
         active_item: sessionData.search?.active_item || null,
@@ -350,11 +349,5 @@ update(path, value) {
     };
 
     Logger.info('Updated state after load:', this.state);
-
-    // Trigger UI update after loading session
-    if (this.uiManager) {
-      this.uiManager.updateDisplay(this.state);
-      this.uiManager.updateAll(this.state);
-    }
   }
 }
