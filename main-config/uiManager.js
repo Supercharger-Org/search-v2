@@ -589,7 +589,7 @@ isAccordionManaged(element) {
       requestAnimationFrame(() => {
         this.toggleAccordion(newTrigger, true);
       });
-    }, 50);
+    }, 150);
   }
 
 
