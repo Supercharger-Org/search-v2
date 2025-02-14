@@ -129,6 +129,16 @@ export default class UIManager {
     });
   }
 
+  setupFilterEventHandlers() {
+    document.querySelectorAll('[data-filter-option]').forEach(button => {
+      button.addEventListener('click', (e) => {
+        e.preventDefault();
+        const filterName = button.getAttribute('data-filter-option');
+        this.eventBus.emit(EventTypes.FILTER_ADDED, { filterName });
+      });
+    });
+  }
+
   setInitialUIState() {
     Logger.info('Setting initial UI state');
     const { scrollX, scrollY } = window;
