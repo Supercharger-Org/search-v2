@@ -3,17 +3,12 @@ import { Logger } from "./logger.js";
 import { EventTypes } from "./eventTypes.js";
 
 export class SearchResultManager {
-  constructor(eventBus) {
-    this.eventBus = eventBus;
-  }
-
-  // Main update method
   updateSearchResultsDisplay(state) {
     const resultBox = document.querySelector('#search-result-box');
     if (!resultBox) return;
 
-    // Toggle visibility based on results presence
-    resultBox.style.display = state.search.results ? '' : 'none';
+    // Only show result box if search has been executed
+    resultBox.style.display = state.searchRan ? '' : 'none';
 
     // Handle reload required state
     document.querySelectorAll('[data-state="search-reload"]').forEach(el => {
@@ -23,13 +18,13 @@ export class SearchResultManager {
     // Update search button state
     const searchButton = document.querySelector('#run-search');
     if (searchButton) {
-      searchButton.style.display = state.search.results && !state.search.reload_required ? 'none' : '';
+      searchButton.style.display = !state.searchRan || state.search.reload_required ? '' : 'none';
       searchButton.disabled = false;
       searchButton.innerHTML = 'Search';
     }
 
     // Render results if available
-    if (state.search.results) {
+    if (state.searchRan && state.search.results) {
       this.renderSearchResults(state);
       this.updatePagination(state);
     }
