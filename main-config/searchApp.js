@@ -1,4 +1,3 @@
-// searchApp.js
 import { Logger } from "./logger.js";
 import { EventTypes } from "./eventTypes.js";
 import EventBus from "./eventBus.js";
@@ -13,69 +12,103 @@ import { authManager } from './authCheck.js';
 
 class SearchApp {
   constructor() {
+    // Core services
     this.eventBus = new EventBus();
     this.apiConfig = new APIConfig();
-    this.sessionManager = new SessionManager(this.eventBus);
-    this.uiManager = new UIManager(this.eventBus);
-    this.sessionState = new SessionState(this.uiManager);
     this.apiService = new APIService(this.apiConfig);
+    
+    // State and UI management
+    this.sessionState = new SessionState(null); // Initialize without UI manager first
+    this.uiManager = new UIManager(this.eventBus);
+    this.sessionState.setUIManager(this.uiManager); // Now set UI manager
+    
+    // Additional managers
+    this.sessionManager = new SessionManager(this.eventBus);
     this.assigneeSearchManager = new AssigneeSearchManager(this.eventBus, EventTypes);
     this.valueSelectManager = new ValueSelectManager(this.eventBus);
     this.authManager = authManager;
     
     // Make app instance globally available for session manager
     window.app = this;
-    
-    this.setupEventHandlers();
   }
 
   async initialize() {
-  try {
-    Logger.info('Initializing SearchApp...');
-    
-    // First check if we already have an auth token
-    const hasToken = AuthManager.getUserAuthToken();
-    
-    if (hasToken) {
-      Logger.info('Auth token found, proceeding with initialization');
-      this.sessionManager.isAuthReady = true;
-    } else if (!this.sessionManager.isAuthReady) {
-      Logger.info('Waiting for auth to be ready...');
-      await new Promise(resolve => {
-        const authHandler = () => {
-          Logger.info('Auth ready event received');
-          this.eventBus.off('user_authorized', authHandler);
-          resolve();
-        };
-        this.eventBus.on('user_authorized', authHandler);
-      });
+    try {
+      Logger.info('Initializing SearchApp...');
+      
+      // Step 1: Wait for auth initialization
+      await this.initializeAuth();
+      
+      // Step 2: Check for existing session
+      const sessionLoaded = await this.initializeSession();
+      
+      // Step 3: Initialize UI with or without session data
+      await this.initializeUI(sessionLoaded);
+      
+      // Step 4: Set up event handlers
+      this.setupEventHandlers();
+      
+      // Step 5: Initialize additional managers
+      this.initializeManagers();
+      
+      Logger.info('SearchApp initialization complete');
+    } catch (error) {
+      Logger.error('SearchApp initialization error:', error);
+      // Fallback to basic initialization
+      this.handleInitializationError();
     }
+  }
 
-    Logger.info('Auth ready, checking for existing session...');
-    const hasExistingSession = await this.sessionManager.initialize();
-    
-    if (!hasExistingSession) {
-      Logger.info('No existing session, initializing fresh UI');
-      this.uiManager.initialize();
-    } else {
-      Logger.info('Found existing session, initializing UI with session data');
-      const state = this.sessionState.get();
-      Logger.info('Current session state:', state);
-      this.uiManager.initialize(state);
+  async initializeAuth() {
+    return new Promise((resolve) => {
+      if (this.authManager.isAuthorized) {
+        resolve();
+        return;
+      }
+
+      const authHandler = () => {
+        this.eventBus.off('user_authorized', authHandler);
+        resolve();
+      };
+      this.eventBus.on('user_authorized', authHandler);
+
+      // Set a timeout for auth initialization
+      setTimeout(() => {
+        this.eventBus.off('user_authorized', authHandler);
+        resolve(); // Resolve anyway after timeout
+      }, 5000); // 5 second timeout
+    });
+  }
+
+  async initializeSession() {
+    try {
+      const hasExistingSession = await this.sessionManager.initialize();
+      return hasExistingSession;
+    } catch (error) {
+      Logger.error('Session initialization failed:', error);
+      return false;
     }
-    
-    // Initialize other components
+  }
+
+  async initializeUI(sessionLoaded) {
+    if (sessionLoaded) {
+      const state = this.sessionState.get();
+      this.uiManager.initialize(state);
+    } else {
+      this.uiManager.initialize();
+    }
+  }
+
+  initializeManagers() {
     this.assigneeSearchManager.init();
     this.valueSelectManager.init();
-    
-  } catch (error) {
-    Logger.error('SearchApp initialization error:', error);
-    // Fall back to normal initialization
+  }
+
+  handleInitializationError() {
     this.uiManager.initialize();
     this.assigneeSearchManager.init();
     this.valueSelectManager.init();
   }
-}
   
   updateFilter(filterName, updateFn) {
     const currentFilters = this.sessionState.get().filters;
