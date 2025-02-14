@@ -16,6 +16,7 @@ export default class SessionManager {
     this.sessionId = null;
     this.isInitialized = false;
     this.isAuthReady = false;
+    this.setupEventListeners();
   }
 
   setupEventListeners() {
@@ -38,141 +39,6 @@ export default class SessionManager {
       EventTypes.SEARCH_COMPLETED
     ];
 
-    async loadSession(sessionId) {
-    try {
-      const token = AuthManager.getUserAuthToken();
-      if (!token) {
-        throw new Error("No auth token available");
-      }
-
-      Logger.info("Loading session:", sessionId);
-
-      const response = await fetch(SESSION_API.GET, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "X-Xano-Authorization": `Bearer ${token}`,
-          "X-Xano-Authorization-Only": "true"
-        },
-        mode: "cors",
-        body: JSON.stringify({ sessionId })
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        Logger.error("Session load failed:", errorData);
-        throw new Error(errorData.message || "Failed to load session");
-      }
-
-      const rawData = await response.text();
-      Logger.info("Raw session response:", rawData);
-
-      let sessionData;
-      try {
-        sessionData = JSON.parse(rawData);
-      } catch (e) {
-        Logger.error("Failed to parse session data:", e);
-        throw new Error("Invalid JSON in session response");
-      }
-
-      // Create normalized state with default values
-      const normalizedData = {
-        library: null,
-        method: {
-          selected: null,
-          description: {
-            value: "",
-            previousValue: null,
-            isValid: false,
-            improved: false,
-            modificationSummary: null
-          },
-          patent: null,
-          searchValue: "",
-          validated: false
-        },
-        filters: [],
-        search: {
-          results: [],
-          current_page: 1,
-          total_pages: 0,
-          active_item: null,
-          reload_required: false,
-          items_per_page: 10
-        }
-      };
-
-      // Only update values that exist in the session data
-      if (sessionData.selections) {
-        if (sessionData.selections.library) {
-          normalizedData.library = sessionData.selections.library;
-        }
-
-        if (sessionData.selections.method) {
-          normalizedData.method = {
-            ...normalizedData.method,
-            ...sessionData.selections.method,
-            description: {
-              ...normalizedData.method.description,
-              ...(sessionData.selections.method.description || {})
-            }
-          };
-        }
-
-        if (Array.isArray(sessionData.selections.filters)) {
-          normalizedData.filters = sessionData.selections.filters;
-        }
-
-        if (sessionData.selections.search) {
-          normalizedData.search = {
-            ...normalizedData.search,
-            ...sessionData.selections.search
-          };
-        }
-      }
-
-      if (Array.isArray(sessionData.results)) {
-        normalizedData.search.results = sessionData.results;
-      }
-
-      this.sessionId = sessionId;
-      Logger.info("Normalized session data:", normalizedData);
-      this.eventBus.emit(EventTypes.LOAD_SESSION, normalizedData);
-
-      return true;
-    } catch (error) {
-      Logger.error("Session load error:", error);
-      // Initialize with empty state on error
-      const emptyState = {
-        library: null,
-        method: {
-          selected: null,
-          description: {
-            value: "",
-            previousValue: null,
-            isValid: false,
-            improved: false,
-            modificationSummary: null
-          },
-          patent: null,
-          searchValue: "",
-          validated: false
-        },
-        filters: [],
-        search: {
-          results: [],
-          current_page: 1,
-          total_pages: 0,
-          active_item: null,
-          reload_required: false,
-          items_per_page: 10
-        }
-      };
-      this.eventBus.emit(EventTypes.LOAD_SESSION, emptyState);
-      throw error;
-    }
-  }
-
     sessionUpdateEvents.forEach(eventType => {
       this.eventBus.on(eventType, () => {
         if (this.isInitialized && this.sessionId) {
@@ -193,6 +59,139 @@ export default class SessionManager {
         }
       });
     });
+
+    // Listen for auth events
+    this.eventBus.on('user_authorized', async () => {
+      this.isAuthReady = true;
+      await this.checkAndLoadSession();
+    });
+  }
+
+  async checkAndLoadSession() {
+    const urlParams = new URLSearchParams(window.location.search);
+    const sessionId = urlParams.get('id');
+    
+    if (sessionId && this.isAuthReady) {
+      try {
+        await this.loadSession(sessionId);
+        this.sessionId = sessionId;
+        this.isInitialized = true;
+        this.eventBus.emit(EventTypes.SESSION_LOADED);
+      } catch (error) {
+        Logger.error('Failed to load session:', error);
+      }
+    }
+  }
+
+  async loadSession(sessionId) {
+    try {
+      const token = AuthManager.getUserAuthToken();
+      if (!token) {
+        throw new Error("No auth token available");
+      }
+
+      Logger.info("Loading session:", sessionId);
+
+      const response = await fetch(SESSION_API.GET, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Xano-Authorization": `Bearer ${token}`,
+          "X-Xano-Authorization-Only": "true"
+        },
+        mode: "cors",
+        body: JSON.stringify({ sessionId })
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to load session: ${response.status}`);
+      }
+
+      const sessionData = await response.json();
+      
+      if (!sessionData) {
+        throw new Error("No session data received");
+      }
+
+      const normalizedData = this.normalizeSessionData(sessionData);
+      this.eventBus.emit(EventTypes.LOAD_SESSION, normalizedData);
+      return true;
+
+    } catch (error) {
+      Logger.error("Session load error:", error);
+      this.emitEmptyState();
+      throw error;
+    }
+  }
+
+  normalizeSessionData(sessionData) {
+    const emptyState = this.getEmptyState();
+    
+    try {
+      return {
+        ...emptyState,
+        library: sessionData.selections?.library || null,
+        method: {
+          ...emptyState.method,
+          selected: sessionData.selections?.method?.selected || null,
+          description: {
+            ...emptyState.method.description,
+            value: sessionData.selections?.method?.description?.value || "",
+            previousValue: sessionData.selections?.method?.description?.previousValue || null,
+            isValid: sessionData.selections?.method?.description?.isValid || false,
+            improved: sessionData.selections?.method?.description?.improved || false,
+            modificationSummary: sessionData.selections?.method?.description?.modificationSummary || null
+          },
+          patent: sessionData.selections?.method?.patent || null,
+          searchValue: sessionData.selections?.method?.searchValue || "",
+          validated: sessionData.selections?.method?.validated || false
+        },
+        filters: Array.isArray(sessionData.selections?.filters) ? sessionData.selections.filters : [],
+        search: {
+          ...emptyState.search,
+          results: Array.isArray(sessionData.results) ? sessionData.results : [],
+          current_page: sessionData.selections?.search?.current_page || 1,
+          total_pages: sessionData.selections?.search?.total_pages || 0,
+          active_item: sessionData.selections?.search?.active_item || null,
+          items_per_page: sessionData.selections?.search?.items_per_page || 10
+        }
+      };
+    } catch (error) {
+      Logger.error("Error normalizing session data:", error);
+      return this.getEmptyState();
+    }
+  }
+
+  getEmptyState() {
+    return {
+      library: null,
+      method: {
+        selected: null,
+        description: {
+          value: "",
+          previousValue: null,
+          isValid: false,
+          improved: false,
+          modificationSummary: null
+        },
+        patent: null,
+        searchValue: "",
+        validated: false
+      },
+      filters: [],
+      search: {
+        results: [],
+        current_page: 1,
+        total_pages: 0,
+        active_item: null,
+        reload_required: false,
+        items_per_page: 10
+      }
+    };
+  }
+
+  emitEmptyState() {
+    this.eventBus.emit(EventTypes.LOAD_SESSION, this.getEmptyState());
   }
 
   async createNewSession() {
@@ -201,29 +200,23 @@ export default class SessionManager {
       return;
     }
 
-    // Generate a new unique session id
-    this.sessionId = this.generateUniqueId();
-
-    Logger.info("Creating new session with uniqueID:", this.sessionId);
-
-    // Build payload using standardized keys
-    const state = window.app.sessionState.get();
-    const payload = {
-      uniqueID: this.sessionId,
-      selections: { ...state },
-      results: state.search.results || []
-    };
-
-    // Send POST request to the session-create endpoint
-    const token = AuthManager.getUserAuthToken();
-    const cleanToken = token ? token.replace(/^"(.*)"$/, "$1") : "";
-    
     try {
+      this.sessionId = this.generateUniqueId();
+      Logger.info("Creating new session with uniqueID:", this.sessionId);
+
+      const state = window.app.sessionState.get();
+      const payload = {
+        uniqueID: this.sessionId,
+        selections: { ...state },
+        results: state.search.results || []
+      };
+
+      const token = AuthManager.getUserAuthToken();
       const response = await fetch(SESSION_API.CREATE, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "X-Xano-Authorization": `Bearer ${cleanToken}`,
+          "X-Xano-Authorization": `Bearer ${token}`,
           "X-Xano-Authorization-Only": "true"
         },
         mode: "cors",
@@ -231,14 +224,11 @@ export default class SessionManager {
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
-        Logger.error("Session creation failed:", errorData);
-        throw new Error(errorData.message || "Failed to create session");
+        throw new Error(`Failed to create session: ${response.status}`);
       }
 
       const data = await response.json();
       
-      // Update URL with the new session id
       const newUrl = new URL(window.location.href);
       newUrl.searchParams.set("id", this.sessionId);
       window.history.pushState({ sessionId: this.sessionId }, "", newUrl);
@@ -262,7 +252,6 @@ export default class SessionManager {
         throw new Error('No auth token available');
       }
 
-      const cleanToken = token.replace(/^"(.*)"$/, '$1');
       const state = window.app.sessionState.get();
       const payload = {
         uniqueID: this.sessionId,
@@ -274,7 +263,7 @@ export default class SessionManager {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
-          'X-Xano-Authorization': `Bearer ${cleanToken}`,
+          'X-Xano-Authorization': `Bearer ${token}`,
           'X-Xano-Authorization-Only': 'true'
         },
         mode: 'cors',
@@ -282,15 +271,12 @@ export default class SessionManager {
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
-        Logger.error('Session save failed:', errorData);
         throw new Error('Failed to save session');
       }
 
       this.eventBus.emit(EventTypes.SESSION_SAVED, { sessionId: this.sessionId });
     } catch (error) {
       Logger.error('Session save error:', error);
-      throw error;
     }
   }
 
