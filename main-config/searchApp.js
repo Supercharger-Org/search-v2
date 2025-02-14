@@ -1,4 +1,3 @@
-// searchApp.js
 import { Logger } from "./logger.js";
 import { EventTypes } from "./eventTypes.js";
 import EventBus from "./eventBus.js";
@@ -9,104 +8,130 @@ import SessionState from "./sessionState.js";
 import AssigneeSearchManager from "./assignee-search-manager.js";
 import ValueSelectManager from "./value-select-manager.js";
 import SessionManager from './sessionManager.js';
-import { authManager } from './authCheck.js';
+import { AuthManager, AUTH_EVENTS } from './authManager.js';
 
 class SearchApp {
   constructor() {
-    // Core services
+    // Create shared EventBus instance
     this.eventBus = new EventBus();
+    
+    // Initialize core services
     this.apiConfig = new APIConfig();
     this.apiService = new APIService(this.apiConfig);
     
-    // State and UI management
+    // Create auth manager instance
+    this.authManager = new AuthManager();
+    // Share the same event bus
+    this.authManager.eventBus = this.eventBus;
+    
+    // Initialize managers with shared event bus
     this.uiManager = new UIManager(this.eventBus);
     this.sessionState = new SessionState(this.uiManager);
-    
-    // Additional managers
     this.sessionManager = new SessionManager(this.eventBus);
     this.assigneeSearchManager = new AssigneeSearchManager(this.eventBus, EventTypes);
     this.valueSelectManager = new ValueSelectManager(this.eventBus);
-    this.authManager = authManager;
     
-    // Make app instance globally available for session manager
+    // Make app instance globally available
     window.app = this;
   }
 
   async initialize() {
     try {
       Logger.info('Initializing SearchApp...');
+
+      // Setup initial auth event listeners
+      this.setupAuthEventListeners();
       
-      // Step 1: Wait for auth initialization
+      // Initialize auth first
       await this.initializeAuth();
       
-      // Step 2: Check for existing session
-      const sessionLoaded = await this.initializeSession();
-      
-      // Step 3: Initialize UI with or without session data
-      await this.initializeUI(sessionLoaded);
-      
-      // Step 4: Set up event handlers
-      this.setupEventHandlers();
-      
-      // Step 5: Initialize additional managers
-      this.initializeManagers();
+      // Initialize UI and other components
+      await this.initializeComponents();
       
       Logger.info('SearchApp initialization complete');
     } catch (error) {
       Logger.error('SearchApp initialization error:', error);
-      // Fallback to basic initialization
       this.handleInitializationError();
     }
   }
 
-  async initializeAuth() {
-    return new Promise((resolve) => {
-      if (this.authManager.isAuthorized) {
-        resolve();
-        return;
+  setupAuthEventListeners() {
+    // Auth state change handler
+    this.eventBus.on(AUTH_EVENTS.AUTH_STATE_CHANGED, ({ isAuthorized }) => {
+      this.authManager.updateVisibility(isAuthorized);
+    });
+    
+    // Free usage counter handler
+    this.eventBus.on(AUTH_EVENTS.FREE_USAGE_UPDATED, ({ searchesRemaining }) => {
+      const searchCountEl = document.querySelector('#free-search-number');
+      if (searchCountEl) {
+        searchCountEl.textContent = searchesRemaining.toString();
       }
-
-      const authHandler = () => {
-        this.eventBus.off('user_authorized', authHandler);
-        resolve();
-      };
-      this.eventBus.on('user_authorized', authHandler);
-
-      // Set a timeout for auth initialization
-      setTimeout(() => {
-        this.eventBus.off('user_authorized', authHandler);
-        resolve(); // Resolve anyway after timeout
-      }, 5000); // 5 second timeout
     });
   }
 
-  async initializeSession() {
+  async initializeAuth() {
     try {
-      return await this.sessionManager.initialize();
+      // Check auth status
+      await this.authManager.checkAuthStatus();
+      
+      return new Promise((resolve) => {
+        // If already authorized, resolve immediately
+        if (this.authManager.isAuthorized) {
+          resolve();
+          return;
+        }
+
+        // Otherwise wait for auth event
+        const authHandler = () => {
+          this.eventBus.off('user_authorized', authHandler);
+          resolve();
+        };
+        this.eventBus.on('user_authorized', authHandler);
+
+        // Set timeout in case auth never completes
+        setTimeout(() => {
+          this.eventBus.off('user_authorized', authHandler);
+          resolve();
+        }, 5000);
+      });
     } catch (error) {
-      Logger.error('Session initialization failed:', error);
-      return false;
+      Logger.error('Auth initialization failed:', error);
+      // Continue with initialization even if auth fails
     }
   }
 
-  async initializeUI(sessionLoaded) {
-    if (sessionLoaded) {
-      const state = this.sessionState.get();
-      this.uiManager.initialize(state);
-    } else {
-      this.uiManager.initialize();
+  async initializeComponents() {
+    try {
+      // Check for existing session
+      const hasExistingSession = await this.sessionManager.initialize();
+      
+      if (hasExistingSession) {
+        const state = this.sessionState.get();
+        this.uiManager.initialize(state);
+      } else {
+        this.uiManager.initialize();
+      }
+      
+      // Initialize other managers
+      this.assigneeSearchManager.init();
+      this.valueSelectManager.init();
+      
+      // Setup all event handlers
+      this.setupEventHandlers();
+      
+    } catch (error) {
+      Logger.error('Component initialization failed:', error);
+      throw error;
     }
-  }
-
-  initializeManagers() {
-    this.assigneeSearchManager.init();
-    this.valueSelectManager.init();
   }
 
   handleInitializationError() {
+    // Basic fallback initialization
     this.uiManager.initialize();
     this.assigneeSearchManager.init();
     this.valueSelectManager.init();
+    this.setupEventHandlers();
   }
 
   updateFilter(filterName, updateFn) {
