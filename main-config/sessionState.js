@@ -178,7 +178,11 @@ export default class SessionState {
   constructor(uiManager) {
     this.uiManager = uiManager;
     this.searchInputGenerator = new SearchInputGenerator(this);
-    this.state = {
+    this.state = this.getInitialState();
+  }
+
+  getInitialState() {
+    return {
       library: null,
       method: {
         selected: null,
@@ -189,8 +193,8 @@ export default class SessionState {
           improved: false,
           modificationSummary: null
         },
-        patent: null, // Patent object placeholder
-        searchValue: "", // Description or patent abstract
+        patent: null,
+        searchValue: "",
         validated: false
       },
       filters: [],
@@ -201,16 +205,16 @@ export default class SessionState {
         active_item: null,
         reload_required: false,
         items_per_page: 10
-      }
+      },
+      searchRan: false
     };
   }
 
-    logSession() {
-    Logger.info('Current Session State:', this.state);
+  logSession() {
+    Logger.info('Current Session State:', JSON.stringify(this.state, null, 2));
   }
-  
 
-    updateSearchState(updates) {
+  updateSearchState(updates) {
     this.state.search = {
       ...this.state.search,
       ...updates
@@ -218,9 +222,14 @@ export default class SessionState {
     
     // If results are being updated, update pagination
     if (updates.results) {
-      const totalPages = Math.ceil(updates.results.length / this.state.search.items_per_page);
+      const totalPages = Math.ceil((updates.results?.length || 0) / this.state.search.items_per_page);
       this.state.search.total_pages = totalPages;
       this.state.search.current_page = updates.current_page || 1;
+      
+      // Set searchRan to true when we get results
+      if (!this.state.searchRan) {
+        this.state.searchRan = true;
+      }
     }
     
     // Trigger UI update
@@ -229,8 +238,11 @@ export default class SessionState {
     }
   }
 
-  // Get current page items
-  getSearchPageItems() {
+    logSession() {
+    Logger.info('Current Session State:', this.state);
+  }
+
+getSearchPageItems() {
     if (!this.state.search.results) return [];
     
     const start = (this.state.search.current_page - 1) * this.state.search.items_per_page;
@@ -239,17 +251,16 @@ export default class SessionState {
     return this.state.search.results.slice(start, end);
   }
 
-  // Mark search as needing reload
   markSearchReloadRequired() {
     this.updateSearchState({
       reload_required: true
     });
   }
 
-  // Get the entire state
   get() {
     return this.state;
   }
+
 
   
 
@@ -290,7 +301,7 @@ export default class SessionState {
     try {
       this.searchInputGenerator.validate();
       const searchInput = this.searchInputGenerator.generateSearchInput();
-      Logger.log("Generated Search Input:", JSON.stringify(searchInput, null, 2));
+      Logger.info("Generated Search Input:", JSON.stringify(searchInput, null, 2));
       return searchInput;
     } catch (error) {
       Logger.error("Search Input Generation Error:", error.message);
@@ -299,16 +310,26 @@ export default class SessionState {
   }
 
 update(path, value) {
+    Logger.info(`Updating state path: ${path}`, value);
+    
     const parts = path.split(".");
     let current = this.state;
+    
     for (let i = 0; i < parts.length - 1; i++) {
       if (!(parts[i] in current)) current[parts[i]] = {};
       current = current[parts[i]];
     }
+    
     current[parts[parts.length - 1]] = value;
+    
+    // Special handling for search-related updates
+    if (path === 'search.results' && value !== null) {
+      this.state.searchRan = true;
+    }
+    
     this.logSession();
     
-    // Use both updateDisplay and updateAll to ensure compatibility
+    // Trigger UI updates
     if (this.uiManager) {
       this.uiManager.updateDisplay(this.state);
       this.uiManager.updateAll(this.state);
@@ -318,36 +339,51 @@ update(path, value) {
   }
 
   load(sessionData) {
-    Logger.info('Loading session data into state:', sessionData);
+    Logger.info('Loading session data into state:', JSON.stringify(sessionData, null, 2));
     
-    // Deep merge session data with current state
+    if (!sessionData) {
+      Logger.error('Attempted to load empty session data');
+      return;
+    }
+
+    // Create a new state object with initial structure
+    const newState = this.getInitialState();
+
+    // Merge the session data with our initial state structure
     this.state = {
-      library: sessionData.library,
+      ...newState,
+      ...sessionData,
+      // Ensure nested objects maintain their structure
       method: {
-        selected: sessionData.method?.selected,
+        ...newState.method,
+        ...sessionData.method,
         description: {
-          value: sessionData.method?.description?.value || "",
-          previousValue: sessionData.method?.description?.previousValue || null,
-          isValid: sessionData.method?.description?.isValid || false,
-          improved: sessionData.method?.description?.improved || false,
-          modificationSummary: sessionData.method?.description?.modificationSummary || null
-        },
-        patent: sessionData.method?.patent || null,
-        searchValue: sessionData.method?.searchValue || "",
-        validated: sessionData.method?.validated || false
+          ...newState.method.description,
+          ...sessionData.method?.description
+        }
       },
-      filters: Array.isArray(sessionData.filters) ? [...sessionData.filters] : [],
       search: {
-        results: Array.isArray(sessionData.search?.results) ? sessionData.search.results : 
-                Array.isArray(sessionData.results) ? sessionData.results : [],
-        current_page: sessionData.search?.current_page || 1,
-        total_pages: sessionData.search?.total_pages || 0,
-        active_item: sessionData.search?.active_item || null,
-        reload_required: false,
-        items_per_page: sessionData.search?.items_per_page || 10
+        ...newState.search,
+        ...sessionData.search
       }
     };
 
-    Logger.info('Updated state after load:', this.state);
+    // Ensure searchRan flag is set correctly based on search results
+    this.state.searchRan = Array.isArray(this.state.search?.results) && 
+                          this.state.search.results.length > 0;
+
+    Logger.info('Updated state after load:', JSON.stringify(this.state, null, 2));
+
+    // Update UI if available
+    if (this.uiManager) {
+      this.uiManager.updateAll(this.state);
+    }
+  }
+
+  reset() {
+    this.state = this.getInitialState();
+    if (this.uiManager) {
+      this.uiManager.updateAll(this.state);
+    }
   }
 }
