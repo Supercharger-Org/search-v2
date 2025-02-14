@@ -348,36 +348,40 @@ isAccordionManaged(element) {
 
     if (!content?.matches('[data-accordion="content"]')) return;
 
-    content.style.transition = 'height 0.3s cubic-bezier(0.4, 0, 0.2, 1)';
+    // Ensure transition properties are set
+    content.style.transition = 'height 0.3s ease-in-out';
     content.style.overflow = 'hidden';
 
-    const shouldOpen = forceOpen || !trigger._isOpen;
+    const isCurrentlyOpen = trigger._isOpen;
+    const shouldOpen = forceOpen || !isCurrentlyOpen;
 
     if (shouldOpen) {
-        content.style.display = 'block'; // Ensure it's visible
+        content.style.display = 'block'; // Ensure the element is visible
         requestAnimationFrame(() => {
             const targetHeight = content.scrollHeight + 'px';
             content.style.height = targetHeight;
         });
+
         trigger._isOpen = true;
         if (icon) {
             icon.style.transform = 'rotate(180deg)';
-            icon.style.transition = 'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)';
+            icon.style.transition = 'transform 0.3s ease-in-out';
         }
     } else {
-        content.style.height = content.scrollHeight + 'px'; // Set current height to avoid collapse jump
+        content.style.height = content.scrollHeight + 'px'; // Lock height before collapsing
         requestAnimationFrame(() => {
             content.style.height = '0px';
         });
+
         trigger._isOpen = false;
         if (icon) {
             icon.style.transform = 'rotate(0deg)';
-            icon.style.transition = 'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)';
+            icon.style.transition = 'transform 0.3s ease-in-out';
         }
 
         content.addEventListener("transitionend", () => {
             if (!trigger._isOpen) {
-                content.style.display = "none"; // Hide when fully collapsed
+                content.style.display = "none"; // Hide only when the transition ends
             }
         }, { once: true });
     }
@@ -568,10 +572,11 @@ isAccordionManaged(element) {
     const newTrigger = trigger.cloneNode(true);
     trigger.parentNode.replaceChild(newTrigger, trigger);
 
+    // Resetting transition properties
     content.style.height = '0px';
-    content.style.transition = 'height 0.3s cubic-bezier(0.4, 0, 0.2, 1)';
+    content.style.transition = 'height 0.3s ease-in-out';
     content.style.overflow = 'hidden';
-    content.style.display = '';
+    content.style.display = 'block'; // Ensure it's visible but collapsed
 
     newTrigger._initialized = true;
     newTrigger._isOpen = false;
@@ -579,10 +584,14 @@ isAccordionManaged(element) {
         this.toggleAccordion(newTrigger);
     });
 
-    // Ensure it's properly expanded
-    requestAnimationFrame(() => {
-        this.toggleAccordion(newTrigger, true);
-    });
+    // Ensure other accordions close smoothly before opening this one
+    setTimeout(() => {
+        this.closeOtherAccordions(newTrigger);
+
+        requestAnimationFrame(() => {
+            this.toggleAccordion(newTrigger, true);
+        });
+    }, 50);
 }
 
 
@@ -602,21 +611,32 @@ isAccordionManaged(element) {
 
   closeOtherAccordions(currentTrigger) {
     document.querySelectorAll('[data-accordion="trigger"]').forEach(trigger => {
-      if (trigger !== currentTrigger && trigger._isOpen && this.isAccordionManaged(trigger)) {
-        const content = trigger.nextElementSibling;
-        const icon = trigger.querySelector('[data-accordion="icon"]');
-        
-        if (content) {
-          content.style.height = '0px';
+        if (trigger !== currentTrigger && trigger._isOpen && this.isAccordionManaged(trigger)) {
+            const content = trigger.nextElementSibling;
+            const icon = trigger.querySelector('[data-accordion="icon"]');
+
+            if (!content) return;
+
+            content.style.height = content.scrollHeight + 'px'; // Ensure a smooth transition
+            requestAnimationFrame(() => {
+                content.style.height = '0px';
+            });
+
+            trigger._isOpen = false;
+            if (icon) {
+                icon.style.transform = 'rotate(0deg)';
+                icon.style.transition = 'transform 0.3s ease-in-out';
+            }
+
+            content.addEventListener("transitionend", () => {
+                if (!trigger._isOpen) {
+                    content.style.display = "none";
+                }
+            }, { once: true });
         }
-        trigger._isOpen = false;
-        if (icon) {
-          icon.style.transform = 'rotate(0deg)';
-          icon.style.transition = 'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)';
-        }
-      }
     });
-  }
+}
+
 
   // Event listeners for session management
   setupSessionEventListeners() {
