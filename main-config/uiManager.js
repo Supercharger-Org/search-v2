@@ -236,13 +236,70 @@ export default class UIManager {
 
   // Accordion Management
   initializeAccordions() {
-    const triggers = document.querySelectorAll(".step-small-container [data-accordion='trigger']");
-    triggers.forEach(trigger => {
-      if (!trigger._initialized) {
-        this.initializeAccordionTrigger(trigger);
-      }
-    });
+  const triggers = document.querySelectorAll(".step-small-container [data-accordion='trigger']");
+  triggers.forEach(trigger => {
+    if (!trigger._initialized) {
+      this.initializeAccordionTrigger(trigger);
+    }
+  });
+
+  // Always open library step on fresh initialization
+  const libraryStep = document.querySelector('[step-name="library"]');
+  if (libraryStep) {
+    const trigger = libraryStep.querySelector('[data-accordion="trigger"]');
+    if (trigger && !trigger._isOpen) {
+      this.toggleAccordion(trigger, true);
+    }
   }
+}
+
+initializeNewStep(stepElement) {
+  const trigger = stepElement.querySelector('[data-accordion="trigger"]');
+  const content = stepElement.querySelector('[data-accordion="content"]');
+  
+  if (!trigger || !content) return;
+  
+  // Remove any existing listeners
+  const newTrigger = trigger.cloneNode(true);
+  trigger.parentNode.replaceChild(newTrigger, trigger);
+  
+  // Set up initial state
+  content.style.height = '0px';
+  content.style.transition = 'height 0.3s cubic-bezier(0.4, 0, 0.2, 1)';
+  content.style.overflow = 'hidden';
+  content.style.display = '';
+  
+  // Initialize trigger
+  newTrigger._initialized = true;
+  newTrigger._isOpen = false;
+  newTrigger.addEventListener('click', () => {
+    this.toggleAccordion(newTrigger);
+  });
+  
+  // Close other accordions except method
+  document.querySelectorAll('[data-accordion="trigger"]').forEach(t => {
+    if (t !== newTrigger && t._isOpen && this.isAccordionManaged(t)) {
+      this.toggleAccordion(t, false);
+    }
+  });
+  
+  // Open the new step
+  requestAnimationFrame(() => {
+    this.toggleAccordion(newTrigger, true);
+  });
+}
+
+isAccordionManaged(element) {
+  if (!element) return false;
+  
+  const stepWrapper = element.closest('[step-name]');
+  if (!stepWrapper) return false;
+  
+  const stepName = stepWrapper.getAttribute('step-name');
+  
+  // Method step should never auto-close
+  return stepName !== 'method';
+}
 
   initializeAccordionTrigger(trigger) {
     trigger._initialized = true;
