@@ -50,21 +50,53 @@ export default class UIManager {
   }
 
   setInitialUIState() {
+    // First, hide ALL visibility-controlled elements
+    document.querySelectorAll('[state-visibility]').forEach(el => {
+      el.style.display = 'none';
+    });
+
+    // Hide initial elements
     this.initialHideConfig.ids.forEach(id => {
       const el = document.getElementById(id);
       if (el) el.style.display = "none";
     });
+
     this.initialHideConfig.classes.forEach(selector => {
-      document.querySelectorAll(selector).forEach(el => (el.style.display = "none"));
+      document.querySelectorAll(selector).forEach(el => {
+        el.style.display = "none";
+      });
     });
+
     this.initialHideConfig.dataAttributes.forEach(selector => {
-      document.querySelectorAll(selector).forEach(el => (el.style.display = "none"));
+      document.querySelectorAll(selector).forEach(el => {
+        el.style.display = "none";
+      });
     });
+
+    // Show library step
     const libraryStep = document.querySelector('[step-name="library"]');
     if (libraryStep) {
       const libraryWrapper = libraryStep.closest(".horizontal-slide_wrapper");
       if (libraryWrapper) libraryWrapper.style.display = "";
     }
+  }
+
+  updateVisibility(isAuthorized) {
+    Logger.info('Updating auth visibility:', isAuthorized);
+
+    // Hide all state-visibility elements first
+    document.querySelectorAll('[state-visibility]').forEach(el => {
+      el.style.display = 'none';
+    });
+
+    // Show elements based on auth state
+    const selector = isAuthorized ? 
+      '[state-visibility="user-authorized"]' : 
+      '[state-visibility="free-user"]';
+
+    document.querySelectorAll(selector).forEach(el => {
+      el.style.display = '';
+    });
   }
 
   setupPatentSidebar() {
@@ -407,17 +439,27 @@ updateStepVisibility(state) {
 }
 
 
-  updateFilterOptionsVisibility(state) {
+  updateFilterOptionsVisibility(state, isAuthorized) {
     const optionsStep = document.querySelector('[step-name="options"]');
     const optionsWrapper = optionsStep?.closest('.horizontal-slide_wrapper');
+    
     if (optionsWrapper) {
       const hasKeywordsInclude = this.filterExists('keywords-include', state);
-      optionsWrapper.style.display = hasKeywordsInclude ? '' : 'none';
+      const shouldShow = hasKeywordsInclude && isAuthorized;
+      optionsWrapper.style.display = shouldShow ? '' : 'none';
     }
+
+    // Update filter option buttons
     document.querySelectorAll('[data-filter-option]').forEach(button => {
       const filterName = button.getAttribute('data-filter-option');
+      const requiresAuth = button.hasAttribute('auth-required');
       const exists = this.filterExists(filterName, state);
-      button.style.display = exists ? 'none' : '';
+      
+      if (requiresAuth && !isAuthorized) {
+        button.style.display = 'none';
+      } else {
+        button.style.display = exists ? 'none' : '';
+      }
     });
   }
 
@@ -440,11 +482,21 @@ updateStepVisibility(state) {
 
   updateDisplay(state) {
     const { scrollX, scrollY } = window;
+    
+    // Update auth-based visibility first
+    const isAuthorized = !!state.auth?.isAuthorized;
+    this.updateAuthBasedVisibility(isAuthorized);
+
+    // Rest of your existing updateDisplay code...
     const manageKeywordsButton = document.querySelector("#manage-keywords-button");
     if (manageKeywordsButton) {
       manageKeywordsButton.style.display = this.shouldShowKeywordsButton(state) ? "" : "none";
     }
-    this.updateFilterOptionsVisibility(state);
+    
+    // Update filter options with auth check
+    this.updateFilterOptionsVisibility(state, isAuthorized);
+    
+    // Continue with rest of update logic...
     this.updateFilterStepOrder(state);
     this.updateKeywordsDisplay(state);
     this.updateExcludedKeywordsDisplay(state);
