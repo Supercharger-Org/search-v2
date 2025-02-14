@@ -31,7 +31,11 @@ class SearchApp {
     try {
       Logger.info("Initializing SearchApp...");
 
-      // Check for auth token first
+      // Initialize UI first
+      await this.uiManager.initialize();
+      this.sessionState.setUIManager(this.uiManager);
+
+      // Check for auth token
       const authToken = this.authManager.getUserAuthToken();
       if (authToken) {
         Logger.info("Auth token found. Proceeding with authorized initialization.");
@@ -39,70 +43,68 @@ class SearchApp {
       } else {
         Logger.info("No auth token found – initializing as free user");
         this.sessionManager.isAuthReady = false;
+        await this.initializeAsFreeUser();
+        return;
       }
 
-      // Initialize the UI first
-      await this.uiManager.initialize();
-      this.sessionState.setUIManager(this.uiManager);
-
-      // Check for session ID in URL
+      // Try to load session if ID exists
       const urlParams = new URLSearchParams(window.location.search);
       const sessionId = urlParams.get("id");
 
       if (sessionId && this.sessionManager.isAuthReady) {
-        Logger.info("Loading existing session...");
+        Logger.info("Session id found in URL, loading session...");
         try {
-          await this.loadExistingSession(sessionId);
+          await this.sessionManager.loadSession(sessionId);
+          this.sessionManager.isInitialized = true;
+          await this.handleSessionLoaded();
         } catch (error) {
           Logger.error("Failed to load session:", error);
-          // Continue with fresh UI if session load fails
-          await this.initializeFreshUI();
+          await this.initializeAsFreeUser();
         }
       } else {
-        Logger.info("Initializing fresh UI");
-        await this.initializeFreshUI();
+        await this.initializeAsFreeUser();
       }
 
-      // Initialize other managers
+      // Initialize managers regardless of session status
       await this.initializeManagers();
-
-      // Set up event handlers if not already set
-      if (!this._listenersSet) {
-        this.setupEventHandlers();
-        this._listenersSet = true;
-      }
+      this.setupEventHandlers();
 
     } catch (error) {
       Logger.error("SearchApp initialization error:", error);
-      // Ensure basic functionality even if initialization fails
-      this.handleInitializationError();
+      await this.initializeAsFreeUser();
     }
   }
 
-  async loadExistingSession(sessionId) {
+  async initializeAsFreeUser() {
+    Logger.info("Initializing as free user");
     try {
-      await this.sessionManager.loadSession(sessionId);
-      this.sessionManager.isInitialized = true;
-      const state = this.sessionState.get();
-      Logger.info("Session State loaded:", JSON.stringify(state, null, 2));
-
-      // Force UI update after session load
-      await this.forceUIUpdate(state);
+      // Reset session state
+      this.sessionState.initializeState();
+      
+      // Update UI for free user
+      await this.uiManager.initialize();
+      this.uiManager.updateVisibility(false);
+      
+      // Initialize managers with free user state
+      await this.initializeManagers();
+      this.setupEventHandlers();
+      
     } catch (error) {
-      Logger.error("Failed to load session:", error);
-      throw error;
+      Logger.error("Free user initialization error:", error);
+      // Ensure basic UI is still functional
+      this.uiManager.initialize();
     }
   }
 
-  async forceUIUpdate(state) {
+  async handleSessionLoaded() {
     try {
-      // Reset all UI elements first
-      this.uiManager.resetUI();
-
-      // Update UI with current state
+      const state = this.sessionState.get();
+      Logger.info("Session State after load:", JSON.stringify(state, null, 2));
+      
+      // Update UI with loaded state
       await this.uiManager.updateAll(state);
-
-      // Force update specific elements
+      
+      // Initialize all visible components
       if (state.method?.selected) {
         const methodRadio = document.querySelector(`input[name="method"][value="${state.method.selected}"]`);
         if (methodRadio) methodRadio.checked = true;
@@ -113,41 +115,37 @@ class SearchApp {
         if (librarySelect) librarySelect.value = state.library;
       }
 
-      // Initialize steps for existing filters
+      // Initialize filter steps
       if (Array.isArray(state.filters)) {
         for (const filter of state.filters) {
-          const filterStep = document.querySelector(`[step-name="${filter.name}"]`)?.closest('.horizontal-slide_wrapper');
-          if (filterStep) {
-            await this.uiManager.initializeNewStep(filterStep);
-            const trigger = filterStep.querySelector('[data-accordion="trigger"]');
-            if (trigger) await this.uiManager.toggleAccordion(trigger, true);
+          const stepElement = document.querySelector(`[step-name="${filter.name}"]`)?.closest('.horizontal-slide_wrapper');
+          if (stepElement) {
+            await this.uiManager.initializeNewStep(stepElement);
           }
         }
       }
 
-      // Force visibility update
-      this.uiManager.updateStepVisibility(state);
     } catch (error) {
-      Logger.error("Failed to force UI update:", error);
+      Logger.error("Error handling loaded session:", error);
       throw error;
     }
   }
 
-
-  updateFilter(filterName, updateFn) {
-    const currentFilters = this.sessionState.get().filters;
-    let filter = currentFilters.find((f) => f.name === filterName);
-    if (filter) {
-      updateFn(filter);
-    } else {
-      filter = { name: filterName, order: currentFilters.length, value: null };
-      updateFn(filter);
-      currentFilters.push(filter);
+  async initializeManagers() {
+    try {
+      await Promise.all([
+        this.assigneeSearchManager.init(),
+        this.valueSelectManager.init()
+      ]);
+      Logger.info("Managers initialized successfully");
+    } catch (error) {
+      Logger.error("Manager initialization error:", error);
     }
-    this.sessionState.update("filters", currentFilters);
   }
 
   setupEventHandlers() {
+    if (this._listenersSet) return;
+    
     this.setupSearchHandlers();
     this.setupPaginationHandlers();
     this.setupSessionHandlers();
@@ -157,7 +155,9 @@ class SearchApp {
     this.setupDescriptionHandlers();
     this.setupStateChangeHandlers();
     this.setupItemSelectionHandlers();
-    this.setupPatentSearchHandlers();
+    
+    this._listenersSet = true;
+    Logger.info("Event handlers setup completed");
   }
 
   setupPatentSearchHandlers() {
