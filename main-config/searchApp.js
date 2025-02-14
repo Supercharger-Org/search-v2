@@ -21,6 +21,7 @@ class SearchApp {
     this.apiService = new APIService(this.apiConfig);
     this.assigneeSearchManager = new AssigneeSearchManager(this.eventBus, EventTypes);
     this.valueSelectManager = new ValueSelectManager(this.eventBus);
+    this.authManager = authManager;
     
     // Make app instance globally available for session manager
     window.app = this;
