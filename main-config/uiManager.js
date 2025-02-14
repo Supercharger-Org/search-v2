@@ -1010,25 +1010,195 @@ export default class UIManager {
     }, 50);
   }
 
-  // Final initialize method to tie everything together
-  initialize(initialState = null) {
-    Logger.info('Initializing UI Manager', initialState ? 'with state' : 'fresh start');
-    
-    // Setup auth state listener first
-    this.setupAuthStateListener();
-    
-    // Set initial UI state
-    this.setInitialUIState();
-    
-    // Setup base event listeners
-    this.setupEventListeners();
-    this.setupSearchEventListeners();
-    this.setupPatentSidebar();
-    
-    // If we have initial state, apply it
-    if (initialState) {
-      Logger.info('Initializing UI with session state:', initialState);
-      this.initializeWithState(initialState);
+// Setup UI for included keywords.
+  setupKeywordsUI() {
+    const manageKeywordsButton = document.querySelector("#manage-keywords-button");
+    if (manageKeywordsButton) {
+      manageKeywordsButton.style.display = "none";
+      manageKeywordsButton.addEventListener("click", e => {
+        e.preventDefault();
+        manageKeywordsButton.disabled = true;
+        manageKeywordsButton.textContent = "Generating keywords...";
+        this.eventBus.emit(EventTypes.KEYWORDS_GENERATE_INITIATED);
+      });
+    }
+    const keywordInput = document.querySelector("#keywords-include-add");
+    const keywordAddButton = document.querySelector("#keywords-include-add-button");
+    if (keywordInput) {
+      keywordInput.addEventListener("keypress", e => {
+        if (e.key === "Enter" && keywordInput.value.trim().length >= 2) {
+          this.eventBus.emit(EventTypes.KEYWORD_ADDED, { keyword: keywordInput.value.trim() });
+          keywordInput.value = "";
+        }
+      });
+    }
+    if (keywordAddButton) {
+      keywordAddButton.addEventListener("click", e => {
+        e.preventDefault();
+        const inp = document.querySelector("#keywords-include-add");
+        if (inp && inp.value.trim().length >= 2) {
+          this.eventBus.emit(EventTypes.KEYWORD_ADDED, { keyword: inp.value.trim() });
+          inp.value = "";
+        }
+      });
+    }
+    const clearKeywordsBtn = document.querySelector("#clear-included-keywords");
+    if (clearKeywordsBtn) {
+      clearKeywordsBtn.addEventListener("click", e => {
+        e.preventDefault();
+        this.eventBus.emit(EventTypes.KEYWORD_REMOVED, { clearAll: true, type: "include" });
+      });
+    }
+    const newGenButton = document.querySelector("#keywords-include-new-gen");
+  if (newGenButton) {
+    newGenButton.addEventListener("click", e => {
+      e.preventDefault();
+      const buttonLabel = newGenButton.querySelector('label');
+      if (buttonLabel) {
+        buttonLabel.textContent = "Generating additional keywords...";
+      }
+      newGenButton.disabled = true;
+      this.eventBus.emit(EventTypes.KEYWORDS_ADDITIONAL_GENERATE_INITIATED);
+    });
+  }
+  }
+  
+  // Setup UI for excluded keywords.
+  setupExcludedKeywordsUI() {
+    const input = document.querySelector("#keywords-exclude-add");
+    const addButton = document.querySelector("#keywords-exclude-add-button");
+    if (input) {
+      input.addEventListener("keypress", e => {
+        if (e.key === "Enter" && input.value.trim().length >= 2) {
+          this.eventBus.emit(EventTypes.KEYWORD_EXCLUDED_ADDED, { keyword: input.value.trim() });
+          input.value = "";
+        }
+      });
+    }
+    if (addButton) {
+      addButton.addEventListener("click", e => {
+        e.preventDefault();
+        const inp = document.querySelector("#keywords-exclude-add");
+        if (inp && inp.value.trim().length >= 2) {
+          this.eventBus.emit(EventTypes.KEYWORD_EXCLUDED_ADDED, { keyword: inp.value.trim() });
+          inp.value = "";
+        }
+      });
+    }
+    const clearBtn = document.querySelector("#clear-excluded-keywords");
+    if (clearBtn) {
+      clearBtn.addEventListener("click", e => {
+        e.preventDefault();
+        this.eventBus.emit(EventTypes.KEYWORD_EXCLUDED_REMOVED, { clearAll: true });
+      });
+    }
+  }
+  
+  // Setup UI for codes.
+setupCodesUI() {
+  const input = document.querySelector("#code-input");
+  const addButton = document.querySelector("#code-add-button");
+  if (input) {
+    input.addEventListener("keypress", e => {
+      if (e.key === "Enter" && input.value.trim().length >= 1) {
+        this.eventBus.emit(EventTypes.CODE_ADDED, { code: input.value.trim() });
+        input.value = "";
+      }
+    });
+  }
+    if (addButton) {
+      addButton.addEventListener("click", e => {
+        e.preventDefault();
+        const inp = document.querySelector("#code-input");
+        if (inp && inp.value.trim().length >= 1) {
+          this.eventBus.emit(EventTypes.CODE_ADDED, { code: inp.value.trim() });
+          inp.value = "";
+        }
+      });
+    }
+    const clearBtn = document.querySelector("#clear-codes");
+    if (clearBtn) {
+      clearBtn.addEventListener("click", e => {
+        e.preventDefault();
+        this.eventBus.emit(EventTypes.CODE_REMOVED, { clearAll: true });
+      });
+    }
+  }
+  
+  // Setup UI for inventors.
+  setupInventorsUI() {
+    const addButton = document.querySelector("#add-inventor");
+    if (addButton) {
+      addButton.addEventListener("click", e => {
+        e.preventDefault();
+        const firstName = document.querySelector("#inventor-first-name")?.value.trim();
+        const lastName = document.querySelector("#inventor-last-name")?.value.trim();
+        if (firstName && lastName) {
+          this.eventBus.emit(EventTypes.INVENTOR_ADDED, { inventor: { first_name: firstName, last_name: lastName } });
+          document.querySelector("#inventor-first-name").value = "";
+          document.querySelector("#inventor-last-name").value = "";
+        }
+      });
+    }
+    const clearBtn = document.querySelector("#clear-inventors");
+    if (clearBtn) {
+      clearBtn.addEventListener("click", e => {
+        e.preventDefault();
+        this.eventBus.emit(EventTypes.INVENTOR_REMOVED, { clearAll: true });
+      });
+    }
+  }
+  
+  // Setup UI for assignees.
+  setupAssigneesUI() {
+    const input = document.querySelector("#assignee-add");
+    const addButton = document.querySelector("#assignee-add-button");
+    if (input) {
+      input.addEventListener("keypress", e => {
+        if (e.key === "Enter" && input.value.trim().length >= 2) {
+          this.eventBus.emit(EventTypes.ASSIGNEE_ADDED, { assignee: input.value.trim() });
+          input.value = "";
+        }
+      });
+    }
+    if (addButton) {
+      addButton.addEventListener("click", e => {
+        e.preventDefault();
+        const inp = document.querySelector("#assignee-add");
+        if (inp && inp.value.trim().length >= 2) {
+          this.eventBus.emit(EventTypes.ASSIGNEE_ADDED, { assignee: inp.value.trim() });
+          inp.value = "";
+        }
+      });
+    }
+    const clearBtn = document.querySelector("#clear-assignees");
+    if (clearBtn) {
+      clearBtn.addEventListener("click", e => {
+        e.preventDefault();
+        this.eventBus.emit(EventTypes.ASSIGNEE_REMOVED, { clearAll: true });
+      });
+    }
+  }
+  
+  // Setup UI for date filter.
+  setupDateUI() {
+    const dateFrom = document.querySelector("#date-from");
+    const dateTo = document.querySelector("#date-to");
+    const clearBtn = document.querySelector("#clear-date");
+    const updateDate = () => {
+      const fromVal = dateFrom ? dateFrom.value : "";
+      const toVal = dateTo ? dateTo.value : "";
+      this.eventBus.emit(EventTypes.FILTER_UPDATED, { filterName: "date", value: { date_from: fromVal, date_to: toVal } });
+    };
+    if (dateFrom) dateFrom.addEventListener("change", updateDate);
+    if (dateTo) dateTo.addEventListener("change", updateDate);
+    if (clearBtn) {
+      clearBtn.addEventListener("click", e => {
+        e.preventDefault();
+        if (dateFrom) dateFrom.value = "";
+        if (dateTo) dateTo.value = "";
+        this.eventBus.emit(EventTypes.FILTER_UPDATED, { filterName: "date", value: { date_from: "", date_to: "" } });
+      });
     }
   }
 }
