@@ -123,44 +123,6 @@ export default class SessionManager {
     }
   }
 
-  async loadSession(sessionId) {
-    try {
-      const token = AuthManager.getUserAuthToken();
-      if (!token) {
-        throw new Error("No auth token available");
-      }
-
-      Logger.info("Loading session:", sessionId);
-
-      const response = await fetch(SESSION_API.GET, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "X-Xano-Authorization": `Bearer ${token}`,
-          "X-Xano-Authorization-Only": "true"
-        },
-        mode: "cors",
-        body: JSON.stringify({ sessionId })
-      });
-
-      if (!response.ok) {
-        throw new Error(`Failed to load session: ${response.status}`);
-      }
-
-      const sessionData = await response.json();
-      if (!sessionData) {
-        throw new Error("No session data received");
-      }
-
-      this.eventBus.emit(EventTypes.LOAD_SESSION, sessionData);
-      return sessionData;
-
-    } catch (error) {
-      Logger.error("Session load error:", error);
-      throw error;
-    }
-  }
-
   setupSessionUpdateListeners() {
     // Only setup if we have a session and user is authorized
     if (!this.sessionId || !AuthManager.getUserAuthToken()) return;
@@ -218,6 +180,8 @@ export default class SessionManager {
         results: { results: state.search.results || [] }
       };
 
+      Logger.info('Saving session with payload:', JSON.stringify(payload, null, 2));
+
       const response = await fetch(SESSION_API.SAVE, {
         method: 'PATCH',
         headers: {
@@ -229,14 +193,112 @@ export default class SessionManager {
         body: JSON.stringify(payload)
       });
 
+      const responseData = await response.json();
+      
       if (!response.ok) {
+        Logger.error('Session save failed:', {
+          status: response.status,
+          statusText: response.statusText,
+          response: responseData
+        });
         throw new Error('Failed to save session');
       }
 
-      this.eventBus.emit(EventTypes.SESSION_SAVED, { sessionId: this.sessionId });
+      Logger.info('Session saved successfully:', {
+        sessionId: this.sessionId,
+        status: response.status,
+        response: responseData
+      });
+
+      this.eventBus.emit(EventTypes.SESSION_SAVED, { 
+        sessionId: this.sessionId,
+        data: responseData
+      });
     } catch (error) {
       Logger.error('Session save error:', error);
     }
+  }
+
+  async loadSession(sessionId) {
+    try {
+      const token = AuthManager.getUserAuthToken();
+      if (!token) {
+        throw new Error("No auth token available");
+      }
+
+      Logger.info("Loading session:", sessionId);
+
+      const response = await fetch(SESSION_API.GET, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Xano-Authorization": `Bearer ${token}`,
+          "X-Xano-Authorization-Only": "true"
+        },
+        mode: "cors",
+        body: JSON.stringify({ sessionId })
+      });
+
+      const responseData = await response.json();
+
+      if (!response.ok) {
+        Logger.error('Session load failed:', {
+          status: response.status,
+          statusText: response.statusText,
+          response: responseData
+        });
+        throw new Error(`Failed to load session: ${response.status}`);
+      }
+
+      Logger.info("Session data loaded:", JSON.stringify(responseData, null, 2));
+
+      if (!responseData) {
+        throw new Error("No session data received");
+      }
+
+      // Normalize the session data before emitting
+      const normalizedData = this.normalizeSessionData(responseData);
+      Logger.info("Normalized session data:", JSON.stringify(normalizedData, null, 2));
+
+      this.eventBus.emit(EventTypes.LOAD_SESSION, normalizedData);
+      return normalizedData;
+
+    } catch (error) {
+      Logger.error("Session load error:", error);
+      throw error;
+    }
+  }
+
+  normalizeSessionData(sessionData) {
+    // This ensures we have a consistent state structure
+    const normalizedData = {
+      library: sessionData.selections?.library || null,
+      method: {
+        selected: sessionData.selections?.method?.selected || null,
+        description: {
+          value: sessionData.selections?.method?.description?.value || "",
+          previousValue: sessionData.selections?.method?.description?.previousValue || null,
+          isValid: sessionData.selections?.method?.description?.isValid || false,
+          improved: sessionData.selections?.method?.description?.improved || false,
+          modificationSummary: sessionData.selections?.method?.description?.modificationSummary || null
+        },
+        patent: sessionData.selections?.method?.patent || null,
+        searchValue: sessionData.selections?.method?.searchValue || "",
+        validated: sessionData.selections?.method?.validated || false
+      },
+      filters: Array.isArray(sessionData.selections?.filters) ? 
+        sessionData.selections.filters : [],
+      search: {
+        results: Array.isArray(sessionData.results) ? sessionData.results : [],
+        current_page: sessionData.selections?.search?.current_page || 1,
+        total_pages: sessionData.selections?.search?.total_pages || 0,
+        active_item: sessionData.selections?.search?.active_item || null,
+        items_per_page: sessionData.selections?.search?.items_per_page || 10,
+        reload_required: false
+      }
+    };
+
+    return normalizedData;
   }
 
   generateUniqueId() {
