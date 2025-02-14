@@ -105,6 +105,41 @@ class SearchApp {
     this.setupDescriptionHandlers();
     this.setupStateChangeHandlers();
     this.setupItemSelectionHandlers();
+    this.setupPatentSearchHandlers();
+  }
+
+  setupPatentSearchHandlers() {
+    this.eventBus.on(EventTypes.PATENT_SEARCH_INITIATED, async ({ value }) => {
+      try {
+        Logger.info("Patent search initiated:", value);
+        
+        // Show loading state
+        const patentLoader = document.querySelector("#patent-loader");
+        const patentInfoWrapper = document.querySelector("#patent-info-wrapper");
+        if (patentLoader) patentLoader.style.display = "flex";
+        if (patentInfoWrapper) patentInfoWrapper.style.display = "none";
+
+        // Get patent info
+        const patentInfo = await this.apiService.getPatentInfo(value);
+        
+        // Update UI
+        if (patentLoader) patentLoader.style.display = "none";
+        if (patentInfoWrapper) patentInfoWrapper.style.display = "block";
+
+        // Emit event with patent info
+        this.eventBus.emit(EventTypes.PATENT_INFO_RECEIVED, { patentInfo });
+
+      } catch (error) {
+        Logger.error("Patent search failed:", error);
+        
+        // Hide loading state
+        const patentLoader = document.querySelector("#patent-loader");
+        if (patentLoader) patentLoader.style.display = "none";
+
+        // Show error message
+        alert(error.message || "Failed to fetch patent information");
+      }
+    });
   }
 
   setupSearchHandlers() {
