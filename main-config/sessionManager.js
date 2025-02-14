@@ -15,38 +15,11 @@ export default class SessionManager {
     this.saveTimeout = null;
     this.sessionId = null;
     this.isInitialized = false;
-    this.isAuthReady = false;
-    this.setupEventListeners();
+    this.setupInitialEventListeners();
   }
 
-  setupEventListeners() {
-    const sessionUpdateEvents = [
-      EventTypes.LIBRARY_SELECTED,
-      EventTypes.METHOD_SELECTED,
-      EventTypes.DESCRIPTION_UPDATED,
-      EventTypes.DESCRIPTION_IMPROVED,
-      EventTypes.FILTER_ADDED,
-      EventTypes.FILTER_UPDATED,
-      EventTypes.PATENT_INFO_RECEIVED,
-      EventTypes.KEYWORD_ADDED,
-      EventTypes.KEYWORD_REMOVED,
-      EventTypes.KEYWORD_EXCLUDED_ADDED,
-      EventTypes.KEYWORD_EXCLUDED_REMOVED,
-      EventTypes.CODE_ADDED,
-      EventTypes.CODE_REMOVED,
-      EventTypes.INVENTOR_ADDED,
-      EventTypes.INVENTOR_REMOVED,
-      EventTypes.SEARCH_COMPLETED
-    ];
-
-    sessionUpdateEvents.forEach(eventType => {
-      this.eventBus.on(eventType, () => {
-        if (this.isInitialized && this.sessionId) {
-          this.scheduleSessionSave();
-        }
-      });
-    });
-
+  setupInitialEventListeners() {
+    // Only setup session creation listeners if user is authorized
     const sessionCreationEvents = [
       EventTypes.FILTER_ADDED,
       EventTypes.KEYWORDS_GENERATE_COMPLETED
@@ -54,148 +27,54 @@ export default class SessionManager {
 
     sessionCreationEvents.forEach(eventType => {
       this.eventBus.on(eventType, () => {
-        if (this.isAuthReady && !this.sessionId) {
+        if (AuthManager.getUserAuthToken() && !this.sessionId) {
           this.createNewSession();
         }
       });
     });
-
-    // Listen for auth events
-    this.eventBus.on('user_authorized', async () => {
-      this.isAuthReady = true;
-      await this.checkAndLoadSession();
-    });
   }
 
-  async checkAndLoadSession() {
-    const urlParams = new URLSearchParams(window.location.search);
-    const sessionId = urlParams.get('id');
-    
-    if (sessionId && this.isAuthReady) {
-      try {
-        await this.loadSession(sessionId);
-        this.sessionId = sessionId;
-        this.isInitialized = true;
-        this.eventBus.emit(EventTypes.SESSION_LOADED);
-      } catch (error) {
-        Logger.error('Failed to load session:', error);
-      }
-    }
-  }
-
-  async loadSession(sessionId) {
+  async initialize() {
     try {
+      // Check auth state first
       const token = AuthManager.getUserAuthToken();
       if (!token) {
-        throw new Error("No auth token available");
+        Logger.info('User not authorized - skipping session initialization');
+        return false;
       }
 
-      Logger.info("Loading session:", sessionId);
+      // Check for session ID in URL
+      const urlParams = new URLSearchParams(window.location.search);
+      const sessionId = urlParams.get('id');
 
-      const response = await fetch(SESSION_API.GET, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "X-Xano-Authorization": `Bearer ${token}`,
-          "X-Xano-Authorization-Only": "true"
-        },
-        mode: "cors",
-        body: JSON.stringify({ sessionId })
-      });
-
-      if (!response.ok) {
-        throw new Error(`Failed to load session: ${response.status}`);
+      if (!sessionId) {
+        Logger.info('No session ID in URL, starting fresh');
+        return false;
       }
 
-      const sessionData = await response.json();
-      
+      // Try to load the session
+      const sessionData = await this.loadSession(sessionId);
       if (!sessionData) {
-        throw new Error("No session data received");
+        Logger.info('No session data found');
+        return false;
       }
 
-      const normalizedData = this.normalizeSessionData(sessionData);
-      this.eventBus.emit(EventTypes.LOAD_SESSION, normalizedData);
+      this.sessionId = sessionId;
+      this.isInitialized = true;
+      this.setupSessionUpdateListeners();
+
+      Logger.info('Session initialized successfully');
       return true;
 
     } catch (error) {
-      Logger.error("Session load error:", error);
-      this.emitEmptyState();
-      throw error;
+      Logger.error('Session initialization failed:', error);
+      return false;
     }
-  }
-
-  normalizeSessionData(sessionData) {
-    const emptyState = this.getEmptyState();
-    
-    try {
-      return {
-        ...emptyState,
-        library: sessionData.selections?.library || null,
-        method: {
-          ...emptyState.method,
-          selected: sessionData.selections?.method?.selected || null,
-          description: {
-            ...emptyState.method.description,
-            value: sessionData.selections?.method?.description?.value || "",
-            previousValue: sessionData.selections?.method?.description?.previousValue || null,
-            isValid: sessionData.selections?.method?.description?.isValid || false,
-            improved: sessionData.selections?.method?.description?.improved || false,
-            modificationSummary: sessionData.selections?.method?.description?.modificationSummary || null
-          },
-          patent: sessionData.selections?.method?.patent || null,
-          searchValue: sessionData.selections?.method?.searchValue || "",
-          validated: sessionData.selections?.method?.validated || false
-        },
-        filters: Array.isArray(sessionData.selections?.filters) ? sessionData.selections.filters : [],
-        search: {
-          ...emptyState.search,
-          results: Array.isArray(sessionData.results) ? sessionData.results : [],
-          current_page: sessionData.selections?.search?.current_page || 1,
-          total_pages: sessionData.selections?.search?.total_pages || 0,
-          active_item: sessionData.selections?.search?.active_item || null,
-          items_per_page: sessionData.selections?.search?.items_per_page || 10
-        }
-      };
-    } catch (error) {
-      Logger.error("Error normalizing session data:", error);
-      return this.getEmptyState();
-    }
-  }
-
-  getEmptyState() {
-    return {
-      library: null,
-      method: {
-        selected: null,
-        description: {
-          value: "",
-          previousValue: null,
-          isValid: false,
-          improved: false,
-          modificationSummary: null
-        },
-        patent: null,
-        searchValue: "",
-        validated: false
-      },
-      filters: [],
-      search: {
-        results: [],
-        current_page: 1,
-        total_pages: 0,
-        active_item: null,
-        reload_required: false,
-        items_per_page: 10
-      }
-    };
-  }
-
-  emitEmptyState() {
-    this.eventBus.emit(EventTypes.LOAD_SESSION, this.getEmptyState());
   }
 
   async createNewSession() {
-    if (!this.isAuthReady) {
+    // Double check auth state
+    if (!AuthManager.getUserAuthToken()) {
       Logger.info("User is not authorized – cannot create session.");
       return;
     }
@@ -229,6 +108,7 @@ export default class SessionManager {
 
       const data = await response.json();
       
+      // Update URL with session ID
       const newUrl = new URL(window.location.href);
       newUrl.searchParams.set("id", this.sessionId);
       window.history.pushState({ sessionId: this.sessionId }, "", newUrl);
@@ -243,8 +123,87 @@ export default class SessionManager {
     }
   }
 
+  async loadSession(sessionId) {
+    try {
+      const token = AuthManager.getUserAuthToken();
+      if (!token) {
+        throw new Error("No auth token available");
+      }
+
+      Logger.info("Loading session:", sessionId);
+
+      const response = await fetch(SESSION_API.GET, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Xano-Authorization": `Bearer ${token}`,
+          "X-Xano-Authorization-Only": "true"
+        },
+        mode: "cors",
+        body: JSON.stringify({ sessionId })
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to load session: ${response.status}`);
+      }
+
+      const sessionData = await response.json();
+      if (!sessionData) {
+        throw new Error("No session data received");
+      }
+
+      this.eventBus.emit(EventTypes.LOAD_SESSION, sessionData);
+      return sessionData;
+
+    } catch (error) {
+      Logger.error("Session load error:", error);
+      throw error;
+    }
+  }
+
+  setupSessionUpdateListeners() {
+    // Only setup if we have a session and user is authorized
+    if (!this.sessionId || !AuthManager.getUserAuthToken()) return;
+
+    const sessionUpdateEvents = [
+      EventTypes.LIBRARY_SELECTED,
+      EventTypes.METHOD_SELECTED,
+      EventTypes.DESCRIPTION_UPDATED,
+      EventTypes.DESCRIPTION_IMPROVED,
+      EventTypes.FILTER_ADDED,
+      EventTypes.FILTER_UPDATED,
+      EventTypes.PATENT_INFO_RECEIVED,
+      EventTypes.KEYWORD_ADDED,
+      EventTypes.KEYWORD_REMOVED,
+      EventTypes.KEYWORD_EXCLUDED_ADDED,
+      EventTypes.KEYWORD_EXCLUDED_REMOVED,
+      EventTypes.CODE_ADDED,
+      EventTypes.CODE_REMOVED,
+      EventTypes.INVENTOR_ADDED,
+      EventTypes.INVENTOR_REMOVED,
+      EventTypes.SEARCH_COMPLETED
+    ];
+
+    sessionUpdateEvents.forEach(eventType => {
+      this.eventBus.on(eventType, () => {
+        if (this.isInitialized && this.sessionId && AuthManager.getUserAuthToken()) {
+          this.scheduleSessionSave();
+        }
+      });
+    });
+  }
+
+  scheduleSessionSave() {
+    if (!AuthManager.getUserAuthToken()) return;
+    
+    if (this.saveTimeout) {
+      clearTimeout(this.saveTimeout);
+    }
+    this.saveTimeout = setTimeout(() => this.saveSession(), 1000);
+  }
+
   async saveSession() {
-    if (!this.sessionId) return;
+    if (!this.sessionId || !AuthManager.getUserAuthToken()) return;
 
     try {
       const token = AuthManager.getUserAuthToken();
@@ -278,13 +237,6 @@ export default class SessionManager {
     } catch (error) {
       Logger.error('Session save error:', error);
     }
-  }
-
-  scheduleSessionSave() {
-    if (this.saveTimeout) {
-      clearTimeout(this.saveTimeout);
-    }
-    this.saveTimeout = setTimeout(() => this.saveSession(), 1000);
   }
 
   generateUniqueId() {
