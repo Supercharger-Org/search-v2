@@ -30,7 +30,56 @@ export default class UIManager {
     this.updateAll(state);
   }
 
-  // Update our existing updateAll method to be more explicit
+  initialize(initialState = null) {
+    Logger.info('Initializing UI Manager', initialState ? 'with state' : 'fresh start');
+    
+    // Setup auth state listener first
+    this.setupAuthStateListener();
+    
+    // Set initial UI state
+    this.setInitialUIState();
+    
+    // Setup core UI components
+    this.setupMethodDescriptionListeners();
+    this.setupLibraryMethodListeners();
+    
+    // Initialize sub-managers
+    this.filterSetup.setupAllFilters();
+    this.searchManager.setupSearchEventListeners();
+    
+    // Initialize accordions
+    this.initializeAccordions();
+    
+    // If we have initial state, apply it after all setup is complete
+    if (initialState) {
+      Logger.info('Applying initial state:', initialState);
+      
+      // Set library and method first
+      if (initialState.library) {
+        document.querySelectorAll("[data-library-option]").forEach(el => {
+          el.classList.toggle("active", el.dataset.libraryOption === initialState.library);
+        });
+      }
+      
+      if (initialState.method?.selected) {
+        document.querySelectorAll("[data-method-option]").forEach(el => {
+          el.classList.toggle("active", el.dataset.methodOption === initialState.method.selected);
+        });
+      }
+      
+      // Update description if present
+      if (initialState.method?.description?.value) {
+        const descriptionInput = document.querySelector("#main-search-description");
+        if (descriptionInput) {
+          descriptionInput.value = initialState.method.description.value;
+        }
+      }
+      
+      // Apply full state update
+      this.updateAll(initialState);
+    }
+  }
+
   updateAll(state) {
     Logger.info('Updating all UI elements with state:', state);
     
@@ -55,6 +104,11 @@ export default class UIManager {
       el.classList.toggle("active", el.dataset.libraryOption === state.library);
     });
     
+    // Update method selection active state
+    document.querySelectorAll("[data-method-option]").forEach(el => {
+      el.classList.toggle("active", el.dataset.methodOption === state.method?.selected);
+    });
+    
     // Initialize any new accordion steps
     document.querySelectorAll('.horizontal-slide_wrapper[step-name]').forEach(step => {
       const trigger = step.querySelector('[data-accordion="trigger"]');
@@ -66,31 +120,15 @@ export default class UIManager {
     });
   }
 
-  initialize(initialState = null) {
-    Logger.info('Initializing UI Manager', initialState ? 'with state' : 'fresh start');
+  // Add this method to handle state initialization
+  initializeWithState(state) {
+    Logger.info('Initializing with state:', state);
     
-    // Setup auth state listener first
-    this.setupAuthStateListener();
-    
-    // Set initial UI state
+    // First, ensure all required UI elements are visible
     this.setInitialUIState();
     
-    // Setup core UI components
-    this.setupMethodDescriptionListeners();
-    this.setupLibraryMethodListeners();
-    
-    // Initialize sub-managers
-    this.filterSetup.setupAllFilters();
-    this.searchManager.setupSearchEventListeners();
-    
-    // Initialize accordions
-    this.initializeAccordions();
-    
-    // If we have initial state, apply it
-    if (initialState) {
-      Logger.info('Initializing UI with session state:', initialState);
-      this.updateAll(initialState);
-    }
+    // Then apply the state
+    this.updateAll(state);
   }
 
   setupAuthStateListener() {
