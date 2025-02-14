@@ -56,10 +56,10 @@ export default class UIManager {
     });
     document.querySelectorAll('.horizontal-slide_wrapper[step-name]').forEach(step => {
       const trigger = step.querySelector('[data-accordion="trigger"]');
-      if (trigger && !trigger._initialized) {
+      if (trigger && !trigger.hasAttribute("data-initialized")) {
         Logger.info('Initializing new step:', step.getAttribute('step-name'));
         this.initializeNewStep(step);
-        trigger._initialized = true;
+        trigger.setAttribute("data-initialized", "true");
       }
     });
   }
@@ -67,6 +67,8 @@ export default class UIManager {
   initializeWithState(state) {
     Logger.info('Initializing with state:', state);
     this.setInitialUIState();
+    // When loading from a session, open all items.
+    this.openAllAccordions();
     this.updateAll(state);
   }
 
@@ -81,9 +83,9 @@ export default class UIManager {
     document.querySelectorAll('[state-visibility]').forEach(el => {
       el.style.display = 'none';
     });
-    const selector = isAuthorized
-      ? '[state-visibility="user-authorized"]'
-      : '[state-visibility="free-user"]';
+    const selector = isAuthorized ? 
+      '[state-visibility="user-authorized"]' : 
+      '[state-visibility="free-user"]';
     document.querySelectorAll(selector).forEach(el => {
       el.style.display = '';
     });
@@ -176,94 +178,88 @@ export default class UIManager {
     });
   }
 
-  // Accordion Management
+  // Accordion Helpers
+
+  setAccordionState(trigger, state, animate = true) {
+    const content = trigger.nextElementSibling;
+    if (!content) return;
+    trigger.setAttribute("data-accordion-state", state);
+    if (state === "open") {
+      content.style.display = "block";
+      if (animate) {
+        content.style.height = "0px";
+        void content.offsetHeight;
+        content.style.height = content.scrollHeight + "px";
+      } else {
+        content.style.height = "auto";
+      }
+    } else {
+      if (animate) {
+        content.style.height = content.scrollHeight + "px";
+        void content.offsetHeight;
+        content.style.height = "0px";
+        content.addEventListener("transitionend", () => {
+          if (trigger.getAttribute("data-accordion-state") === "closed") {
+            content.style.display = "none";
+          }
+        }, { once: true });
+      } else {
+        content.style.height = "0px";
+        content.style.display = "none";
+      }
+    }
+  }
+
+  toggleAccordion(trigger, forceOpen = null) {
+    const current = trigger.getAttribute("data-accordion-state") || "closed";
+    let nextState;
+    if (forceOpen !== null) {
+      nextState = forceOpen ? "open" : "closed";
+    } else {
+      nextState = current === "open" ? "closed" : "open";
+    }
+    this.setAccordionState(trigger, nextState, true);
+  }
+
+  closeOtherFilterSteps(currentTrigger) {
+    const triggers = document.querySelectorAll('[data-accordion="trigger"]');
+    triggers.forEach(trigger => {
+      if (trigger === currentTrigger) return;
+      const stepWrapper = trigger.closest('[step-name]');
+      if (!stepWrapper) return;
+      const stepName = stepWrapper.getAttribute("step-name");
+      // Exclude method, library, and keywords-include steps
+      if (["method", "library", "keywords-include"].includes(stepName)) return;
+      if (trigger.getAttribute("data-accordion-state") === "open") {
+        this.setAccordionState(trigger, "closed", true);
+      }
+    });
+  }
+
+  openAllAccordions() {
+    const triggers = document.querySelectorAll('[data-accordion="trigger"]');
+    triggers.forEach(trigger => {
+      this.setAccordionState(trigger, "open", false);
+    });
+  }
+
   initializeAccordions() {
     const triggers = document.querySelectorAll(".step-small-container [data-accordion='trigger']");
     triggers.forEach(trigger => {
-      if (!trigger._initialized) {
-        this.initializeAccordionTrigger(trigger);
+      if (!trigger.hasAttribute("data-initialized")) {
+        trigger.setAttribute("data-initialized", "true");
+        trigger.addEventListener("click", () => {
+          this.toggleAccordion(trigger);
+        });
       }
     });
+    // Open library step on fresh initialization
     const libraryStep = document.querySelector('[step-name="library"]');
     if (libraryStep) {
       const trigger = libraryStep.querySelector('[data-accordion="trigger"]');
-      if (trigger && !trigger._isOpen) {
-        this.toggleAccordion(trigger, true);
+      if (trigger && (trigger.getAttribute("data-accordion-state") || "closed") === "closed") {
+        this.setAccordionState(trigger, "open", true);
       }
-    }
-  }
-
-  initializeAccordionTrigger(trigger) {
-    if (trigger._initialized) return;
-    trigger._initialized = true;
-    trigger._isOpen = false;
-    const stepWrapper = trigger.closest('[step-name]');
-    if (stepWrapper?.getAttribute('step-name') === 'method') {
-      this.initializeMethodAccordion(trigger);
-    } else {
-      trigger.addEventListener("click", () => {
-        this.toggleAccordion(trigger);
-      });
-      const content = trigger.nextElementSibling;
-      if (content?.getAttribute("data-accordion") === "content") {
-        this.initializeAccordionContent(content, trigger._isOpen);
-      }
-    }
-  }
-
-  initializeMethodAccordion(trigger) {
-    trigger._isOpen = true;
-    const content = trigger.nextElementSibling;
-    if (content) {
-      content.style.height = 'auto';
-      content.style.overflow = 'hidden';
-    }
-    const icon = trigger.querySelector('[data-accordion="icon"]');
-    if (icon) {
-      icon.style.transform = 'rotate(180deg)';
-    }
-  }
-
-  initializeAccordionContent(content, isOpen) {
-    content.style.transition = 'height 0.3s ease';
-    content.style.overflow = "hidden";
-    content.style.height = isOpen ? content.scrollHeight + 'px' : "0px";
-    this.createContentObserver(content);
-  }
-
-  toggleAccordion(trigger, forceOpen = false) {
-    const content = trigger.nextElementSibling;
-    const icon = trigger.querySelector('[data-accordion="icon"]');
-    if (!content || !content.matches('[data-accordion="content"]')) return;
-    content.style.transition = 'height 0.3s ease';
-    content.style.overflow = 'hidden';
-    const shouldOpen = forceOpen || !trigger._isOpen;
-    if (shouldOpen) {
-      content.style.display = 'block';
-      content.style.height = '0px';
-      void content.offsetHeight;
-      const targetHeight = content.scrollHeight;
-      content.style.height = targetHeight + 'px';
-      trigger._isOpen = true;
-      if (icon) {
-        icon.style.transition = 'transform 0.3s ease';
-        icon.style.transform = 'rotate(180deg)';
-      }
-    } else {
-      const currentHeight = content.scrollHeight;
-      content.style.height = currentHeight + 'px';
-      void content.offsetHeight;
-      content.style.height = '0px';
-      trigger._isOpen = false;
-      if (icon) {
-        icon.style.transition = 'transform 0.3s ease';
-        icon.style.transform = 'rotate(0deg)';
-      }
-      content.addEventListener("transitionend", () => {
-        if (!trigger._isOpen) {
-          content.style.display = "none";
-        }
-      }, { once: true });
     }
   }
 
@@ -271,76 +267,38 @@ export default class UIManager {
     const trigger = stepElement.querySelector('[data-accordion="trigger"]');
     const content = stepElement.querySelector('[data-accordion="content"]');
     if (!trigger || !content) return;
-    const newTrigger = trigger.cloneNode(true);
-    trigger.parentNode.replaceChild(newTrigger, trigger);
-    newTrigger._initialized = true;
-    newTrigger._isOpen = false;
-    newTrigger.addEventListener('click', () => {
-      this.toggleAccordion(newTrigger);
-    });
-    content.style.display = 'block';
-    content.style.height = '0px';
-    content.style.overflow = 'hidden';
-    content.style.transition = 'height 0.3s ease';
-    this.closeOtherAccordions(newTrigger);
+    if (!trigger.hasAttribute("data-initialized")) {
+      trigger.setAttribute("data-initialized", "true");
+      trigger.addEventListener("click", () => {
+        this.toggleAccordion(trigger);
+      });
+    }
+    // Ensure the content is visible (but collapsed)
+    content.style.display = "block";
+    content.style.height = "0px";
+    content.style.overflow = "hidden";
+    content.style.transition = "height 0.3s ease";
+    // Close other filter steps (except method, library, keywords-include)
+    this.closeOtherFilterSteps(trigger);
+    // Open the new step with animation
     requestAnimationFrame(() => {
-      this.toggleAccordion(newTrigger, true);
+      this.setAccordionState(trigger, "open", true);
     });
   }
 
-  isAccordionManaged(element) {
-    if (!element) return false;
-    const stepWrapper = element.closest('[step-name]');
-    if (!stepWrapper) return false;
-    const stepName = stepWrapper.getAttribute('step-name');
-    return stepName !== 'method';
-  }
+  // End Accordion Helpers
 
-  closeOtherAccordions(currentTrigger) {
-    document.querySelectorAll('[data-accordion="trigger"]').forEach(trigger => {
-      if (trigger !== currentTrigger && trigger._isOpen && this.isAccordionManaged(trigger)) {
-        const content = trigger.nextElementSibling;
-        const icon = trigger.querySelector('[data-accordion="icon"]');
-        if (!content) return;
-        content.style.height = content.scrollHeight + 'px';
-        void content.offsetHeight;
-        content.style.height = '0px';
-        trigger._isOpen = false;
-        if (icon) {
-          icon.style.transform = 'rotate(0deg)';
-        }
-        content.addEventListener("transitionend", () => {
-          if (!trigger._isOpen) {
-            content.style.display = 'none';
-          }
-        }, { once: true });
-      }
+  initializeAccordionTrigger(trigger) {
+    if (trigger.hasAttribute("data-initialized")) return;
+    trigger.setAttribute("data-initialized", "true");
+    trigger.addEventListener("click", () => {
+      this.toggleAccordion(trigger);
     });
-  }
-
-  createContentObserver(content) {
-    const config = {
-      childList: true,
-      subtree: true,
-      attributes: true,
-      attributeFilter: ["style", "class", "hidden"]
-    };
-    const observer = new MutationObserver(mutations => {
-      const relevant = mutations.filter(m =>
-        !(m.type === "attributes" && m.attributeName === "style" && m.target === content)
-      );
-      if (relevant.length > 0) this.updateContentHeight(content);
-    });
-    observer.observe(content, config);
-  }
-
-  updateContentHeight(content) {
-    if (!content) return;
-    const trigger = content.previousElementSibling;
-    if (trigger && trigger._isOpen) {
-      content.style.height = "auto";
-      const newHeight = content.scrollHeight;
-      content.style.height = newHeight + "px";
+    const content = trigger.nextElementSibling;
+    if (content && content.getAttribute("data-accordion") === "content") {
+      content.style.transition = "height 0.3s ease";
+      content.style.overflow = "hidden";
+      content.style.height = (trigger.getAttribute("data-accordion-state") === "open") ? content.scrollHeight + "px" : "0px";
     }
   }
 
@@ -453,7 +411,7 @@ export default class UIManager {
       wrapper.style.display = (filterExists && isMethodValid) ? '' : 'none';
       if (filterExists && isMethodValid) {
         const trigger = wrapper.querySelector('[data-accordion="trigger"]');
-        if (trigger && !trigger._initialized) {
+        if (trigger && !trigger.hasAttribute("data-initialized")) {
           this.initializeNewStep(wrapper);
         }
       }
@@ -484,4 +442,5 @@ export default class UIManager {
     this.setupSessionEventListeners();
   }
 }
+
 
