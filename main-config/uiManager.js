@@ -23,6 +23,49 @@ export default class UIManager {
     };
   }
 
+  // Add this to the UIManager class, after the constructor
+
+  // Alias for updateAll to maintain compatibility with SessionState
+  updateDisplay(state) {
+    this.updateAll(state);
+  }
+
+  // Update our existing updateAll method to be more explicit
+  updateAll(state) {
+    Logger.info('Updating all UI elements with state:', state);
+    
+    // Update method display
+    this.updateMethodDisplay(state);
+    
+    // Update filter displays via FilterUpdate
+    this.filterUpdate.updateAllFilterDisplays(state);
+    
+    // Update search results via SearchManager
+    this.searchManager.updateSearchResultsDisplay(state);
+    this.searchManager.updateSidebar(state);
+    
+    // Manage keywords button visibility
+    const manageKeywordsButton = document.querySelector("#manage-keywords-button");
+    if (manageKeywordsButton) {
+      manageKeywordsButton.style.display = this.shouldShowKeywordsButton(state) ? "" : "none";
+    }
+    
+    // Update library selection active state
+    document.querySelectorAll("[data-library-option]").forEach(el => {
+      el.classList.toggle("active", el.dataset.libraryOption === state.library);
+    });
+    
+    // Initialize any new accordion steps
+    document.querySelectorAll('.horizontal-slide_wrapper[step-name]').forEach(step => {
+      const trigger = step.querySelector('[data-accordion="trigger"]');
+      if (trigger && !trigger._initialized) {
+        Logger.info('Initializing new step:', step.getAttribute('step-name'));
+        this.initializeNewStep(step);
+        trigger._initialized = true;
+      }
+    });
+  }
+
   initialize(initialState = null) {
     Logger.info('Initializing UI Manager', initialState ? 'with state' : 'fresh start');
     
@@ -277,31 +320,6 @@ export default class UIManager {
       const newHeight = content.scrollHeight;
       content.style.height = newHeight + "px";
     }
-  }
-
-  // State Updates
-  updateAll(state) {
-    Logger.info('Updating all UI elements with state:', state);
-    
-    // Update method display
-    this.updateMethodDisplay(state);
-    
-    // Update filter displays via FilterUpdate
-    this.filterUpdate.updateAllFilterDisplays(state);
-    
-    // Update search results via SearchManager
-    this.searchManager.updateSearchResultsDisplay(state);
-    this.searchManager.updateSidebar(state);
-    
-    // Initialize any new accordion steps
-    document.querySelectorAll('.horizontal-slide_wrapper[step-name]').forEach(step => {
-      const trigger = step.querySelector('[data-accordion="trigger"]');
-      if (trigger && !trigger._initialized) {
-        Logger.info('Initializing new step:', step.getAttribute('step-name'));
-        this.initializeNewStep(step);
-        trigger._initialized = true;
-      }
-    });
   }
 
   updateMethodDisplay(state) {
