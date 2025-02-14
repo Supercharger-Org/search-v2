@@ -42,6 +42,7 @@ export default class UIManager {
     // Setup core UI components
     this.setupMethodDescriptionListeners();
     this.setupLibraryMethodListeners();
+    this.setupFilterEventHandlers(); // Add this line
     
     // Initialize sub-managers
     this.filterSetup.setupAllFilters();
@@ -52,31 +53,7 @@ export default class UIManager {
     
     // If we have initial state, apply it after all setup is complete
     if (initialState) {
-      Logger.info('Applying initial state:', initialState);
-      
-      // Set library and method first
-      if (initialState.library) {
-        document.querySelectorAll("[data-library-option]").forEach(el => {
-          el.classList.toggle("active", el.dataset.libraryOption === initialState.library);
-        });
-      }
-      
-      if (initialState.method?.selected) {
-        document.querySelectorAll("[data-method-option]").forEach(el => {
-          el.classList.toggle("active", el.dataset.methodOption === initialState.method.selected);
-        });
-      }
-      
-      // Update description if present
-      if (initialState.method?.description?.value) {
-        const descriptionInput = document.querySelector("#main-search-description");
-        if (descriptionInput) {
-          descriptionInput.value = initialState.method.description.value;
-        }
-      }
-      
-      // Apply full state update
-      this.updateAll(initialState);
+      this.initializeWithState(initialState);
     }
   }
 
@@ -455,36 +432,99 @@ export default class UIManager {
     });
   }
 
+  updateStepVisibility(state) {
+    const stepWrappers = document.querySelectorAll('.horizontal-slide_wrapper[step-name]');
+    
+    stepWrappers.forEach(wrapper => {
+      const stepName = wrapper.getAttribute('step-name');
+      wrapper.style.display = 'none';
+      
+      // Handle library step
+      if (stepName === 'library') {
+        wrapper.style.display = '';
+        return;
+      }
+      
+      // Handle method step
+      if (stepName === 'method') {
+        wrapper.style.display = state.library ? '' : 'none';
+        return;
+      }
+      
+      // Handle options step
+      if (stepName === 'options') {
+        const hasKeywordsInclude = state.filters.some(f => f.name === 'keywords-include');
+        const shouldShow = state.method?.selected === 'basic' || hasKeywordsInclude;
+        wrapper.style.display = shouldShow ? '' : 'none';
+        
+        // Update filter option buttons visibility
+        if (shouldShow) {
+          wrapper.querySelectorAll('[data-filter-option]').forEach(button => {
+            const filterName = button.getAttribute('data-filter-option');
+            const exists = state.filters.some(f => f.name === filterName);
+            button.style.display = exists ? 'none' : '';
+          });
+        }
+        return;
+      }
+      
+      // Handle regular filter steps
+      const filterExists = state.filters.some(filter => filter.name === stepName);
+      const isMethodValid = state.method?.selected === 'basic' || 
+        (state.method?.selected === 'descriptive' && state.method?.description?.isValid) ||
+        (state.method?.selected === 'patent' && state.method?.patent?.data);
+      
+      wrapper.style.display = (filterExists && isMethodValid) ? '' : 'none';
+      
+      // If this is a new step, initialize its accordion
+      if (filterExists && isMethodValid) {
+        const trigger = wrapper.querySelector('[data-accordion="trigger"]');
+        if (trigger && !trigger._initialized) {
+          this.initializeNewStep(wrapper);
+        }
+      }
+    });
+  }
+
   initializeNewStep(stepElement) {
     const trigger = stepElement.querySelector('[data-accordion="trigger"]');
     const content = stepElement.querySelector('[data-accordion="content"]');
     
     if (!trigger || !content) return;
     
+    // Remove any existing listeners
+    const newTrigger = trigger.cloneNode(true);
+    trigger.parentNode.replaceChild(newTrigger, trigger);
+    
     // Set up initial state
     content.style.height = '0px';
     content.style.transition = 'height 0.3s cubic-bezier(0.4, 0, 0.2, 1)';
     content.style.overflow = 'hidden';
     
-    // Remove any existing listeners by cloning
-    const newTrigger = trigger.cloneNode(true);
-    trigger.parentNode.replaceChild(newTrigger, trigger);
-    
-    // Add new listener
+    // Initialize trigger
     newTrigger._initialized = true;
     newTrigger._isOpen = false;
     newTrigger.addEventListener('click', () => {
       this.toggleAccordion(newTrigger);
     });
     
-    // Open this new step
+    // Allow DOM to update before animation
     setTimeout(() => {
+      // First ensure content is displayed
+      content.style.display = '';
+      
+      // Close other accordions if needed
       if (this.isAccordionManaged(newTrigger)) {
         this.closeOtherAccordions(newTrigger);
       }
-      this.toggleAccordion(newTrigger, true);
+      
+      // Then trigger the animation in the next frame
+      requestAnimationFrame(() => {
+        this.toggleAccordion(newTrigger, true);
+      });
     }, 50);
   }
+
 
   isAccordionManaged(element) {
     if (!element) return false;
