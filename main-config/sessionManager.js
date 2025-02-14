@@ -16,13 +16,6 @@ export default class SessionManager {
     this.sessionId = null;
     this.isInitialized = false;
     this.isAuthReady = false;
-    
-    this.eventBus.on('user_authorized', () => {
-      this.isAuthReady = true;
-      this.checkAndLoadSession();
-    });
-    
-    this.setupEventListeners();
   }
 
   setupEventListeners() {
@@ -44,6 +37,141 @@ export default class SessionManager {
       EventTypes.INVENTOR_REMOVED,
       EventTypes.SEARCH_COMPLETED
     ];
+
+    async loadSession(sessionId) {
+    try {
+      const token = AuthManager.getUserAuthToken();
+      if (!token) {
+        throw new Error("No auth token available");
+      }
+
+      Logger.info("Loading session:", sessionId);
+
+      const response = await fetch(SESSION_API.GET, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Xano-Authorization": `Bearer ${token}`,
+          "X-Xano-Authorization-Only": "true"
+        },
+        mode: "cors",
+        body: JSON.stringify({ sessionId })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        Logger.error("Session load failed:", errorData);
+        throw new Error(errorData.message || "Failed to load session");
+      }
+
+      const rawData = await response.text();
+      Logger.info("Raw session response:", rawData);
+
+      let sessionData;
+      try {
+        sessionData = JSON.parse(rawData);
+      } catch (e) {
+        Logger.error("Failed to parse session data:", e);
+        throw new Error("Invalid JSON in session response");
+      }
+
+      // Create normalized state with default values
+      const normalizedData = {
+        library: null,
+        method: {
+          selected: null,
+          description: {
+            value: "",
+            previousValue: null,
+            isValid: false,
+            improved: false,
+            modificationSummary: null
+          },
+          patent: null,
+          searchValue: "",
+          validated: false
+        },
+        filters: [],
+        search: {
+          results: [],
+          current_page: 1,
+          total_pages: 0,
+          active_item: null,
+          reload_required: false,
+          items_per_page: 10
+        }
+      };
+
+      // Only update values that exist in the session data
+      if (sessionData.selections) {
+        if (sessionData.selections.library) {
+          normalizedData.library = sessionData.selections.library;
+        }
+
+        if (sessionData.selections.method) {
+          normalizedData.method = {
+            ...normalizedData.method,
+            ...sessionData.selections.method,
+            description: {
+              ...normalizedData.method.description,
+              ...(sessionData.selections.method.description || {})
+            }
+          };
+        }
+
+        if (Array.isArray(sessionData.selections.filters)) {
+          normalizedData.filters = sessionData.selections.filters;
+        }
+
+        if (sessionData.selections.search) {
+          normalizedData.search = {
+            ...normalizedData.search,
+            ...sessionData.selections.search
+          };
+        }
+      }
+
+      if (Array.isArray(sessionData.results)) {
+        normalizedData.search.results = sessionData.results;
+      }
+
+      this.sessionId = sessionId;
+      Logger.info("Normalized session data:", normalizedData);
+      this.eventBus.emit(EventTypes.LOAD_SESSION, normalizedData);
+
+      return true;
+    } catch (error) {
+      Logger.error("Session load error:", error);
+      // Initialize with empty state on error
+      const emptyState = {
+        library: null,
+        method: {
+          selected: null,
+          description: {
+            value: "",
+            previousValue: null,
+            isValid: false,
+            improved: false,
+            modificationSummary: null
+          },
+          patent: null,
+          searchValue: "",
+          validated: false
+        },
+        filters: [],
+        search: {
+          results: [],
+          current_page: 1,
+          total_pages: 0,
+          active_item: null,
+          reload_required: false,
+          items_per_page: 10
+        }
+      };
+      this.eventBus.emit(EventTypes.LOAD_SESSION, emptyState);
+      throw error;
+    }
+  }
 
     sessionUpdateEvents.forEach(eventType => {
       this.eventBus.on(eventType, () => {
@@ -121,71 +249,6 @@ export default class SessionManager {
       return data;
     } catch (error) {
       Logger.error("Session creation error:", error);
-      throw error;
-    }
-  }
-
-  async loadSession(sessionId) {
-    try {
-      const token = AuthManager.getUserAuthToken();
-      if (!token) {
-        throw new Error("No auth token available");
-      }
-      const cleanToken = token.replace(/^"(.*)"$/, "$1");
-
-      Logger.info("Loading session:", sessionId);
-
-      const response = await fetch(SESSION_API.GET, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "X-Xano-Authorization": `Bearer ${cleanToken}`,
-          "X-Xano-Authorization-Only": "true"
-        },
-        mode: "cors",
-        body: JSON.stringify({ sessionId })
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        Logger.error("Session load failed:", errorData);
-        throw new Error(errorData.message || "Failed to load session");
-      }
-
-      const sessionData = await response.json();
-      this.sessionId = sessionId;
-
-      // Normalize the session data structure
-      const normalizedData = {
-        library: sessionData.selections?.library || null,
-        method: {
-          selected: sessionData.selections?.method?.selected || null,
-          description: {
-            value: sessionData.selections?.method?.description?.value || "",
-            previousValue: sessionData.selections?.method?.description?.previousValue || null,
-            isValid: sessionData.selections?.method?.description?.isValid || false,
-            improved: sessionData.selections?.method?.description?.improved || false,
-            modificationSummary: sessionData.selections?.method?.description?.modificationSummary || null
-          },
-          patent: sessionData.selections?.method?.patent || null,
-          searchValue: sessionData.selections?.method?.searchValue || "",
-          validated: sessionData.selections?.method?.validated || false
-        },
-        filters: Array.isArray(sessionData.selections?.filters) ? sessionData.selections.filters : [],
-        search: {
-          results: sessionData.results || [],
-          current_page: sessionData.selections?.search?.current_page || 1,
-          total_pages: sessionData.selections?.search?.total_pages || 0,
-          active_item: sessionData.selections?.search?.active_item || null,
-          reload_required: false,
-          items_per_page: sessionData.selections?.search?.items_per_page || 10
-        }
-      };
-
-      this.eventBus.emit(EventTypes.LOAD_SESSION, normalizedData);
-      return true;
-    } catch (error) {
-      Logger.error("Session load error:", error);
       throw error;
     }
   }
