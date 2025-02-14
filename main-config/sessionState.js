@@ -247,25 +247,7 @@ export default class SessionState {
     return this.state;
   }
 
-  // Update specific path in state
-  update(path, value) {
-    const pathArray = path.split(".");
-    let current = this.state;
-    
-    for (let i = 0; i < pathArray.length - 1; i++) {
-      if (!(pathArray[i] in current)) {
-        current[pathArray[i]] = {};
-      }
-      current = current[pathArray[i]];
-    }
-    
-    current[pathArray[pathArray.length - 1]] = value;
-    
-    // Trigger UI update
-    if (this.uiManager) {
-      this.uiManager.updateAll(this.get());
-    }
-  }
+  
 
   getVisibleFields() {
     const commonFields = [
@@ -296,19 +278,6 @@ export default class SessionState {
       : [...commonFields, ...ttoSpecificFields];
   }
 
-  update(path, value) {
-    const parts = path.split(".");
-    let current = this.state;
-    for (let i = 0; i < parts.length - 1; i++) {
-      if (!(parts[i] in current)) current[parts[i]] = {};
-      current = current[parts[i]];
-    }
-    current[parts[parts.length - 1]] = value;
-    this.logSession();
-    this.uiManager.updateDisplay(this.state);
-    return this.state;
-  }
-
   get() {
     return this.state;
   }
@@ -325,7 +294,29 @@ export default class SessionState {
     }
   }
 
+update(path, value) {
+    const parts = path.split(".");
+    let current = this.state;
+    for (let i = 0; i < parts.length - 1; i++) {
+      if (!(parts[i] in current)) current[parts[i]] = {};
+      current = current[parts[i]];
+    }
+    current[parts[parts.length - 1]] = value;
+    this.logSession();
+    
+    // Use both updateDisplay and updateAll to ensure compatibility
+    if (this.uiManager) {
+      this.uiManager.updateDisplay(this.state);
+      this.uiManager.updateAll(this.state);
+    }
+    
+    return this.state;
+  }
+
+  // Modify the load method to properly handle search results
   load(sessionData) {
+    Logger.info('Loading session data into state:', sessionData);
+    
     // Deep merge session data with current state
     this.state = {
       library: sessionData.library || null,
@@ -344,22 +335,22 @@ export default class SessionState {
       },
       filters: Array.isArray(sessionData.filters) ? [...sessionData.filters] : [],
       search: {
-        results: sessionData.search?.results || null,
+        results: Array.isArray(sessionData.search?.results) ? sessionData.search.results : 
+                Array.isArray(sessionData.results) ? sessionData.results : null,
         current_page: sessionData.search?.current_page || 1,
         total_pages: sessionData.search?.total_pages || 0,
         active_item: sessionData.search?.active_item || null,
-        reload_required: sessionData.search?.reload_required || false,
+        reload_required: false,
         items_per_page: sessionData.search?.items_per_page || 10
       }
     };
 
+    Logger.info('Updated state after load:', this.state);
+
     // Trigger UI update after loading session
     if (this.uiManager) {
-      this.uiManager.updateAll(this.get());
+      this.uiManager.updateDisplay(this.state);
+      this.uiManager.updateAll(this.state);
     }
-  }
-
-  logSession() {
-    Logger.log("Current Session State:", JSON.stringify(this.state, null, 2));
   }
 }
