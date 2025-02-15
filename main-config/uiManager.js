@@ -163,27 +163,24 @@ initializeWithState(state) {
     }
   }
 
+  // Update options step visibility - pass true to indicate loading from session
+  this.updateOptionsStepVisibility(state, true);
+
   // Ensure proper step order
   this.filterUpdate.updateFilterStepOrder(state);
-  this.updateMethodDisplay(state);
-  this.updateOptionsStepVisibility(state); // Add this line
 }
 
-  shouldShowKeywordsStep(state) {
-  if (!state.method?.selected) return false;
-  if (["descriptive", "basic"].includes(state.method.selected)) {
-    return state.method.description?.isValid;
-  }
-  if (state.method.selected === "patent") {
-    return !!state.method.patent?.data;
-  }
-  return false;
-}
-
-  updateOptionsStepVisibility(state) {
+updateOptionsStepVisibility(state, isLoadingFromSession = false) {
     const optionsStep = document.querySelector('[step-name="options"]')?.closest('.horizontal-slide_wrapper');
     if (!optionsStep) return;
 
+    // If loading from session, always show options
+    if (isLoadingFromSession) {
+        optionsStep.style.display = '';
+        return;
+    }
+
+    // For fresh start/normal updates:
     // Don't show if no method selected
     if (!state.method?.selected) {
         optionsStep.style.display = 'none';
@@ -192,22 +189,13 @@ initializeWithState(state) {
 
     let shouldShow = false;
 
+    // For basic method - always show
     if (state.method.selected === 'basic') {
-        // Always show for basic
         shouldShow = true;
-    } else {
-        // For descriptive or patent methods:
-        // If loading from session (filters exist), check if keywords-include filter exists
-        if (state.filters?.length > 0) {
-            shouldShow = state.filters.some(f => f.name === 'keywords-include');
-        } else {
-            // If no session/filters, check if initial keyword gen has run
-            if (state.method.selected === 'descriptive') {
-                shouldShow = Boolean(state.method.description?.improved);
-            } else if (state.method.selected === 'patent') {
-                shouldShow = Boolean(state.method.patent?.data);
-            }
-        }
+    } 
+    // For descriptive/patent - show only after keywords-include exists
+    else {
+        shouldShow = state.filters?.some(f => f.name === 'keywords-include') || false;
     }
 
     optionsStep.style.display = shouldShow ? '' : 'none';
