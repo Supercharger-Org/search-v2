@@ -22,7 +22,6 @@ export class FilterUpdate {
     this.updateDateDisplay(state);
     this.updateFilterOptionsVisibility(state);
     this.updateFilterStepOrder(state);
-    this.updateStepVisibility(state);
   }
 
   // Badge Display Management
@@ -203,40 +202,5 @@ export class FilterUpdate {
     if (optionsStep && this.filterExists('keywords-include', state)) {
       container.appendChild(optionsStep);
     }
-  }
-
-  updateStepVisibility(state) {
-    const stepWrappers = document.querySelectorAll('.horizontal-slide_wrapper[step-name]');
-    
-    stepWrappers.forEach(wrapper => {
-      const stepName = wrapper.getAttribute('step-name');
-      // Initially hide all steps
-      wrapper.style.display = 'none';
-      
-      // Handle special cases
-      if (stepName === 'library') {
-        wrapper.style.display = '';
-        return;
-      }
-      
-      if (stepName === 'method') {
-        wrapper.style.display = state.library ? '' : 'none';
-        return;
-      }
-      
-      if (stepName === 'options') {
-        const hasKeywordsInclude = state.filters.some(f => f.name === 'keywords-include');
-        wrapper.style.display = (state.method?.selected === 'basic' || hasKeywordsInclude) ? '' : 'none';
-        return;
-      }
-      
-      // Handle regular filter steps
-      const filterExists = state.filters.some(filter => filter.name === stepName);
-      const isMethodValid = state.method?.selected === 'basic' || 
-        (state.method?.selected === 'descriptive' && state.method?.description?.isValid) ||
-        (state.method?.selected === 'patent' && state.method?.patent?.data);
-      
-      wrapper.style.display = (filterExists && isMethodValid) ? '' : 'none';
-    });
   }
 }
