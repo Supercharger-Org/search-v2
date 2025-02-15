@@ -38,6 +38,8 @@ initialize(initialState = null) {
   this.setupLibraryMethodListeners();
   this.setupFilterEventHandlers();
   this.filterSetup.setupAllFilters();
+  this.setupResizeObserver();
+  this.filterUpdate.setupOptionsDisplay();
   this.searchManager.setupSearchEventListeners();
   
   if (initialState) {
