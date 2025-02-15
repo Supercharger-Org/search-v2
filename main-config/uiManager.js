@@ -23,6 +23,7 @@ export default class UIManager {
     this.updateAll(state);
   }
 
+
 initialize(initialState = null) {
   Logger.info('Initializing UI Manager', initialState ? 'with state' : 'fresh start');
   
@@ -32,13 +33,23 @@ initialize(initialState = null) {
   // Set initial UI state
   this.setInitialUIState();
   
-  // Setup all event listeners
-  this.setupEventListeners();
+  // Initialize base accordions (library and method) before setting up event listeners
+  this.initializeBaseAccordions();
+  
+  // Setup all individual listeners
+  this.setupMethodDescriptionListeners();
+  this.setupLibraryMethodListeners();
+  this.setupFilterEventHandlers();
   this.setupSearchEventListeners();
   this.setupPatentSidebar();
   
-  // Initialize base accordions (library and method)
-  this.initializeBaseAccordions();
+  // Setup filter UIs
+  this.setupKeywordsUI();
+  this.setupExcludedKeywordsUI();
+  this.setupCodesUI();
+  this.setupInventorsUI();
+  this.setupAssigneesUI();
+  this.setupDateUI();
   
   if (initialState) {
     this.initializeWithState(initialState);
@@ -46,18 +57,31 @@ initialize(initialState = null) {
 }
 
   initializeBaseAccordions() {
-  // Initialize library and method steps
-  const baseSteps = ['library', 'method'];
-  baseSteps.forEach(stepName => {
-    const step = document.querySelector(`[step-name="${stepName}"]`);
-    if (step) {
-      const trigger = step.querySelector('[data-accordion="trigger"]');
-      if (trigger) {
-        this.initializeAccordion(trigger, true);
+  // Initialize library step first
+  const libraryStep = document.querySelector('[step-name="library"]');
+  if (libraryStep) {
+    const trigger = libraryStep.querySelector('[data-accordion="trigger"]');
+    if (trigger) {
+      this.initializeAccordion(trigger, true);
+    }
+  }
+
+  // Initialize method step
+  const methodStep = document.querySelector('[step-name="method"]');
+  if (methodStep) {
+    const trigger = methodStep.querySelector('[data-accordion="trigger"]');
+    if (trigger) {
+      this.initializeAccordion(trigger, true);
+      // Ensure method step content is visible
+      const content = trigger.nextElementSibling;
+      if (content) {
+        content.style.display = 'block';
+        content.style.height = 'auto';
       }
     }
-  });
+  }
 }
+
 
  updateAll(state) {
   Logger.info('Updating all UI elements with state:', state);
@@ -97,10 +121,10 @@ initialize(initialState = null) {
 initializeWithState(state) {
   Logger.info('Initializing with state:', state);
   
-  // Update UI with current state
+  // Update all UI elements first
   this.updateAll(state);
   
-  // Handle filter initialization
+  // Then initialize any filter steps that exist in the state
   if (Array.isArray(state.filters)) {
     state.filters.forEach(filter => {
       const filterStep = document.querySelector(`[step-name="${filter.name}"]`)
@@ -113,6 +137,18 @@ initializeWithState(state) {
       }
     });
   }
+  
+  // Ensure method step is open if it exists
+  const methodStep = document.querySelector('[step-name="method"]');
+  if (methodStep) {
+    const trigger = methodStep.querySelector('[data-accordion="trigger"]');
+    if (trigger) {
+      this.toggleAccordion(trigger, true);
+    }
+  }
+  
+  // Update any accordion heights that need it
+  this.updateAllOpenAccordions();
 }
 
   setupAuthStateListener() {
@@ -129,14 +165,23 @@ initializeWithState(state) {
   }
 
   setupFilterEventHandlers() {
-    document.querySelectorAll('[data-filter-option]').forEach(btn => {
-      btn.addEventListener('click', e => {
-        e.preventDefault();
-        const filterName = btn.getAttribute('data-filter-option');
-        this.eventBus.emit(EventTypes.FILTER_ADDED, { filterName });
-      });
+  document.querySelectorAll('[data-filter-option]').forEach(btn => {
+    btn.addEventListener('click', e => {
+      e.preventDefault();
+      const filterName = btn.getAttribute('data-filter-option');
+      this.eventBus.emit(EventTypes.FILTER_ADDED, { filterName });
+      
+      // Wait for state update before initializing the new step
+      setTimeout(() => {
+        const stepElement = document.querySelector(`[step-name="${filterName}"]`)
+          ?.closest('.horizontal-slide_wrapper');
+        if (stepElement) {
+          this.initializeNewStep(stepElement);
+        }
+      }, 50);
     });
-  }
+  });
+}
 
   setInitialUIState() {
     Logger.info('Setting initial UI state');
@@ -197,21 +242,31 @@ initializeWithState(state) {
   }
 
   setupLibraryMethodListeners() {
-    document.querySelectorAll("[data-library-option]").forEach(el => {
-      el.addEventListener("click", e => {
-        e.preventDefault();
-        const lib = e.target.closest("[data-library-option]").dataset.libraryOption;
-        this.eventBus.emit(EventTypes.LIBRARY_SELECTED, { value: lib });
-      });
+  document.querySelectorAll("[data-library-option]").forEach(el => {
+    el.addEventListener("click", e => {
+      e.preventDefault();
+      const lib = e.target.closest("[data-library-option]").dataset.libraryOption;
+      this.eventBus.emit(EventTypes.LIBRARY_SELECTED, { value: lib });
     });
-    document.querySelectorAll("[data-method-option]").forEach(el => {
-      el.addEventListener("click", e => {
-        e.preventDefault();
-        const method = e.target.closest("[data-method-option]").dataset.methodOption;
-        this.eventBus.emit(EventTypes.METHOD_SELECTED, { value: method });
-      });
+  });
+
+  document.querySelectorAll("[data-method-option]").forEach(el => {
+    el.addEventListener("click", e => {
+      e.preventDefault();
+      const method = e.target.closest("[data-method-option]").dataset.methodOption;
+      this.eventBus.emit(EventTypes.METHOD_SELECTED, { value: method });
+      
+      // Ensure method step stays open
+      const methodStep = document.querySelector('[step-name="method"]');
+      if (methodStep) {
+        const trigger = methodStep.querySelector('[data-accordion="trigger"]');
+        if (trigger && !trigger._isOpen) {
+          this.toggleAccordion(trigger, true);
+        }
+      }
     });
-  }
+  });
+}
 
   toggleAccordion(trigger, forceOpen = false) {
     const content = trigger.nextElementSibling;
