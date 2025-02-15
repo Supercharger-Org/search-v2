@@ -9,16 +9,17 @@ import { AccordionManager } from "./accordionManager.js";
 
 export default class UIManager {
   constructor(eventBus) {
-    this.eventBus = eventBus;
-    this.filterSetup = new FilterSetup(eventBus);
-    this.filterUpdate = new FilterUpdate(eventBus);
-    this.searchManager = new SearchResultManager(eventBus);
-    this.initialHideConfig = {
-      ids: ["validate-description", "description-summary", "patent-loader", "patent-info-wrapper"],
-      classes: [".horizontal-slide_wrapper"],
-      dataAttributes: ["[data-method-display]", "[data-state='search-reload']"]
-    };
-  }
+  this.eventBus = eventBus;
+  this.filterSetup = new FilterSetup(eventBus);
+  this.filterUpdate = new FilterUpdate(eventBus);
+  this.searchManager = new SearchResultManager(eventBus);
+  this.accordionManager = new AccordionManager();
+  this.initialHideConfig = {
+    ids: ["validate-description", "description-summary", "patent-loader", "patent-info-wrapper"],
+    classes: [".horizontal-slide_wrapper"],
+    dataAttributes: ["[data-method-display]", "[data-state='search-reload']"]
+  };
+}
 
   updateDisplay(state) {
     this.updateAll(state);
@@ -495,6 +496,7 @@ setupAuthStateListener() {
       }, 50);
     });
   });
+  }
   
   updateMethodDisplay(state) {
     const methodWrapper = document.querySelector('[step-name="method"]')?.closest(".horizontal-slide_wrapper");
