@@ -44,9 +44,9 @@ export default class UIManager {
     this.filterUpdate.updateAllFilterDisplays(state);
     this.searchManager.updateSearchResultsDisplay(state);
     this.searchManager.updateSidebar(state);
-    const manageKeywordsButton = document.querySelector("#manage-keywords-button");
-    if (manageKeywordsButton) {
-      manageKeywordsButton.style.display = this.shouldShowKeywordsButton(state) ? "" : "none";
+    const manageBtn = document.querySelector("#manage-keywords-button");
+    if (manageBtn) {
+      manageBtn.style.display = this.shouldShowKeywordsButton(state) ? "" : "none";
     }
     document.querySelectorAll("[data-library-option]").forEach(el => {
       el.classList.toggle("active", el.dataset.libraryOption === state.library);
@@ -67,7 +67,6 @@ export default class UIManager {
   initializeWithState(state) {
     Logger.info('Initializing with state:', state);
     this.setInitialUIState();
-    // When loading from a session, open all items.
     this.openAllAccordions();
     this.updateAll(state);
   }
@@ -80,22 +79,16 @@ export default class UIManager {
   }
 
   updateAuthVisibility(isAuthorized) {
-    document.querySelectorAll('[state-visibility]').forEach(el => {
-      el.style.display = 'none';
-    });
-    const selector = isAuthorized ? 
-      '[state-visibility="user-authorized"]' : 
-      '[state-visibility="free-user"]';
-    document.querySelectorAll(selector).forEach(el => {
-      el.style.display = '';
-    });
+    document.querySelectorAll('[state-visibility]').forEach(el => el.style.display = 'none');
+    const sel = isAuthorized ? '[state-visibility="user-authorized"]' : '[state-visibility="free-user"]';
+    document.querySelectorAll(sel).forEach(el => el.style.display = '');
   }
 
   setupFilterEventHandlers() {
-    document.querySelectorAll('[data-filter-option]').forEach(button => {
-      button.addEventListener('click', (e) => {
+    document.querySelectorAll('[data-filter-option]').forEach(btn => {
+      btn.addEventListener('click', e => {
         e.preventDefault();
-        const filterName = button.getAttribute('data-filter-option');
+        const filterName = btn.getAttribute('data-filter-option');
         this.eventBus.emit(EventTypes.FILTER_ADDED, { filterName });
       });
     });
@@ -108,43 +101,41 @@ export default class UIManager {
       const el = document.getElementById(id);
       if (el) el.style.display = "none";
     });
-    this.initialHideConfig.classes.forEach(selector => {
-      document.querySelectorAll(selector).forEach(el => (el.style.display = "none"));
+    this.initialHideConfig.classes.forEach(sel => {
+      document.querySelectorAll(sel).forEach(el => el.style.display = "none");
     });
-    this.initialHideConfig.dataAttributes.forEach(selector => {
-      document.querySelectorAll(selector).forEach(el => (el.style.display = "none"));
+    this.initialHideConfig.dataAttributes.forEach(sel => {
+      document.querySelectorAll(sel).forEach(el => el.style.display = "none");
     });
     const libraryStep = document.querySelector('[step-name="library"]');
     if (libraryStep) {
-      const libraryWrapper = libraryStep.closest(".horizontal-slide_wrapper");
-      if (libraryWrapper) libraryWrapper.style.display = "";
+      const libWrap = libraryStep.closest(".horizontal-slide_wrapper");
+      if (libWrap) libWrap.style.display = "";
     }
     window.scrollTo(scrollX, scrollY);
   }
 
   setupMethodDescriptionListeners() {
-    const descriptionInput = document.querySelector("#main-search-description");
-    if (descriptionInput) {
-      descriptionInput.addEventListener("input", e => {
+    const descInput = document.querySelector("#main-search-description");
+    if (descInput) {
+      descInput.addEventListener("input", e => {
         const value = e.target.value;
         const isValid = value.trim().length >= 10;
         this.eventBus.emit(EventTypes.DESCRIPTION_UPDATED, { value, isValid });
-        const improveButton = document.querySelector("#validate-description");
-        if (improveButton) {
-          improveButton.style.display = isValid ? "flex" : "none";
-        }
+        const impBtn = document.querySelector("#validate-description");
+        if (impBtn) impBtn.style.display = isValid ? "flex" : "none";
       });
     }
-    const improveButton = document.querySelector("#validate-description");
-    if (improveButton) {
-      improveButton.textContent = "Improve Description";
-      improveButton.addEventListener("click", e => {
+    const impBtn = document.querySelector("#validate-description");
+    if (impBtn) {
+      impBtn.textContent = "Improve Description";
+      impBtn.addEventListener("click", e => {
         e.preventDefault();
         this.eventBus.emit(EventTypes.DESCRIPTION_IMPROVED);
       });
     }
     const patentInput = document.querySelector("#main-search-patent-input");
-    const patentButton = document.querySelector("#main-search-patent-button");
+    const patentBtn = document.querySelector("#main-search-patent-button");
     if (patentInput) {
       patentInput.addEventListener("keypress", e => {
         if (e.key === "Enter") {
@@ -152,8 +143,8 @@ export default class UIManager {
         }
       });
     }
-    if (patentButton) {
-      patentButton.addEventListener("click", e => {
+    if (patentBtn) {
+      patentBtn.addEventListener("click", e => {
         e.preventDefault();
         const value = document.querySelector("#main-search-patent-input")?.value;
         this.eventBus.emit(EventTypes.PATENT_SEARCH_INITIATED, { value });
@@ -165,8 +156,8 @@ export default class UIManager {
     document.querySelectorAll("[data-library-option]").forEach(el => {
       el.addEventListener("click", e => {
         e.preventDefault();
-        const library = e.target.closest("[data-library-option]").dataset.libraryOption;
-        this.eventBus.emit(EventTypes.LIBRARY_SELECTED, { value: library });
+        const lib = e.target.closest("[data-library-option]").dataset.libraryOption;
+        this.eventBus.emit(EventTypes.LIBRARY_SELECTED, { value: lib });
       });
     });
     document.querySelectorAll("[data-method-option]").forEach(el => {
@@ -178,87 +169,100 @@ export default class UIManager {
     });
   }
 
-  // Accordion Helpers
-
-  setAccordionState(trigger, state, animate = true) {
+  // --- Accordion Helpers ---
+  openAccordion(trigger, animate = true) {
     const content = trigger.nextElementSibling;
     if (!content) return;
-    trigger.setAttribute("data-accordion-state", state);
-    if (state === "open") {
-      content.style.display = "block";
-      if (animate) {
-        content.style.height = "0px";
-        void content.offsetHeight;
-        content.style.height = content.scrollHeight + "px";
-      } else {
-        content.style.height = "auto";
-      }
+    content.style.display = 'block';
+    if (animate) {
+      content.style.transition = 'height 0.3s ease';
+      content.style.height = '0px';
+      void content.offsetHeight;
+      content.style.height = content.scrollHeight + 'px';
     } else {
-      if (animate) {
-        content.style.height = content.scrollHeight + "px";
-        void content.offsetHeight;
-        content.style.height = "0px";
-        content.addEventListener("transitionend", () => {
-          if (trigger.getAttribute("data-accordion-state") === "closed") {
-            content.style.display = "none";
-          }
-        }, { once: true });
-      } else {
-        content.style.height = "0px";
-        content.style.display = "none";
-      }
+      content.style.height = content.scrollHeight + 'px';
+    }
+    trigger.setAttribute('data-open', 'true');
+    const icon = trigger.querySelector('[data-accordion="icon"]');
+    if (icon) {
+      icon.style.transition = 'transform 0.3s ease';
+      icon.style.transform = 'rotate(180deg)';
     }
   }
 
-  toggleAccordion(trigger, forceOpen = null) {
-    const current = trigger.getAttribute("data-accordion-state") || "closed";
-    let nextState;
-    if (forceOpen !== null) {
-      nextState = forceOpen ? "open" : "closed";
+  closeAccordion(trigger, animate = true) {
+    const content = trigger.nextElementSibling;
+    if (!content) return;
+    if (animate) {
+      content.style.transition = 'height 0.3s ease';
+      content.style.height = content.scrollHeight + 'px';
+      void content.offsetHeight;
+      content.style.height = '0px';
+      content.addEventListener('transitionend', function handler() {
+        if (trigger.getAttribute('data-open') === 'false') {
+          content.style.display = 'none';
+        }
+        content.removeEventListener('transitionend', handler);
+      });
     } else {
-      nextState = current === "open" ? "closed" : "open";
+      content.style.height = '0px';
+      content.style.display = 'none';
     }
-    this.setAccordionState(trigger, nextState, true);
+    trigger.setAttribute('data-open', 'false');
+    const icon = trigger.querySelector('[data-accordion="icon"]');
+    if (icon) {
+      icon.style.transition = 'transform 0.3s ease';
+      icon.style.transform = 'rotate(0deg)';
+    }
+  }
+
+  toggleAccordion(trigger) {
+    if (trigger.getAttribute('data-open') === 'true') {
+      this.closeAccordion(trigger);
+    } else {
+      this.openAccordion(trigger);
+    }
   }
 
   closeOtherFilterSteps(currentTrigger) {
     const triggers = document.querySelectorAll('[data-accordion="trigger"]');
     triggers.forEach(trigger => {
       if (trigger === currentTrigger) return;
-      const stepWrapper = trigger.closest('[step-name]');
-      if (!stepWrapper) return;
-      const stepName = stepWrapper.getAttribute("step-name");
-      // Exclude method, library, and keywords-include steps
-      if (["method", "library", "keywords-include"].includes(stepName)) return;
-      if (trigger.getAttribute("data-accordion-state") === "open") {
-        this.setAccordionState(trigger, "closed", true);
+      const stepEl = trigger.closest('[step-name]');
+      if (stepEl) {
+        const name = stepEl.getAttribute('step-name');
+        if (['method', 'library', 'keywords-include'].includes(name)) return;
+        if (trigger.getAttribute('data-open') === 'true') {
+          this.closeAccordion(trigger);
+        }
       }
     });
   }
 
   openAllAccordions() {
-    const triggers = document.querySelectorAll('[data-accordion="trigger"]');
-    triggers.forEach(trigger => {
-      this.setAccordionState(trigger, "open", false);
+    document.querySelectorAll('[data-accordion="trigger"]').forEach(trigger => {
+      this.openAccordion(trigger, false);
     });
   }
 
   initializeAccordions() {
     const triggers = document.querySelectorAll(".step-small-container [data-accordion='trigger']");
     triggers.forEach(trigger => {
-      if (!trigger.hasAttribute("data-initialized")) {
-        trigger.setAttribute("data-initialized", "true");
-        trigger.addEventListener("click", () => {
+      if (!trigger.hasAttribute('data-initialized')) {
+        trigger.setAttribute('data-initialized', 'true');
+        if (!trigger.hasAttribute('data-open')) {
+          trigger.setAttribute('data-open', 'false');
+        }
+        trigger.addEventListener('click', () => {
           this.toggleAccordion(trigger);
         });
       }
     });
-    // Open library step on fresh initialization
     const libraryStep = document.querySelector('[step-name="library"]');
     if (libraryStep) {
-      const trigger = libraryStep.querySelector('[data-accordion="trigger"]');
-      if (trigger && (trigger.getAttribute("data-accordion-state") || "closed") === "closed") {
-        this.setAccordionState(trigger, "open", true);
+      const trig = libraryStep.querySelector('[data-accordion="trigger"]');
+      if (trig && trig.getAttribute('data-open') !== 'true') {
+        this.openAccordion(trig);
       }
     }
   }
@@ -267,53 +271,38 @@ export default class UIManager {
     const trigger = stepElement.querySelector('[data-accordion="trigger"]');
     const content = stepElement.querySelector('[data-accordion="content"]');
     if (!trigger || !content) return;
-    if (!trigger.hasAttribute("data-initialized")) {
-      trigger.setAttribute("data-initialized", "true");
-      trigger.addEventListener("click", () => {
+    if (!trigger.hasAttribute('data-initialized')) {
+      trigger.setAttribute('data-initialized', 'true');
+      if (!trigger.hasAttribute('data-open')) {
+        trigger.setAttribute('data-open', 'false');
+      }
+      trigger.addEventListener('click', () => {
         this.toggleAccordion(trigger);
       });
     }
-    // Ensure the content is visible (but collapsed)
-    content.style.display = "block";
-    content.style.height = "0px";
-    content.style.overflow = "hidden";
-    content.style.transition = "height 0.3s ease";
-    // Close other filter steps (except method, library, keywords-include)
+    content.style.display = 'block';
+    content.style.height = '0px';
+    content.style.overflow = 'hidden';
+    content.style.transition = 'height 0.3s ease';
     this.closeOtherFilterSteps(trigger);
-    // Open the new step with animation
     requestAnimationFrame(() => {
-      this.setAccordionState(trigger, "open", true);
+      this.openAccordion(trigger);
     });
   }
-
-  // End Accordion Helpers
-
-  initializeAccordionTrigger(trigger) {
-    if (trigger.hasAttribute("data-initialized")) return;
-    trigger.setAttribute("data-initialized", "true");
-    trigger.addEventListener("click", () => {
-      this.toggleAccordion(trigger);
-    });
-    const content = trigger.nextElementSibling;
-    if (content && content.getAttribute("data-accordion") === "content") {
-      content.style.transition = "height 0.3s ease";
-      content.style.overflow = "hidden";
-      content.style.height = (trigger.getAttribute("data-accordion-state") === "open") ? content.scrollHeight + "px" : "0px";
-    }
-  }
+  // --- End Accordion Helpers ---
 
   updateMethodDisplay(state) {
     const methodWrapper = document.querySelector('[step-name="method"]')?.closest(".horizontal-slide_wrapper");
     if (methodWrapper) {
       methodWrapper.style.display = state.library ? "" : "none";
     }
-    const patentMethodOption = document.querySelector('[data-method-option="patent"]');
-    if (patentMethodOption) {
-      patentMethodOption.style.display = state.library === "tto" ? "none" : "";
+    const patentOpt = document.querySelector('[data-method-option="patent"]');
+    if (patentOpt) {
+      patentOpt.style.display = state.library === "tto" ? "none" : "";
     }
     document.querySelectorAll("[data-method-option]").forEach(el => {
-      const isActive = el.dataset.methodOption === state.method?.selected;
-      el.classList.toggle("active", isActive);
+      const active = el.dataset.methodOption === state.method?.selected;
+      el.classList.toggle("active", active);
     });
     document.querySelectorAll("[data-method-display]").forEach(el => {
       const allowed = el.dataset.methodDisplay.split(",").map(v => v.trim());
@@ -329,21 +318,21 @@ export default class UIManager {
   updateDescriptionDisplay(state) {
     if (state.method?.description) {
       const { value, modificationSummary, improved, isValid } = state.method.description;
-      const descriptionInput = document.querySelector("#main-search-description");
-      if (descriptionInput && descriptionInput.value !== value) {
-        descriptionInput.value = value || "";
+      const descInput = document.querySelector("#main-search-description");
+      if (descInput && descInput.value !== value) {
+        descInput.value = value || "";
       }
-      const improveButton = document.querySelector("#validate-description");
-      if (improveButton) {
-        improveButton.style.display = isValid ? "flex" : "none";
+      const impBtn = document.querySelector("#validate-description");
+      if (impBtn) {
+        impBtn.style.display = isValid ? "flex" : "none";
       }
-      const descriptionSummary = document.querySelector("#description-summary");
-      if (descriptionSummary) {
+      const descSummary = document.querySelector("#description-summary");
+      if (descSummary) {
         if (improved && modificationSummary?.overview) {
-          descriptionSummary.style.display = "block";
-          descriptionSummary.textContent = modificationSummary.overview;
+          descSummary.style.display = "block";
+          descSummary.textContent = modificationSummary.overview;
         } else {
-          descriptionSummary.style.display = "none";
+          descSummary.style.display = "none";
         }
       }
     }
@@ -351,10 +340,10 @@ export default class UIManager {
 
   updatePatentDisplay(state) {
     if (state.method?.selected === "patent") {
-      const patentLoader = document.querySelector("#patent-loader");
-      const patentInfoWrapper = document.querySelector("#patent-info-wrapper");
-      if (patentInfoWrapper) {
-        patentInfoWrapper.style.display = state.method.patent?.data ? "" : "none";
+      const loader = document.querySelector("#patent-loader");
+      const infoWrap = document.querySelector("#patent-info-wrapper");
+      if (infoWrap) {
+        infoWrap.style.display = state.method.patent?.data ? "" : "none";
       }
       if (state.method.patent?.data) {
         const patentData = state.method.patent.data;
@@ -379,39 +368,39 @@ export default class UIManager {
   }
 
   updateStepVisibility(state) {
-    const stepWrappers = document.querySelectorAll('.horizontal-slide_wrapper[step-name]');
-    stepWrappers.forEach(wrapper => {
-      const stepName = wrapper.getAttribute('step-name');
+    const wrappers = document.querySelectorAll('.horizontal-slide_wrapper[step-name]');
+    wrappers.forEach(wrapper => {
+      const name = wrapper.getAttribute('step-name');
       wrapper.style.display = 'none';
-      if (stepName === 'library') {
+      if (name === 'library') {
         wrapper.style.display = '';
         return;
       }
-      if (stepName === 'method') {
+      if (name === 'method') {
         wrapper.style.display = state.library ? '' : 'none';
         return;
       }
-      if (stepName === 'options') {
-        const hasKeywordsInclude = state.filters.some(f => f.name === 'keywords-include');
-        const shouldShow = state.method?.selected === 'basic' || hasKeywordsInclude;
-        wrapper.style.display = shouldShow ? '' : 'none';
-        if (shouldShow) {
-          wrapper.querySelectorAll('[data-filter-option]').forEach(button => {
-            const filterName = button.getAttribute('data-filter-option');
-            const exists = state.filters.some(f => f.name === filterName);
-            button.style.display = exists ? 'none' : '';
+      if (name === 'options') {
+        const hasKeywords = state.filters.some(f => f.name === 'keywords-include');
+        const show = state.method?.selected === 'basic' || hasKeywords;
+        wrapper.style.display = show ? '' : 'none';
+        if (show) {
+          wrapper.querySelectorAll('[data-filter-option]').forEach(btn => {
+            const fName = btn.getAttribute('data-filter-option');
+            const exists = state.filters.some(f => f.name === fName);
+            btn.style.display = exists ? 'none' : '';
           });
         }
         return;
       }
-      const filterExists = state.filters.some(filter => filter.name === stepName);
-      const isMethodValid = state.method?.selected === 'basic' ||
+      const exists = state.filters.some(filter => filter.name === name);
+      const validMethod = state.method?.selected === 'basic' ||
         (state.method?.selected === 'descriptive' && state.method?.description?.isValid) ||
         (state.method?.selected === 'patent' && state.method?.patent?.data);
-      wrapper.style.display = (filterExists && isMethodValid) ? '' : 'none';
-      if (filterExists && isMethodValid) {
-        const trigger = wrapper.querySelector('[data-accordion="trigger"]');
-        if (trigger && !trigger.hasAttribute("data-initialized")) {
+      wrapper.style.display = (exists && validMethod) ? '' : 'none';
+      if (exists && validMethod) {
+        const trig = wrapper.querySelector('[data-accordion="trigger"]');
+        if (trig && !trig.hasAttribute("data-initialized")) {
           this.initializeNewStep(wrapper);
         }
       }
@@ -419,7 +408,7 @@ export default class UIManager {
   }
 
   setupSessionEventListeners() {
-    this.eventBus.on(EventTypes.LOAD_SESSION, (sessionData) => {
+    this.eventBus.on(EventTypes.LOAD_SESSION, sessionData => {
       Logger.info('Session data loaded, updating UI:', sessionData);
       this.updateAll(sessionData);
     });
@@ -442,5 +431,6 @@ export default class UIManager {
     this.setupSessionEventListeners();
   }
 }
+
 
 
