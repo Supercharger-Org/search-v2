@@ -124,6 +124,18 @@ updateAll(state) {
   });
 }
 
+  shouldShowKeywordsStep(state) {
+  if (!state.method?.selected) return false;
+  if (["descriptive", "basic"].includes(state.method.selected)) {
+    return state.method.description?.isValid;
+  }
+  if (state.method.selected === "patent") {
+    return !!state.method.patent?.data;
+  }
+  return false;
+}
+
+
 initializeWithState(state) {
   Logger.info('Initializing with state:', state);
   
