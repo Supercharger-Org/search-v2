@@ -1,5 +1,11 @@
 export class AccordionManager {
   constructor() {
+    // Bind methods to ensure correct 'this' context
+    this.handleAccordionClick = this.handleAccordionClick.bind(this);
+    this.toggleAccordion = this.toggleAccordion.bind(this);
+    this.closeOtherFilterSteps = this.closeOtherFilterSteps.bind(this);
+    this.updateContentHeight = this.updateContentHeight.bind(this);
+    
     this.setupResizeObserver();
   }
 
@@ -18,11 +24,8 @@ export class AccordionManager {
     content.style.overflow = 'hidden';
     content.style.transition = 'height 0.3s ease';
     
-    // Add click handler
-    trigger.addEventListener('click', (e) => {
-      e.preventDefault();
-      this.handleAccordionClick(trigger);
-    });
+    // Add click handler - using bound method
+    trigger.addEventListener('click', this.handleAccordionClick);
     
     // Setup icon animation
     const icon = trigger.querySelector('[data-accordion="icon"]');
@@ -39,7 +42,70 @@ export class AccordionManager {
     }
   }
 
-  // Enhanced resize observer implementation
+  handleAccordionClick(e) {
+    e.preventDefault();
+    const trigger = e.currentTarget;
+    
+    const stepEl = trigger.closest('[step-name]');
+    if (!stepEl) return;
+    
+    const stepName = stepEl.getAttribute('step-name');
+    const isFilterStep = !['library', 'method', 'keywords-include'].includes(stepName);
+    
+    if (isFilterStep && !trigger._isOpen) {
+      this.closeOtherFilterSteps(trigger);
+    }
+    
+    this.toggleAccordion(trigger);
+  }
+
+  toggleAccordion(trigger, forceOpen = null) {
+    const content = trigger.nextElementSibling;
+    if (!content) return;
+    
+    const isOpen = forceOpen !== null ? forceOpen : !trigger._isOpen;
+    const icon = trigger.querySelector('[data-accordion="icon"]');
+    
+    content.style.display = 'block';
+    
+    requestAnimationFrame(() => {
+      content.style.height = isOpen ? `${content.scrollHeight}px` : '0';
+      
+      if (icon) {
+        icon.style.transform = isOpen ? 'rotate(180deg)' : 'rotate(0deg)';
+      }
+      
+      trigger._isOpen = isOpen;
+      
+      if (!isOpen) {
+        const handler = () => {
+          if (!trigger._isOpen) {
+            content.style.display = 'none';
+          }
+          content.removeEventListener('transitionend', handler);
+        };
+        content.addEventListener('transitionend', handler);
+      }
+    });
+  }
+
+  closeOtherFilterSteps(currentTrigger) {
+    const triggers = document.querySelectorAll('[data-accordion="trigger"]');
+    triggers.forEach(trigger => {
+      if (trigger === currentTrigger) return;
+      
+      const stepEl = trigger.closest('[step-name]');
+      if (!stepEl) return;
+      
+      const stepName = stepEl.getAttribute('step-name');
+      if (!['library', 'method', 'keywords-include'].includes(stepName)) {
+        if (trigger._isOpen) {
+          this.toggleAccordion(trigger, false);
+        }
+      }
+    });
+  }
+
   setupResizeObserver() {
     const resizeObserver = new ResizeObserver(entries => {
       entries.forEach(entry => {
@@ -50,7 +116,7 @@ export class AccordionManager {
       });
     });
 
-    // Observe all accordion contents
+    // Observe all accordion contents initially
     document.querySelectorAll('[data-accordion="trigger"]').forEach(trigger => {
       const content = trigger.nextElementSibling;
       if (content) {
@@ -76,7 +142,6 @@ export class AccordionManager {
     });
   }
 
-  // Improved content observer for mutations
   createContentObserver(content) {
     if (!content || content._hasObserver) return;
     
@@ -100,51 +165,5 @@ export class AccordionManager {
     });
     
     content._hasObserver = true;
-  }
-
-  toggleAccordion(trigger, forceOpen = null) {
-    const content = trigger.nextElementSibling;
-    if (!content) return;
-    
-    const isOpen = forceOpen !== null ? forceOpen : !trigger._isOpen;
-    const icon = trigger.querySelector('[data-accordion="icon"]');
-    
-    content.style.display = 'block';
-    
-    requestAnimationFrame(() => {
-      content.style.height = isOpen ? `${content.scrollHeight}px` : '0';
-      
-      if (icon) {
-        icon.style.transform = isOpen ? 'rotate(180deg)' : 'rotate(0deg)';
-      }
-      
-      trigger._isOpen = isOpen;
-      
-      if (!isOpen) {
-        content.addEventListener('transitionend', function handler() {
-          if (!trigger._isOpen) {
-            content.style.display = 'none';
-          }
-          content.removeEventListener('transitionend', handler);
-        });
-      }
-    });
-  }
-
-  closeOtherFilterSteps(currentTrigger) {
-    const triggers = document.querySelectorAll('[data-accordion="trigger"]');
-    triggers.forEach(trigger => {
-      if (trigger === currentTrigger) return;
-      
-      const stepEl = trigger.closest('[step-name]');
-      if (!stepEl) return;
-      
-      const stepName = stepEl.getAttribute('step-name');
-      if (!['library', 'method', 'keywords-include'].includes(stepName)) {
-        if (trigger._isOpen) {
-          this.toggleAccordion(trigger, false);
-        }
-      }
-    });
   }
 }
