@@ -113,6 +113,7 @@ updateAll(state) {
       methodStep.style.display = '';
     }
   }
+  this.setupResizeObserver();
   
   // Show only steps that exist in state.filters
   if (state.filters && Array.isArray(state.filters)) {
