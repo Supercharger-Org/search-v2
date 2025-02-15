@@ -179,28 +179,37 @@ export class FilterUpdate {
   }
 
   updateFilterStepOrder(state) {
-    const container = document.querySelector('.step-small-container');
-    if (!container) return;
+  const container = document.querySelector('.step-small-container');
+  if (!container) return;
 
-    const steps = Array.from(container.querySelectorAll('.horizontal-slide_wrapper[step-name]'))
-      .filter(wrapper => wrapper.getAttribute('step-name') !== 'options');
+  // Get all steps except options
+  const steps = Array.from(container.querySelectorAll('.horizontal-slide_wrapper[step-name]'))
+    .filter(wrapper => wrapper.getAttribute('step-name') !== 'options');
 
-    // Sort steps based on filter order
-    steps.sort((a, b) => {
-      const aName = a.getAttribute('step-name');
-      const bName = b.getAttribute('step-name');
-      const aOrder = state.filters?.find(f => f.name === aName)?.order ?? Infinity;
-      const bOrder = state.filters?.find(f => f.name === bName)?.order ?? Infinity;
-      return aOrder - bOrder;
-    });
-
-    // Reorder steps
-    steps.forEach(step => container.appendChild(step));
+  // Sort steps based on filter order
+  steps.sort((a, b) => {
+    const aName = a.getAttribute('step-name');
+    const bName = b.getAttribute('step-name');
     
-    // Handle options step
-    const optionsStep = container.querySelector('.horizontal-slide_wrapper[step-name="options"]');
-    if (optionsStep && this.filterExists('keywords-include', state)) {
-      container.appendChild(optionsStep);
-    }
+    // Always keep library and method at the top
+    if (aName === 'library') return -1;
+    if (bName === 'library') return 1;
+    if (aName === 'method') return -1;
+    if (bName === 'method') return 1;
+    
+    // Sort other steps by their order in the filters array
+    const aOrder = state.filters?.find(f => f.name === aName)?.order ?? Infinity;
+    const bOrder = state.filters?.find(f => f.name === bName)?.order ?? Infinity;
+    return aOrder - bOrder;
+  });
+
+  // Reorder steps
+  steps.forEach(step => container.appendChild(step));
+  
+  // Move options step to the end if it exists
+  const optionsStep = container.querySelector('.horizontal-slide_wrapper[step-name="options"]');
+  if (optionsStep && state.filters.some(f => f.name === 'keywords-include')) {
+    container.appendChild(optionsStep);
   }
+}
 }
