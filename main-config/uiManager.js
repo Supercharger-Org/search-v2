@@ -176,6 +176,7 @@ initializeWithState(state) {
 
   // Ensure proper step order
   this.filterUpdate.updateFilterStepOrder(state);
+  this.updateAll(state);
 }
 
 
