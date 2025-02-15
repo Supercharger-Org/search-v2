@@ -184,14 +184,34 @@ initializeWithState(state) {
     const optionsStep = document.querySelector('[step-name="options"]')?.closest('.horizontal-slide_wrapper');
     if (!optionsStep) return;
 
-    const shouldShow = 
-      state.method?.selected === 'basic' ||
-      (state.method?.selected === 'descriptive' && state.method?.description?.improved) ||
-      (state.method?.selected === 'patent' && state.method?.patent?.data);
+    // Don't show if no method selected
+    if (!state.method?.selected) {
+        optionsStep.style.display = 'none';
+        return;
+    }
+
+    let shouldShow = false;
+
+    if (state.method.selected === 'basic') {
+        // Always show for basic
+        shouldShow = true;
+    } else {
+        // For descriptive or patent methods:
+        // If loading from session (filters exist), check if keywords-include filter exists
+        if (state.filters?.length > 0) {
+            shouldShow = state.filters.some(f => f.name === 'keywords-include');
+        } else {
+            // If no session/filters, check if initial keyword gen has run
+            if (state.method.selected === 'descriptive') {
+                shouldShow = Boolean(state.method.description?.improved);
+            } else if (state.method.selected === 'patent') {
+                shouldShow = Boolean(state.method.patent?.data);
+            }
+        }
+    }
 
     optionsStep.style.display = shouldShow ? '' : 'none';
-  }
-
+}
 
 setupAuthStateListener() {
   this.eventBus.on(AUTH_EVENTS.AUTH_STATE_CHANGED, ({ isAuthorized }) => {
