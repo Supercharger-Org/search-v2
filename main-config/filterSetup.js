@@ -25,6 +25,16 @@ export class FilterSetup {
     this.setupNewGenButton();
   }
 
+  setupFilterEventHandlers() {
+    document.querySelectorAll('[data-filter-option]').forEach(btn => {
+      btn.addEventListener('click', e => {
+        e.preventDefault();
+        const filterName = btn.getAttribute('data-filter-option');
+        this.eventBus.emit(EventTypes.FILTER_ADDED, { filterName });
+      });
+    });
+  }
+
   setupManageKeywordsButton() {
     const manageKeywordsButton = document.querySelector("#manage-keywords-button");
     if (manageKeywordsButton) {
