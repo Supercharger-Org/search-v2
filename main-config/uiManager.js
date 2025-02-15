@@ -70,6 +70,9 @@ initialize(initialState = null) {
   this.filterSetup.setupAllFilters();
   this.setupResizeObserver();
   this.searchManager.setupSearchEventListeners();
+  document.querySelectorAll('[data-accordion="trigger"]').forEach(trigger => {
+      this.accordionManager.initializeAccordion(trigger, false);
+    });
   
   if (initialState) {
     this.initializeWithState(initialState);
