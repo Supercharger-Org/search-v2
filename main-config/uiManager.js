@@ -165,6 +165,8 @@ initializeWithState(state) {
 
   // Ensure proper step order
   this.filterUpdate.updateFilterStepOrder(state);
+  this.updateMethodDisplay(state);
+  this.updateOptionsStepVisibility(state); // Add this line
 }
 
   shouldShowKeywordsStep(state) {
