@@ -33,7 +33,6 @@ export default class UIManager {
     this.filterSetup.setupAllFilters();
     this.searchManager.setupSearchEventListeners();
     this.initializeAccordions();
-    this.updateStepVisibility(state);
     if (initialState) {
       this.initializeWithState(initialState);
     }
