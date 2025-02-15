@@ -14,12 +14,8 @@ export default class SessionManager {
     this.eventBus = eventBus;
     this.saveTimeout = null;
     this.sessionId = null;
+    this.isInitialized = false;
     this.setupInitialEventListeners();
-    
-    // Listen for auth check completion
-    this.eventBus.on(INIT_EVENTS.AUTH_CHECK_COMPLETE, async () => {
-      await this.checkSession();
-    });
   }
 
   setupInitialEventListeners() {
@@ -55,63 +51,6 @@ export default class SessionManager {
         this.scheduleSessionSave();
       }
     });
-  }
-
-  async checkSession() {
-    try {
-      const urlParams = new URLSearchParams(window.location.search);
-      const sessionId = urlParams.get('id');
-      let sessionData = null;
-
-      if (sessionId) {
-        try {
-          sessionData = await this.loadSession(sessionId);
-        } catch (error) {
-          Logger.error('Failed to load session:', error);
-          // Continue with null sessionData
-        }
-      }
-
-      this.eventBus.emit(INIT_EVENTS.SESSION_CHECK_COMPLETE, { 
-        sessionData: sessionData || this.getBlankSession() 
-      });
-      
-    } catch (error) {
-      Logger.error('Session check failed:', error);
-      // Emit completion with blank session
-      this.eventBus.emit(INIT_EVENTS.SESSION_CHECK_COMPLETE, { 
-        sessionData: this.getBlankSession() 
-      });
-    }
-  }
-
-  getBlankSession() {
-    return {
-      library: null,
-      method: {
-        selected: null,
-        description: {
-          value: "",
-          previousValue: null,
-          isValid: false,
-          improved: false,
-          modificationSummary: null
-        },
-        patent: null,
-        searchValue: "",
-        validated: false
-      },
-      filters: [],
-      search: {
-        results: null,
-        current_page: 1,
-        total_pages: 0,
-        active_item: null,
-        reload_required: false,
-        items_per_page: 10
-      },
-      searchRan: false
-    };
   }
 
   async createNewSession() {
