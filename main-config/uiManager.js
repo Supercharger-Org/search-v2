@@ -66,14 +66,11 @@ updateAll(state) {
   // Initialize any new accordions
   document.querySelectorAll('.horizontal-slide_wrapper[step-name]').forEach(step => {
     const trigger = step.querySelector('[data-accordion="trigger"]');
-    if (trigger && !trigger._initialized) {
+    if (trigger && !trigger.hasAttribute("data-initialized")) {
       Logger.info('Initializing new step:', step.getAttribute('step-name'));
       this.initializeNewStep(step);
     }
   });
-  
-  // Update heights of open accordions
-  this.updateAllOpenAccordions();
 }
 
 initializeWithState(state) {
