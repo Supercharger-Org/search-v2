@@ -634,7 +634,3 @@ setupAuthStateListener() {
     this.setupSessionEventListeners();
   }
 }
-
-
-
-
