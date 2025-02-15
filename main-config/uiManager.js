@@ -39,7 +39,6 @@ initialize(initialState = null) {
   this.setupFilterEventHandlers();
   this.filterSetup.setupAllFilters();
   this.setupResizeObserver();
-  this.filterUpdate.setupOptionsDisplay();
   this.searchManager.setupSearchEventListeners();
   
   if (initialState) {
