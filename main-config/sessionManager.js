@@ -85,6 +85,35 @@ export default class SessionManager {
     }
   }
 
+  getBlankSession() {
+    return {
+      library: null,
+      method: {
+        selected: null,
+        description: {
+          value: "",
+          previousValue: null,
+          isValid: false,
+          improved: false,
+          modificationSummary: null
+        },
+        patent: null,
+        searchValue: "",
+        validated: false
+      },
+      filters: [],
+      search: {
+        results: null,
+        current_page: 1,
+        total_pages: 0,
+        active_item: null,
+        reload_required: false,
+        items_per_page: 10
+      },
+      searchRan: false
+    };
+  }
+
   async createNewSession() {
     try {
       const token = AuthManager.getUserAuthToken();
