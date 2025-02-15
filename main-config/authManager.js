@@ -195,26 +195,35 @@ export class AuthManager {
   }
 
   async checkAuthStatus() {
-    const authToken = this.getCookie(AUTH_CONFIG.cookies.auth);
-    Logger.info('Checking auth status, token exists:', !!authToken);
-    
-    if (authToken) {
-      try {
-        // Get user info first
-        await this.getUserInfo(authToken);
-        
-        // Only after user info is loaded, try to load sessions
+    try {
+      const authToken = this.getCookie(AUTH_CONFIG.cookies.auth);
+      Logger.info('Checking auth status, token exists:', !!authToken);
+      
+      if (authToken) {
         try {
+          await this.getUserInfo(authToken);
+          this.isAuthorized = true;
           await this.loadUserSessions(authToken);
-        } catch (sessionError) {
-          Logger.error('Failed to load sessions, but user is still authenticated:', sessionError);
+        } catch (error) {
+          Logger.error('Auth validation failed:', error);
+          this.handleFreeUser();
         }
-      } catch (error) {
-        Logger.error('Auth validation failed:', error);
+      } else {
         this.handleFreeUser();
       }
-    } else {
+      
+      // Always emit completion, regardless of outcome
+      this.eventBus.emit(INIT_EVENTS.AUTH_CHECK_COMPLETE, { 
+        isAuthorized: this.isAuthorized 
+      });
+      
+    } catch (error) {
+      Logger.error('Auth check failed:', error);
       this.handleFreeUser();
+      // Still emit completion
+      this.eventBus.emit(INIT_EVENTS.AUTH_CHECK_COMPLETE, { 
+        isAuthorized: false 
+      });
     }
   }
   
