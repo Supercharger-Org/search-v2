@@ -290,51 +290,59 @@ initializeNewStep(stepElement) {
   this.initializeAccordion(trigger, true);
 }
 
-// Update the updateStepVisibility method to handle accordion initialization:
 updateStepVisibility(state) {
   const wrappers = document.querySelectorAll('.horizontal-slide_wrapper[step-name]');
+  
+  // Track newly visible steps that need accordion initialization
+  const newlyVisibleSteps = new Set();
+  
   wrappers.forEach(wrapper => {
     const name = wrapper.getAttribute('step-name');
-    wrapper.style.display = 'none';
+    const wasVisible = wrapper.style.display !== 'none';
+    let shouldBeVisible = false;
 
-    // Handle special cases first
+    // Determine visibility
     if (name === 'library') {
-      wrapper.style.display = '';
-      return;
-    }
-    if (name === 'method') {
-      wrapper.style.display = state.library ? '' : 'none';
-      return;
-    }
-    if (name === 'options') {
+      shouldBeVisible = true;
+    } else if (name === 'method') {
+      shouldBeVisible = !!state.library;
+    } else if (name === 'options') {
       const hasKeywords = state.filters.some(f => f.name === 'keywords-include');
-      const show = state.method?.selected === 'basic' || hasKeywords;
-      wrapper.style.display = show ? '' : 'none';
-      if (show) {
-        wrapper.querySelectorAll('[data-filter-option]').forEach(btn => {
-          const fName = btn.getAttribute('data-filter-option');
-          const exists = state.filters.some(f => f.name === fName);
-          btn.style.display = exists ? 'none' : '';
-        });
-      }
-      return;
+      shouldBeVisible = state.method?.selected === 'basic' || hasKeywords;
+    } else {
+      // Regular filter steps
+      const exists = state.filters.some(filter => filter.name === name);
+      const validMethod = state.method?.selected === 'basic' ||
+        (state.method?.selected === 'descriptive' && state.method?.description?.isValid) ||
+        (state.method?.selected === 'patent' && state.method?.patent?.data);
+      shouldBeVisible = exists && validMethod;
     }
 
-    // Handle filter steps
-    const exists = state.filters.some(filter => filter.name === name);
-    const validMethod = state.method?.selected === 'basic' ||
-      (state.method?.selected === 'descriptive' && state.method?.description?.isValid) ||
-      (state.method?.selected === 'patent' && state.method?.patent?.data);
+    // Update visibility
+    wrapper.style.display = shouldBeVisible ? '' : 'none';
 
-    if (exists && validMethod) {
-      wrapper.style.display = '';
-      const trigger = wrapper.querySelector('[data-accordion="trigger"]');
-      if (trigger && !trigger.hasAttribute('data-initialized')) {
-        this.initializeAccordion(trigger, true);
+    // Track newly visible steps
+    if (shouldBeVisible && !wasVisible) {
+      newlyVisibleSteps.add(wrapper);
+    }
+  });
+
+  // Initialize accordions for newly visible steps
+  newlyVisibleSteps.forEach(wrapper => {
+    const trigger = wrapper.querySelector('[data-accordion="trigger"]');
+    if (trigger && !trigger.hasAttribute('data-initialized')) {
+      this.initializeAccordion(trigger, true); // Always open newly visible steps
+      
+      // If it's a filter step, close other filter steps
+      const stepName = wrapper.getAttribute('step-name');
+      if (!['library', 'method', 'keywords-include'].includes(stepName)) {
+        this.closeOtherFilterSteps(trigger);
       }
     }
   });
 }
+
+
 
   updateMethodDisplay(state) {
     const methodWrapper = document.querySelector('[step-name="method"]')?.closest(".horizontal-slide_wrapper");
