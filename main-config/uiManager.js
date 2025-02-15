@@ -9,17 +9,17 @@ import { AccordionManager } from "./accordionManager.js";
 
 export default class UIManager {
   constructor(eventBus) {
-  this.eventBus = eventBus;
-  this.filterSetup = new FilterSetup(eventBus);
-  this.filterUpdate = new FilterUpdate(eventBus);
-  this.searchManager = new SearchResultManager(eventBus);
-  this.accordionManager = new AccordionManager();
-  this.initialHideConfig = {
-    ids: ["validate-description", "description-summary", "patent-loader", "patent-info-wrapper"],
-    classes: [".horizontal-slide_wrapper"],
-    dataAttributes: ["[data-method-display]", "[data-state='search-reload']"]
-  };
-}
+    this.eventBus = eventBus;
+    this.filterSetup = new FilterSetup(eventBus);
+    this.filterUpdate = new FilterUpdate(eventBus);
+    this.searchManager = new SearchResultManager(eventBus);
+    this.accordionManager = new AccordionManager();
+    
+    // Listen for session check completion
+    this.eventBus.on(INIT_EVENTS.SESSION_CHECK_COMPLETE, ({ sessionData }) => {
+      this.initialize(sessionData);
+    });
+  }
 
   updateDisplay(state) {
     this.updateAll(state);
@@ -56,42 +56,73 @@ export default class UIManager {
 }
 
 
-initialize(initialState = null) {
-  Logger.info('Initializing UI Manager', initialState ? 'with state' : 'fresh start');
-  
-  // First, hide everything
-  this.setInitialUIState();
-  
-  // Setup all event listeners
-  this.setupAuthStateListener();
-  this.setupMethodDescriptionListeners();
-  this.setupLibraryMethodListeners();
-  this.setupFilterEventHandlers();
-  this.filterSetup.setupAllFilters();
-  this.setupResizeObserver();
-  this.searchManager.setupSearchEventListeners();
-  
-  if (initialState) {
-    this.initializeWithState(initialState);
-  } else {
-    this.initializeFreshStart();
+initialize(sessionData) {
+    Logger.info('Initializing UI Manager with session data');
+    
+    // First, hide everything
+    this.setInitialUIState();
+    
+    // Setup all event listeners
+    this.setupAuthStateListener();
+    this.setupMethodDescriptionListeners();
+    this.setupLibraryMethodListeners();
+    this.setupFilterEventHandlers();
+    this.filterSetup.setupAllFilters();
+    this.setupResizeObserver();
+    this.searchManager.setupSearchEventListeners();
+    
+    // Initialize UI with session data
+    this.initializeWithSession(sessionData);
+    
+    // Emit completion
+    this.eventBus.emit(INIT_EVENTS.INITIALIZATION_COMPLETE);
   }
-}
 
-  
-
-  initializeFreshStart() {
-  // Show and open only the library step
-  const libraryStep = document.querySelector('[step-name="library"]')?.closest('.horizontal-slide_wrapper');
-  if (libraryStep) {
-    libraryStep.style.display = '';
-    const trigger = libraryStep.querySelector('[data-accordion="trigger"]');
-    if (trigger) {
-      this.accordionManager.initializeAccordion(trigger, true);
+  initializeWithSession(sessionData) {
+    Logger.info('Initializing with session:', sessionData);
+    
+    // Show and initialize library step
+    const libraryStep = document.querySelector('[step-name="library"]')?.closest('.horizontal-slide_wrapper');
+    if (libraryStep) {
+      libraryStep.style.display = '';
+      this.accordionManager.initializeNewStep(libraryStep, true);
     }
-  }
-}
+    
+    // Show and initialize method step if library is selected
+    if (sessionData.library) {
+      const methodStep = document.querySelector('[step-name="method"]')?.closest('.horizontal-slide_wrapper');
+      if (methodStep) {
+        methodStep.style.display = '';
+        this.accordionManager.initializeNewStep(methodStep, true);
+      }
+    }
+    
+    // Show and initialize filter steps
+    if (sessionData.filters?.length) {
+      sessionData.filters.forEach(filter => {
+        const filterStep = document.querySelector(`[step-name="${filter.name}"]`)?.closest('.horizontal-slide_wrapper');
+        if (filterStep) {
+          filterStep.style.display = '';
+          this.accordionManager.initializeNewStep(filterStep, true);
+        }
+      });
+    }
 
+    // Initialize keywords-include if present
+    if (this.shouldShowKeywordsStep(sessionData)) {
+      const keywordsStep = document.querySelector('[step-name="keywords-include"]')?.closest('.horizontal-slide_wrapper');
+      if (keywordsStep) {
+        keywordsStep.style.display = '';
+        this.accordionManager.initializeNewStep(keywordsStep, true);
+      }
+    }
+
+    // Update all UI elements
+    this.updateAll(sessionData);
+  }
+  
+
+  
 updateAll(state) {
   Logger.info('Updating all UI elements with state:', state);
   
@@ -167,53 +198,6 @@ updateAll(state) {
   }
   return false;
 }
-
-
-initializeWithState(state) {
-  Logger.info('Initializing with state:', state);
-  
-  // Show and initialize library step
-  const libraryStep = document.querySelector('[step-name="library"]')?.closest('.horizontal-slide_wrapper');
-  if (libraryStep) {
-    libraryStep.style.display = '';
-    this.accordionManager.initializeNewStep(libraryStep, true);
-  }
-  
-  // Show and initialize method step if library is selected
-  if (state.library) {
-    const methodStep = document.querySelector('[step-name="method"]')?.closest('.horizontal-slide_wrapper');
-    if (methodStep) {
-      methodStep.style.display = '';
-      this.accordionManager.initializeNewStep(methodStep, true);
-    }
-  }
-  
-  // Show and initialize filter steps
-  if (state.filters && Array.isArray(state.filters)) {
-    state.filters.forEach(filter => {
-      const filterStep = document.querySelector(`[step-name="${filter.name}"]`)?.closest('.horizontal-slide_wrapper');
-      if (filterStep) {
-        filterStep.style.display = '';
-        this.accordionManager.initializeNewStep(filterStep, true);
-      }
-    });
-  }
-
-  // Initialize keywords-include if present
-  if (this.shouldShowKeywordsStep(state)) {
-    const keywordsStep = document.querySelector('[step-name="keywords-include"]')?.closest('.horizontal-slide_wrapper');
-    if (keywordsStep) {
-      keywordsStep.style.display = '';
-      this.accordionManager.initializeNewStep(keywordsStep, true);
-    }
-  }
-
-  // Ensure proper step order
-  this.filterUpdate.updateFilterStepOrder(state);
-  this.updateAll(state);
-}
-
-
 
 setupAuthStateListener() {
   this.eventBus.on(AUTH_EVENTS.AUTH_STATE_CHANGED, ({ isAuthorized }) => {
