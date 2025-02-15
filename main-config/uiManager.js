@@ -95,7 +95,6 @@ updateAll(state) {
   
   // Update UI elements
   this.updateMethodDisplay(state);
-  this.updateOptionsStepVisibility(state); // Add this line
   this.filterUpdate.updateAllFilterDisplays(state);
   this.searchManager.updateSearchResultsDisplay(state);
   this.searchManager.updateSidebar(state);
@@ -175,43 +174,11 @@ initializeWithState(state) {
     }
   }
 
-  // Update options step visibility - pass true to indicate loading from session
-  this.updateOptionsStepVisibility(state, true);
-
   // Ensure proper step order
   this.filterUpdate.updateFilterStepOrder(state);
 }
 
-updateOptionsStepVisibility(state, isLoadingFromSession = false) {
-    const optionsStep = document.querySelector('[step-name="options"]')?.closest('.horizontal-slide_wrapper');
-    if (!optionsStep) return;
 
-    // If loading from session, always show options
-    if (isLoadingFromSession) {
-        optionsStep.style.display = '';
-        return;
-    }
-
-    // For fresh start/normal updates:
-    // Don't show if no method selected
-    if (!state.method?.selected) {
-        optionsStep.style.display = 'none';
-        return;
-    }
-
-    let shouldShow = false;
-
-    // For basic method - always show
-    if (state.method.selected === 'basic') {
-        shouldShow = true;
-    } 
-    // For descriptive/patent - show only after keywords-include exists
-    else {
-        shouldShow = state.filters?.some(f => f.name === 'keywords-include') || false;
-    }
-
-    optionsStep.style.display = shouldShow ? '' : 'none';
-}
 
 setupAuthStateListener() {
   this.eventBus.on(AUTH_EVENTS.AUTH_STATE_CHANGED, ({ isAuthorized }) => {
