@@ -1,9 +1,6 @@
-// accordionManager.js
-import { Logger } from "./logger.js";
-
 export class AccordionManager {
   constructor() {
-    this.setupResizeHandler();
+    this.setupResizeObserver();
   }
 
   initializeAccordion(trigger, shouldOpen = false) {
@@ -12,11 +9,10 @@ export class AccordionManager {
     const content = trigger.nextElementSibling;
     if (!content) return;
     
-    // Initialize accordion state
+    // Initialize
     trigger._initialized = true;
     trigger._isOpen = false;
     
-    // Set initial styles
     content.style.display = 'none';
     content.style.height = '0';
     content.style.overflow = 'hidden';
@@ -34,7 +30,7 @@ export class AccordionManager {
       icon.style.transition = 'transform 0.3s ease';
     }
     
-    // Create content observer
+    // Create observer for content changes
     this.createContentObserver(content);
     
     // Open if requested
@@ -43,72 +39,44 @@ export class AccordionManager {
     }
   }
 
-  initializeAccordions(triggers, openFirst = false) {
-    triggers.forEach((trigger, index) => {
-      this.initializeAccordion(trigger, openFirst && index === 0);
+  // Enhanced resize observer implementation
+  setupResizeObserver() {
+    const resizeObserver = new ResizeObserver(entries => {
+      entries.forEach(entry => {
+        const content = entry.target;
+        if (content._isAccordionContent && content.style.display !== 'none') {
+          this.updateContentHeight(content);
+        }
+      });
     });
+
+    // Observe all accordion contents
+    document.querySelectorAll('[data-accordion="trigger"]').forEach(trigger => {
+      const content = trigger.nextElementSibling;
+      if (content) {
+        content._isAccordionContent = true;
+        resizeObserver.observe(content);
+      }
+    });
+
+    // Store observer for adding new elements later
+    this.resizeObserver = resizeObserver;
   }
 
-  handleAccordionClick(trigger) {
-    const stepEl = trigger.closest('[step-name]');
-    if (!stepEl) return;
-    
-    const stepName = stepEl.getAttribute('step-name');
-    const isFilterStep = !['library', 'method', 'keywords-include'].includes(stepName);
-    
-    if (isFilterStep && !trigger._isOpen) {
-      this.closeOtherFilterSteps(trigger);
-    }
-    
-    this.toggleAccordion(trigger);
-  }
-
-  toggleAccordion(trigger, forceOpen = null) {
-    const content = trigger.nextElementSibling;
+  updateContentHeight(content) {
     if (!content) return;
     
-    const isOpen = forceOpen !== null ? forceOpen : !trigger._isOpen;
-    const icon = trigger.querySelector('[data-accordion="icon"]');
-    
-    content.style.display = 'block';
+    const trigger = content.previousElementSibling;
+    if (!trigger || !trigger._isOpen) return;
     
     requestAnimationFrame(() => {
-      content.style.height = isOpen ? `${content.scrollHeight}px` : '0';
-      
-      if (icon) {
-        icon.style.transform = isOpen ? 'rotate(180deg)' : 'rotate(0deg)';
-      }
-      
-      trigger._isOpen = isOpen;
-      
-      if (!isOpen) {
-        content.addEventListener('transitionend', function handler() {
-          if (!trigger._isOpen) {
-            content.style.display = 'none';
-          }
-          content.removeEventListener('transitionend', handler);
-        });
-      }
+      content.style.height = 'auto';
+      const targetHeight = content.scrollHeight;
+      content.style.height = `${targetHeight}px`;
     });
   }
 
-  closeOtherFilterSteps(currentTrigger) {
-    const triggers = document.querySelectorAll('[data-accordion="trigger"]');
-    triggers.forEach(trigger => {
-      if (trigger === currentTrigger) return;
-      
-      const stepEl = trigger.closest('[step-name]');
-      if (!stepEl) return;
-      
-      const stepName = stepEl.getAttribute('step-name');
-      if (!['library', 'method', 'keywords-include'].includes(stepName)) {
-        if (trigger._isOpen) {
-          this.toggleAccordion(trigger, false);
-        }
-      }
-    });
-  }
-
+  // Improved content observer for mutations
   createContentObserver(content) {
     if (!content || content._hasObserver) return;
     
@@ -132,53 +100,5 @@ export class AccordionManager {
     });
     
     content._hasObserver = true;
-  }
-
-  updateContentHeight(content) {
-    if (!content) return;
-    
-    const trigger = content.previousElementSibling;
-    if (!trigger || !trigger._isOpen) return;
-    
-    requestAnimationFrame(() => {
-      content.style.height = 'auto';
-      const targetHeight = content.scrollHeight;
-      content.style.height = `${targetHeight}px`;
-    });
-  }
-
-  setupResizeHandler() {
-    let resizeTimeout;
-    window.addEventListener('resize', () => {
-      clearTimeout(resizeTimeout);
-      resizeTimeout = setTimeout(() => {
-        document.querySelectorAll('[data-accordion="trigger"]').forEach(trigger => {
-          if (trigger._isOpen) {
-            const content = trigger.nextElementSibling;
-            if (content) {
-              this.updateContentHeight(content);
-            }
-          }
-        });
-      }, 100);
-    });
-  }
-
-  // Utility methods for step management
-  initializeNewStep(stepElement, shouldOpen = true) {
-    const trigger = stepElement.querySelector('[data-accordion="trigger"]');
-    if (!trigger) return;
-    
-    // Initialize the accordion
-    this.initializeAccordion(trigger, shouldOpen);
-    
-    // Show the step
-    stepElement.style.display = '';
-    
-    // If it's a filter step, close other filter steps
-    const stepName = stepElement.getAttribute('step-name');
-    if (!['library', 'method', 'keywords-include'].includes(stepName)) {
-      this.closeOtherFilterSteps(trigger);
-    }
   }
 }
