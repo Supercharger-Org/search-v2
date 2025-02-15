@@ -101,4 +101,50 @@ export class AccordionManager {
     
     content._hasObserver = true;
   }
+
+  toggleAccordion(trigger, forceOpen = null) {
+    const content = trigger.nextElementSibling;
+    if (!content) return;
+    
+    const isOpen = forceOpen !== null ? forceOpen : !trigger._isOpen;
+    const icon = trigger.querySelector('[data-accordion="icon"]');
+    
+    content.style.display = 'block';
+    
+    requestAnimationFrame(() => {
+      content.style.height = isOpen ? `${content.scrollHeight}px` : '0';
+      
+      if (icon) {
+        icon.style.transform = isOpen ? 'rotate(180deg)' : 'rotate(0deg)';
+      }
+      
+      trigger._isOpen = isOpen;
+      
+      if (!isOpen) {
+        content.addEventListener('transitionend', function handler() {
+          if (!trigger._isOpen) {
+            content.style.display = 'none';
+          }
+          content.removeEventListener('transitionend', handler);
+        });
+      }
+    });
+  }
+
+  closeOtherFilterSteps(currentTrigger) {
+    const triggers = document.querySelectorAll('[data-accordion="trigger"]');
+    triggers.forEach(trigger => {
+      if (trigger === currentTrigger) return;
+      
+      const stepEl = trigger.closest('[step-name]');
+      if (!stepEl) return;
+      
+      const stepName = stepEl.getAttribute('step-name');
+      if (!['library', 'method', 'keywords-include'].includes(stepName)) {
+        if (trigger._isOpen) {
+          this.toggleAccordion(trigger, false);
+        }
+      }
+    });
+  }
 }
