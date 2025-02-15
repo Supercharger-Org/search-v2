@@ -518,23 +518,23 @@ setupAuthStateListener() {
   }
 
   setupFilterEventHandlers() {
-  document.querySelectorAll('[data-filter-option]').forEach(btn => {
-    btn.addEventListener('click', e => {
-      e.preventDefault();
-      const filterName = btn.getAttribute('data-filter-option');
-      this.eventBus.emit(EventTypes.FILTER_ADDED, { filterName });
-      
-      // Wait for state update before initializing the new step
-      setTimeout(() => {
-        const stepElement = document.querySelector(`[step-name="${filterName}"]`)
-          ?.closest('.horizontal-slide_wrapper');
-        if (stepElement) {
-          this.accordionManager.initializeNewStep(stepElement, true);
-          this.filterUpdate.updateFilterStepOrder(this.state);
-        }
-      }, 50);
+    document.querySelectorAll('[data-filter-option]').forEach(btn => {
+      btn.addEventListener('click', e => {
+        e.preventDefault();
+        const filterName = btn.getAttribute('data-filter-option');
+        this.eventBus.emit(EventTypes.FILTER_ADDED, { filterName });
+        
+        // Wait for state update before initializing the new step
+        setTimeout(() => {
+          const stepElement = document.querySelector(`[step-name="${filterName}"]`)
+            ?.closest('.horizontal-slide_wrapper');
+          if (stepElement) {
+            this.accordionManager.initializeNewStep(stepElement, true);
+            this.filterUpdate.updateFilterStepOrder(this.state);
+          }
+        }, 50);
+      });
     });
-  });
   }
   
   updateMethodDisplay(state) {
