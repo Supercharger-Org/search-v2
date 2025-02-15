@@ -5,6 +5,7 @@ import { AUTH_EVENTS } from "./authManager.js";
 import { FilterSetup } from "./filterSetup.js";
 import { FilterUpdate } from "./filterUpdate.js";
 import { SearchResultManager } from "./searchResultManager.js";
+import { AccordionManager } from "./accordionManager.js";
 
 export default class UIManager {
   constructor(eventBus) {
@@ -25,54 +26,39 @@ export default class UIManager {
 
 
 initialize(initialState = null) {
-    Logger.info('Initializing UI Manager', initialState ? 'with state' : 'fresh start');
-    
-    // First, hide everything
-    this.setInitialUIState();
-    
-    // Initialize accordion functionality (but don't show anything yet)
-    this.initializeAccordions();
-    
-    // Setup all event listeners
-    this.setupAuthStateListener();
-    this.setupMethodDescriptionListeners();
-    this.setupLibraryMethodListeners();
-    this.setupFilterEventHandlers();
-    this.filterSetup.setupAllFilters();
-    this.searchManager.setupSearchEventListeners();
-    this.setupResizeObserver();
-    
-    if (initialState) {
-      this.initializeWithState(initialState);
-    } else {
-      // Only show library step if no initial state
-      const libraryStep = document.querySelector('[step-name="library"]');
-      if (libraryStep) {
-        const libWrap = libraryStep.closest(".horizontal-slide_wrapper");
-        if (libWrap) {
-          libWrap.style.display = "";
-          const trigger = libWrap.querySelector('[data-accordion="trigger"]');
-          if (trigger) {
-            this.toggleAccordion(trigger, true);
-          }
-        }
-      }
-    }
+  Logger.info('Initializing UI Manager', initialState ? 'with state' : 'fresh start');
+  
+  // First, hide everything
+  this.setInitialUIState();
+  
+  // Setup all event listeners
+  this.setupAuthStateListener();
+  this.setupMethodDescriptionListeners();
+  this.setupLibraryMethodListeners();
+  this.setupFilterEventHandlers();
+  this.filterSetup.setupAllFilters();
+  this.searchManager.setupSearchEventListeners();
+  
+  if (initialState) {
+    this.initializeWithState(initialState);
+  } else {
+    this.initializeFreshStart();
   }
+}
 
-  showInitialStep() {
-    const libraryStep = document.querySelector('[step-name="library"]');
-    if (libraryStep) {
-      const wrapper = libraryStep.closest('.horizontal-slide_wrapper');
-      if (wrapper) {
-        wrapper.style.display = '';
-        const trigger = wrapper.querySelector('[data-accordion="trigger"]');
-        if (trigger) {
-          this.toggleAccordion(trigger, true);
-        }
-      }
+  
+
+  initializeFreshStart() {
+  // Show and open only the library step
+  const libraryStep = document.querySelector('[step-name="library"]')?.closest('.horizontal-slide_wrapper');
+  if (libraryStep) {
+    libraryStep.style.display = '';
+    const trigger = libraryStep.querySelector('[data-accordion="trigger"]');
+    if (trigger) {
+      this.accordionManager.initializeAccordion(trigger, true);
     }
   }
+}
 
 updateAll(state) {
   Logger.info('Updating all UI elements with state:', state);
@@ -137,49 +123,58 @@ updateAll(state) {
 }
 
 initializeWithState(state) {
-    Logger.info('Initializing with state:', state);
-    
-    // Show library step
-    const libraryStep = document.querySelector('[step-name="library"]');
-    if (libraryStep) {
-      const wrapper = libraryStep.closest('.horizontal-slide_wrapper');
-      if (wrapper) {
-        wrapper.style.display = '';
-      }
+  Logger.info('Initializing with state:', state);
+  
+  // Show and initialize library step
+  const libraryStep = document.querySelector('[step-name="library"]')?.closest('.horizontal-slide_wrapper');
+  if (libraryStep) {
+    libraryStep.style.display = '';
+    this.accordionManager.initializeNewStep(libraryStep, true);
+  }
+  
+  // Show and initialize method step if library is selected
+  if (state.library) {
+    const methodStep = document.querySelector('[step-name="method"]')?.closest('.horizontal-slide_wrapper');
+    if (methodStep) {
+      methodStep.style.display = '';
+      this.accordionManager.initializeNewStep(methodStep, true);
     }
-    
-    // Show method step if library is selected
-    if (state.library) {
-      const methodStep = document.querySelector('[step-name="method"]');
-      if (methodStep) {
-        const wrapper = methodStep.closest('.horizontal-slide_wrapper');
-        if (wrapper) {
-          wrapper.style.display = '';
-        }
-      }
-    }
-    
-    // Show only the active filter steps from state.filters array
-    if (state.filters && Array.isArray(state.filters)) {
-      state.filters.forEach(filterName => {
-        const filterStep = document.querySelector(`[step-name="${filterName}"]`);
-        if (filterStep) {
-          const wrapper = filterStep.closest('.horizontal-slide_wrapper');
-          if (wrapper) {
-            wrapper.style.display = '';
-          }
-        }
-      });
-    }
-    
-    // Open all visible accordions
-    document.querySelectorAll('.horizontal-slide_wrapper[style*="display: "]').forEach(wrapper => {
-      const trigger = wrapper.querySelector('[data-accordion="trigger"]');
-      if (trigger) {
-        this.toggleAccordion(trigger, true);
+  }
+  
+  // Show and initialize filter steps
+  if (state.filters && Array.isArray(state.filters)) {
+    state.filters.forEach(filter => {
+      const filterStep = document.querySelector(`[step-name="${filter.name}"]`)?.closest('.horizontal-slide_wrapper');
+      if (filterStep) {
+        filterStep.style.display = '';
+        this.accordionManager.initializeNewStep(filterStep, true);
       }
     });
   }
+
+  // Initialize keywords-include if present
+  if (this.shouldShowKeywordsStep(state)) {
+    const keywordsStep = document.querySelector('[step-name="keywords-include"]')?.closest('.horizontal-slide_wrapper');
+    if (keywordsStep) {
+      keywordsStep.style.display = '';
+      this.accordionManager.initializeNewStep(keywordsStep, true);
+    }
+  }
+
+  // Ensure proper step order
+  this.filterUpdate.updateFilterStepOrder(state);
+}
+
+  shouldShowKeywordsStep(state) {
+  if (!state.method?.selected) return false;
+  if (["descriptive", "basic"].includes(state.method.selected)) {
+    return state.method.description?.isValid;
+  }
+  if (state.method.selected === "patent") {
+    return !!state.method.patent?.data;
+  }
+  return false;
+}
 
 
 setupAuthStateListener() {
@@ -483,23 +478,23 @@ setupAuthStateListener() {
   }
 
   setupFilterEventHandlers() {
-    document.querySelectorAll('[data-filter-option]').forEach(btn => {
-      btn.addEventListener('click', e => {
-        e.preventDefault();
-        const filterName = btn.getAttribute('data-filter-option');
-        this.eventBus.emit(EventTypes.FILTER_ADDED, { filterName });
-        
-        // Wait for state update before initializing the new step
-        setTimeout(() => {
-          const stepElement = document.querySelector(`[step-name="${filterName}"]`)
-            ?.closest('.horizontal-slide_wrapper');
-          if (stepElement) {
-            this.initializeNewStep(stepElement);
-          }
-        }, 50);
-      });
+  document.querySelectorAll('[data-filter-option]').forEach(btn => {
+    btn.addEventListener('click', e => {
+      e.preventDefault();
+      const filterName = btn.getAttribute('data-filter-option');
+      this.eventBus.emit(EventTypes.FILTER_ADDED, { filterName });
+      
+      // Wait for state update before initializing the new step
+      setTimeout(() => {
+        const stepElement = document.querySelector(`[step-name="${filterName}"]`)
+          ?.closest('.horizontal-slide_wrapper');
+        if (stepElement) {
+          this.accordionManager.initializeNewStep(stepElement, true);
+          this.filterUpdate.updateFilterStepOrder(this.state);
+        }
+      }, 50);
     });
-  }
+  });
   
   updateMethodDisplay(state) {
     const methodWrapper = document.querySelector('[step-name="method"]')?.closest(".horizontal-slide_wrapper");
