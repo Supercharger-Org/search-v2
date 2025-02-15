@@ -130,7 +130,6 @@ updateAll(state) {
   this.filterUpdate.updateAllFilterDisplays(state);
   this.searchManager.updateSearchResultsDisplay(state);
   this.searchManager.updateSidebar(state);
-  this.updateOptionsStepVisibility(state)
   
   // Update manage keywords button
   const manageBtn = document.querySelector("#manage-keywords-button");
