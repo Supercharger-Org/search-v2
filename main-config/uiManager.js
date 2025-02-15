@@ -381,6 +381,42 @@ setupAuthStateListener() {
     }
   }
 
+  updateContentHeight(content) {
+    if (!content) return;
+    
+    const trigger = content.previousElementSibling;
+    if (!trigger || !trigger._isOpen) return;
+    
+    // Store current height
+    const currentHeight = content.style.height;
+    
+    // Temporarily set height to auto to get actual content height
+    content.style.height = 'auto';
+    const targetHeight = content.scrollHeight;
+    
+    // Only update if height has changed
+    if (currentHeight !== targetHeight + 'px') {
+      content.style.height = targetHeight + 'px';
+    }
+  }
+  
+  setupResizeObserver() {
+    let resizeTimeout;
+    window.addEventListener('resize', () => {
+      clearTimeout(resizeTimeout);
+      resizeTimeout = setTimeout(() => {
+        document.querySelectorAll('[data-accordion="trigger"]').forEach(trigger => {
+          if (trigger._isOpen) {
+            const content = trigger.nextElementSibling;
+            if (content) {
+              this.updateContentHeight(content);
+            }
+          }
+        });
+      }, 100);
+    });
+  }
+
   setupFilterEventHandlers() {
     document.querySelectorAll('[data-filter-option]').forEach(btn => {
       btn.addEventListener('click', e => {
