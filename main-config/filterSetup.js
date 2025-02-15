@@ -15,6 +15,7 @@ export class FilterSetup {
     this.setupInventorsUI();
     this.setupAssigneesUI();
     this.setupDateUI();
+    this.setupFilterEventHandlers();
   }
 
   // Keywords setup
