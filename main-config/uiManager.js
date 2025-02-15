@@ -530,7 +530,6 @@ setupAuthStateListener() {
             ?.closest('.horizontal-slide_wrapper');
           if (stepElement) {
             this.accordionManager.initializeNewStep(stepElement, true);
-            this.filterUpdate.updateFilterStepOrder(this.state);
           }
         }, 50);
       });
