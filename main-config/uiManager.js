@@ -27,85 +27,34 @@ export default class UIManager {
 initialize(initialState = null) {
   Logger.info('Initializing UI Manager', initialState ? 'with state' : 'fresh start');
   
-  // Setup resize observer first
-  this.setupResizeObserver();
-  
-  // Set initial UI state
+  // Keep original initialization order
+  this.setupAuthStateListener();
   this.setInitialUIState();
-  
-  // Initialize base accordions (library and method) before setting up event listeners
-  this.initializeBaseAccordions();
-  
-  // Setup all individual listeners
   this.setupMethodDescriptionListeners();
   this.setupLibraryMethodListeners();
   this.setupFilterEventHandlers();
-  this.setupSearchEventListeners();
-  this.setupPatentSidebar();
-  
-  // Setup filter UIs
-  this.setupKeywordsUI();
-  this.setupExcludedKeywordsUI();
-  this.setupCodesUI();
-  this.setupInventorsUI();
-  this.setupAssigneesUI();
-  this.setupDateUI();
+  this.filterSetup.setupAllFilters();
+  this.searchManager.setupSearchEventListeners();
+  this.initializeAccordions();
   
   if (initialState) {
     this.initializeWithState(initialState);
   }
 }
 
-  initializeBaseAccordions() {
-  // Initialize library step first
-  const libraryStep = document.querySelector('[step-name="library"]');
-  if (libraryStep) {
-    const trigger = libraryStep.querySelector('[data-accordion="trigger"]');
-    if (trigger) {
-      this.initializeAccordion(trigger, true);
-    }
-  }
-
-  // Initialize method step
-  const methodStep = document.querySelector('[step-name="method"]');
-  if (methodStep) {
-    const trigger = methodStep.querySelector('[data-accordion="trigger"]');
-    if (trigger) {
-      this.initializeAccordion(trigger, true);
-      // Ensure method step content is visible
-      const content = trigger.nextElementSibling;
-      if (content) {
-        content.style.display = 'block';
-        content.style.height = 'auto';
-      }
-    }
-  }
-}
-
-
- updateAll(state) {
+updateAll(state) {
   Logger.info('Updating all UI elements with state:', state);
   
-  // Update method display first since it affects visibility conditions
   this.updateMethodDisplay(state);
-  
-  // Update filter displays and ordering
   this.filterUpdate.updateAllFilterDisplays(state);
-  
-  // Update step visibility and handle accordion initialization
-  this.updateStepVisibility(state);
-  
-  // Update search results and sidebar
   this.searchManager.updateSearchResultsDisplay(state);
   this.searchManager.updateSidebar(state);
   
-  // Update other UI elements...
   const manageBtn = document.querySelector("#manage-keywords-button");
   if (manageBtn) {
     manageBtn.style.display = this.shouldShowKeywordsButton(state) ? "" : "none";
   }
   
-  // Update active states
   document.querySelectorAll("[data-library-option]").forEach(el => {
     el.classList.toggle("active", el.dataset.libraryOption === state.library);
   });
@@ -114,49 +63,32 @@ initialize(initialState = null) {
     el.classList.toggle("active", el.dataset.methodOption === state.method?.selected);
   });
   
-  // Update accordion heights for any open accordions
-  this.updateAllOpenAccordions();
-}
-  
-initializeWithState(state) {
-  Logger.info('Initializing with state:', state);
-  
-  // Update all UI elements first
-  this.updateAll(state);
-  
-  // Then initialize any filter steps that exist in the state
-  if (Array.isArray(state.filters)) {
-    state.filters.forEach(filter => {
-      const filterStep = document.querySelector(`[step-name="${filter.name}"]`)
-        ?.closest('.horizontal-slide_wrapper');
-      if (filterStep) {
-        const trigger = filterStep.querySelector('[data-accordion="trigger"]');
-        if (trigger && !trigger._initialized) {
-          this.initializeAccordion(trigger, true);
-        }
-      }
-    });
-  }
-  
-  // Ensure method step is open if it exists
-  const methodStep = document.querySelector('[step-name="method"]');
-  if (methodStep) {
-    const trigger = methodStep.querySelector('[data-accordion="trigger"]');
-    if (trigger) {
-      this.toggleAccordion(trigger, true);
+  // Initialize any new accordions
+  document.querySelectorAll('.horizontal-slide_wrapper[step-name]').forEach(step => {
+    const trigger = step.querySelector('[data-accordion="trigger"]');
+    if (trigger && !trigger._initialized) {
+      Logger.info('Initializing new step:', step.getAttribute('step-name'));
+      this.initializeNewStep(step);
     }
-  }
+  });
   
-  // Update any accordion heights that need it
+  // Update heights of open accordions
   this.updateAllOpenAccordions();
 }
 
-  setupAuthStateListener() {
-    this.eventBus.on(AUTH_EVENTS.AUTH_STATE_CHANGED, ({ isAuthorized }) => {
-      Logger.info('Auth state changed:', isAuthorized);
-      this.updateAuthVisibility(isAuthorized);
-    });
-  }
+initializeWithState(state) {
+  Logger.info('Initializing with state:', state);
+  this.setInitialUIState();
+  this.openAllAccordions();
+  this.updateAll(state);
+}
+
+setupAuthStateListener() {
+  this.eventBus.on(AUTH_EVENTS.AUTH_STATE_CHANGED, ({ isAuthorized }) => {
+    Logger.info('Auth state changed:', isAuthorized);
+    this.updateAuthVisibility(isAuthorized);
+  });
+}
 
   updateAuthVisibility(isAuthorized) {
     document.querySelectorAll('[state-visibility]').forEach(el => el.style.display = 'none');
