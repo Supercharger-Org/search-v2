@@ -95,6 +95,7 @@ updateAll(state) {
   
   // Update UI elements
   this.updateMethodDisplay(state);
+  this.updateOptionsStepVisibility(state); // Add this line
   this.filterUpdate.updateAllFilterDisplays(state);
   this.searchManager.updateSearchResultsDisplay(state);
   this.searchManager.updateSidebar(state);
@@ -176,6 +177,18 @@ initializeWithState(state) {
   }
   return false;
 }
+
+  updateOptionsStepVisibility(state) {
+    const optionsStep = document.querySelector('[step-name="options"]')?.closest('.horizontal-slide_wrapper');
+    if (!optionsStep) return;
+
+    const shouldShow = 
+      state.method?.selected === 'basic' ||
+      (state.method?.selected === 'descriptive' && state.method?.description?.improved) ||
+      (state.method?.selected === 'patent' && state.method?.patent?.data);
+
+    optionsStep.style.display = shouldShow ? '' : 'none';
+  }
 
 
 setupAuthStateListener() {
