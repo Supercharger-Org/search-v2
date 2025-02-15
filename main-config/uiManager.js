@@ -333,6 +333,32 @@ setupAuthStateListener() {
     });
   }
 
+  createContentObserver(content) {
+    if (!content || content._hasObserver) return;
+    
+    const config = {
+      childList: true,
+      subtree: true,
+      attributes: true,
+      attributeFilter: ['style', 'class', 'hidden']
+    };
+    
+    const observer = new MutationObserver(mutations => {
+      const relevantMutations = mutations.filter(m => 
+        !(m.type === 'attributes' && 
+          m.attributeName === 'style' && 
+          m.target === content)
+      );
+      
+      if (relevantMutations.length > 0) {
+        this.updateContentHeight(content);
+      }
+    });
+    
+    observer.observe(content, config);
+    content._hasObserver = true;
+  }
+
   initializeNewStep(stepElement) {
     const trigger = stepElement.querySelector('[data-accordion="trigger"]');
     if (!trigger) return;
