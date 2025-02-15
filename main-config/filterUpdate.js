@@ -14,14 +14,15 @@ export class FilterUpdate {
 
   // Main update method
   updateAllFilterDisplays(state) {
+    this.updateFilterStepsDisplay(state);
     this.updateKeywordsDisplay(state);
     this.updateExcludedKeywordsDisplay(state);
     this.updateCodesDisplay(state);
     this.updateInventorsDisplay(state);
     this.updateAssigneesDisplay(state);
     this.updateDateDisplay(state);
-    this.updateFilterOptionsVisibility(state);
-    this.updateFilterStepOrder(state);
+    this.updateFilterOptionButtons(state);
+    this.updateFilterOptionsBox(state);
   }
 
   // Badge Display Management
@@ -160,72 +161,79 @@ export class FilterUpdate {
       if (clearBtn) clearBtn.style.display = "none";
     }
   }
+  // Handle filter step visibility and ordering
+  updateFilterStepsDisplay(state) {
+    const container = document.querySelector('.step-small-container');
+    if (!container) return;
 
-  // Filter Visibility and Order Management
-  updateFilterOptionsVisibility(state) {
-    const optionsStep = document.querySelector('[step-name="options"]');
-    const optionsWrapper = optionsStep?.closest('.horizontal-slide_wrapper');
+    // Get and sort all steps
+    const steps = Array.from(container.querySelectorAll('.horizontal-slide_wrapper[step-name]'));
     
-    if (optionsWrapper) {
-      const hasKeywordsInclude = this.filterExists('keywords-include', state);
-      optionsWrapper.style.display = hasKeywordsInclude ? '' : 'none';
-    }
+    // First hide all filter steps
+    steps.forEach(step => {
+      const name = step.getAttribute('step-name');
+      if (!['library', 'method', 'keywords-include'].includes(name)) {
+        step.style.display = 'none';
+      }
+    });
 
+    // Show and order steps based on state.filters
+    if (state.filters?.length > 0) {
+      steps.sort((a, b) => {
+        const aName = a.getAttribute('step-name');
+        const bName = b.getAttribute('step-name');
+        
+        // Core steps order
+        const coreSteps = ['library', 'method', 'keywords-include'];
+        const aCore = coreSteps.indexOf(aName);
+        const bCore = coreSteps.indexOf(bName);
+        
+        if (aCore !== -1 && bCore !== -1) return aCore - bCore;
+        if (aCore !== -1) return -1;
+        if (bCore !== -1) return 1;
+        
+        // For filter steps, sort by their order in state.filters
+        const aFilter = state.filters.find(f => f.name === aName);
+        const bFilter = state.filters.find(f => f.name === bName);
+        
+        return (aFilter?.order ?? Infinity) - (bFilter?.order ?? Infinity);
+      });
+
+      // Show steps that exist in state.filters
+      state.filters.forEach(filter => {
+        const step = steps.find(s => s.getAttribute('step-name') === filter.name);
+        if (step) {
+          step.style.display = '';
+        }
+      });
+
+      // Reorder in DOM
+      const fragment = document.createDocumentFragment();
+      steps.forEach(step => fragment.appendChild(step));
+      container.innerHTML = '';
+      container.appendChild(fragment);
+    }
+  }
+
+  // Handle filter option button visibility
+  updateFilterOptionButtons(state) {
     document.querySelectorAll('[data-filter-option]').forEach(button => {
       const filterName = button.getAttribute('data-filter-option');
-      const exists = this.filterExists(filterName, state);
+      const exists = state.filters?.some(f => f.name === filterName) || false;
       button.style.display = exists ? 'none' : '';
     });
   }
 
-  updateFilterStepOrder(state) {
-  const container = document.querySelector('.step-small-container');
-  if (!container) return;
+  // Handle filter options box visibility
+  updateFilterOptionsBox(state) {
+    const optionsBox = document.querySelector('#filter-options-box');
+    if (!optionsBox) return;
 
-  // Get all steps
-  const steps = Array.from(container.querySelectorAll('.horizontal-slide_wrapper[step-name]'));
-  
-  // Sort steps
-  steps.sort((a, b) => {
-    const aName = a.getAttribute('step-name');
-    const bName = b.getAttribute('step-name');
-    
-    // Core steps order
-    const coreSteps = ['library', 'method', 'keywords-include'];
-    const aCore = coreSteps.indexOf(aName);
-    const bCore = coreSteps.indexOf(bName);
-    
-    // If both are core steps, sort by core order
-    if (aCore !== -1 && bCore !== -1) {
-      return aCore - bCore;
-    }
-    
-    // If only one is a core step, it goes first
-    if (aCore !== -1) return -1;
-    if (bCore !== -1) return 1;
-    
-    // For filter steps, sort by their order in state.filters
-    const aFilter = state.filters?.find(f => f.name === aName);
-    const bFilter = state.filters?.find(f => f.name === bName);
-    
-    const aOrder = aFilter?.order ?? Infinity;
-    const bOrder = bFilter?.order ?? Infinity;
-    
-    return aOrder - bOrder;
-  });
+    const shouldShow = 
+      state.isSessionLoaded || // Show if loading from session
+      state.method?.selected === 'basic' || // Show if basic method
+      (state.filters && state.filters.length > 0); // Show if filters exist
 
-  // Create document fragment for better performance
-  const fragment = document.createDocumentFragment();
-  steps.forEach(step => fragment.appendChild(step));
-  
-  // Clear and repopulate container
-  container.innerHTML = '';
-  container.appendChild(fragment);
-  
-  // Move options step to the end if it exists and should be shown
-  const optionsStep = document.querySelector('.horizontal-slide_wrapper[step-name="options"]');
-  if (optionsStep && state.filters?.some(f => f.name === 'keywords-include')) {
-    container.appendChild(optionsStep);
+    optionsBox.style.display = shouldShow ? '' : 'none';
   }
-}
 }
