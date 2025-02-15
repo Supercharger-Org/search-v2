@@ -77,16 +77,48 @@ initialize(initialState = null) {
 updateAll(state) {
   Logger.info('Updating all UI elements with state:', state);
   
+  // Hide all steps first
+  document.querySelectorAll('.horizontal-slide_wrapper[step-name]').forEach(step => {
+    step.style.display = 'none';
+  });
+  
+  // Show library step
+  const libraryStep = document.querySelector('[step-name="library"]')?.closest('.horizontal-slide_wrapper');
+  if (libraryStep) {
+    libraryStep.style.display = '';
+  }
+  
+  // Show method step if library is selected
+  if (state.library) {
+    const methodStep = document.querySelector('[step-name="method"]')?.closest('.horizontal-slide_wrapper');
+    if (methodStep) {
+      methodStep.style.display = '';
+    }
+  }
+  
+  // Show only steps that exist in state.filters
+  if (state.filters && Array.isArray(state.filters)) {
+    state.filters.forEach(filter => {
+      const filterStep = document.querySelector(`[step-name="${filter.name}"]`)?.closest('.horizontal-slide_wrapper');
+      if (filterStep) {
+        filterStep.style.display = '';
+      }
+    });
+  }
+  
+  // Update UI elements
   this.updateMethodDisplay(state);
   this.filterUpdate.updateAllFilterDisplays(state);
   this.searchManager.updateSearchResultsDisplay(state);
   this.searchManager.updateSidebar(state);
   
+  // Update manage keywords button
   const manageBtn = document.querySelector("#manage-keywords-button");
   if (manageBtn) {
     manageBtn.style.display = this.shouldShowKeywordsButton(state) ? "" : "none";
   }
   
+  // Update active states
   document.querySelectorAll("[data-library-option]").forEach(el => {
     el.classList.toggle("active", el.dataset.libraryOption === state.library);
   });
@@ -95,11 +127,10 @@ updateAll(state) {
     el.classList.toggle("active", el.dataset.methodOption === state.method?.selected);
   });
   
-  // Initialize any new accordions
-  document.querySelectorAll('.horizontal-slide_wrapper[step-name]').forEach(step => {
+  // Initialize any visible steps that need it
+  document.querySelectorAll('.horizontal-slide_wrapper[style*="display: "').forEach(step => {
     const trigger = step.querySelector('[data-accordion="trigger"]');
-    if (trigger && !trigger.hasAttribute("data-initialized")) {
-      Logger.info('Initializing new step:', step.getAttribute('step-name'));
+    if (trigger && !trigger._initialized) {
       this.initializeNewStep(step);
     }
   });
