@@ -33,6 +33,7 @@ export default class UIManager {
     this.filterSetup.setupAllFilters();
     this.searchManager.setupSearchEventListeners();
     this.initializeAccordions();
+    this.updateStepVisibility(state);
     if (initialState) {
       this.initializeWithState(initialState);
     }
@@ -44,6 +45,7 @@ export default class UIManager {
     this.filterUpdate.updateAllFilterDisplays(state);
     this.searchManager.updateSearchResultsDisplay(state);
     this.searchManager.updateSidebar(state);
+    this.updateStepVisibility(state);
     const manageBtn = document.querySelector("#manage-keywords-button");
     if (manageBtn) {
       manageBtn.style.display = this.shouldShowKeywordsButton(state) ? "" : "none";
@@ -53,14 +55,6 @@ export default class UIManager {
     });
     document.querySelectorAll("[data-method-option]").forEach(el => {
       el.classList.toggle("active", el.dataset.methodOption === state.method?.selected);
-    });
-    document.querySelectorAll('.horizontal-slide_wrapper[step-name]').forEach(step => {
-      const trigger = step.querySelector('[data-accordion="trigger"]');
-      if (trigger && !trigger.hasAttribute("data-initialized")) {
-        Logger.info('Initializing new step:', step.getAttribute('step-name'));
-        this.initializeNewStep(step);
-        trigger.setAttribute("data-initialized", "true");
-      }
     });
   }
 
