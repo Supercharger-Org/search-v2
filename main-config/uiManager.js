@@ -374,7 +374,32 @@ setupAuthStateListener() {
     
     // Initialize the accordion if not already done
     if (!trigger._initialized) {
-      this.initializeAccordion(trigger);
+      // Set initial trigger state
+      trigger._initialized = true;
+      trigger._isOpen = false;
+      
+      const content = trigger.nextElementSibling;
+      if (content) {
+        content.style.display = 'none';
+        content.style.height = '0';
+        content.style.overflow = 'hidden';
+        content.style.transition = 'height 0.3s ease';
+        
+        // Add click handler
+        trigger.addEventListener('click', (e) => {
+          e.preventDefault();
+          this.handleAccordionClick(trigger);
+        });
+        
+        // Setup icon animation
+        const icon = trigger.querySelector('[data-accordion="icon"]');
+        if (icon) {
+          icon.style.transition = 'transform 0.3s ease';
+        }
+        
+        // Create content observer
+        this.createContentObserver(content);
+      }
     }
     
     // Show the step
@@ -388,7 +413,7 @@ setupAuthStateListener() {
     if (!['library', 'method', 'keywords-include'].includes(stepName)) {
       this.closeOtherFilterSteps(trigger);
     }
-  }
+}
 
   updateContentHeight(content) {
     if (!content) return;
