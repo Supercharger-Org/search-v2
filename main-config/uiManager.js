@@ -25,6 +25,36 @@ export default class UIManager {
     this.updateAll(state);
   }
 
+  updateOptionsStepVisibility(state) {
+    const optionsStep = document.querySelector('[step-name="options"]')?.closest('.horizontal-slide_wrapper');
+    if (!optionsStep) return;
+
+    // Don't show if no method selected
+    if (!state.method?.selected) {
+        optionsStep.style.display = 'none';
+        return;
+    }
+
+    let shouldShow = false;
+
+    // For basic method - always show
+    if (state.method.selected === 'basic') {
+        shouldShow = true;
+    } 
+    // For descriptive/patent - show if keywords-include filter exists
+    else {
+        shouldShow = state.filters?.some(f => f.name === 'keywords-include') || false;
+    }
+
+    Logger.info('Options step visibility:', { 
+        method: state.method.selected, 
+        shouldShow,
+        hasKeywordsFilter: state.filters?.some(f => f.name === 'keywords-include')
+    });
+
+    optionsStep.style.display = shouldShow ? '' : 'none';
+}
+
 
 initialize(initialState = null) {
   Logger.info('Initializing UI Manager', initialState ? 'with state' : 'fresh start');
@@ -99,12 +129,14 @@ updateAll(state) {
   this.filterUpdate.updateAllFilterDisplays(state);
   this.searchManager.updateSearchResultsDisplay(state);
   this.searchManager.updateSidebar(state);
+  this.updateOptionsStepVisibility(state)
   
   // Update manage keywords button
   const manageBtn = document.querySelector("#manage-keywords-button");
   if (manageBtn) {
     manageBtn.style.display = this.shouldShowKeywordsButton(state) ? "" : "none";
   }
+  
   
   // Update active states
   document.querySelectorAll("[data-library-option]").forEach(el => {
