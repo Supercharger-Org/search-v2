@@ -39,23 +39,36 @@ export default class UIManager {
   }
 
   updateAll(state) {
-    Logger.info('Updating all UI elements with state:', state);
-    this.updateMethodDisplay(state);
-    this.filterUpdate.updateAllFilterDisplays(state);
-    this.searchManager.updateSearchResultsDisplay(state);
-    this.searchManager.updateSidebar(state);
-    this.updateStepVisibility(state);
-    const manageBtn = document.querySelector("#manage-keywords-button");
-    if (manageBtn) {
-      manageBtn.style.display = this.shouldShowKeywordsButton(state) ? "" : "none";
-    }
-    document.querySelectorAll("[data-library-option]").forEach(el => {
-      el.classList.toggle("active", el.dataset.libraryOption === state.library);
-    });
-    document.querySelectorAll("[data-method-option]").forEach(el => {
-      el.classList.toggle("active", el.dataset.methodOption === state.method?.selected);
-    });
+  Logger.info('Updating all UI elements with state:', state);
+  
+  // Update method display first since it affects visibility conditions
+  this.updateMethodDisplay(state);
+  
+  // Update filter displays
+  this.filterUpdate.updateAllFilterDisplays(state);
+  
+  // Handle visibility and accordions - this should be the only place managing step visibility
+  this.updateStepVisibility(state);
+  
+  // Update search results and sidebar
+  this.searchManager.updateSearchResultsDisplay(state);
+  this.searchManager.updateSidebar(state);
+  
+  // Update keywords button visibility
+  const manageBtn = document.querySelector("#manage-keywords-button");
+  if (manageBtn) {
+    manageBtn.style.display = this.shouldShowKeywordsButton(state) ? "" : "none";
   }
+  
+  // Update active states
+  document.querySelectorAll("[data-library-option]").forEach(el => {
+    el.classList.toggle("active", el.dataset.libraryOption === state.library);
+  });
+  
+  document.querySelectorAll("[data-method-option]").forEach(el => {
+    el.classList.toggle("active", el.dataset.methodOption === state.method?.selected);
+  });
+}
 
   initializeWithState(state) {
     Logger.info('Initializing with state:', state);
