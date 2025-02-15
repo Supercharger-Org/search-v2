@@ -36,3 +36,9 @@ export const EventTypes = {
   SESSION_SAVE_FAILED: "session:save:failed",
   SESSION_LOAD_FAILED: "session:load:failed"
 };
+
+export const INIT_EVENTS = {
+  AUTH_CHECK_COMPLETE: 'init:auth_check_complete',
+  SESSION_CHECK_COMPLETE: 'init:session_check_complete',
+  INITIALIZATION_COMPLETE: 'init:initialization_complete'
+};
