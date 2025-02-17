@@ -168,7 +168,6 @@ export class FilterUpdate {
     }
   }
 
-// In FilterUpdate class, update updateFilterStepsDisplay
 updateFilterStepsDisplay(state) {
   Logger.info('[FilterUpdate] Starting filter steps display update', {
     hasState: !!state,
@@ -182,30 +181,26 @@ updateFilterStepsDisplay(state) {
     return;
   }
 
-  // Get ALL steps in document
-  const allSteps = Array.from(document.querySelectorAll('[step-name]'));
-  Logger.info('[FilterUpdate] Found ALL steps in document:', {
-    totalSteps: allSteps.length,
-    stepNames: allSteps.map(s => s.getAttribute('step-name'))
+  // Get steps currently in the container
+  const steps = Array.from(container.querySelectorAll('[step-name]'));
+  Logger.info('[FilterUpdate] Found steps in container:', {
+    totalSteps: steps.length,
+    stepNames: steps.map(s => s.getAttribute('step-name'))
   });
 
   // Create filter map
   const filterMap = new Map(state.filters?.map(f => [f.name, f]) || []);
-  Logger.info('[FilterUpdate] Filter map created:', {
-    filterNames: Array.from(filterMap.keys())
-  });
 
-  // Hide non-core steps initially
-  allSteps.forEach(step => {
+  // First hide all non-core steps
+  steps.forEach(step => {
     const name = step.getAttribute('step-name');
     if (!['library', 'method', 'keywords-include'].includes(name)) {
       step.style.display = 'none';
-      Logger.info('[FilterUpdate] Initially hiding step:', { name });
     }
   });
 
   // Sort steps
-  const sortedSteps = allSteps.sort((a, b) => {
+  const sortedSteps = steps.sort((a, b) => {
     const aName = a.getAttribute('step-name');
     const bName = b.getAttribute('step-name');
     
@@ -227,31 +222,20 @@ updateFilterStepsDisplay(state) {
     return (aFilter.order || 0) - (bFilter.order || 0);
   });
 
-  Logger.info('[FilterUpdate] Steps sorted:', {
-    sortedStepNames: sortedSteps.map(s => s.getAttribute('step-name'))
-  });
-
-  // Clear and rebuild container
-  container.innerHTML = '';
-
-  // Add each step to container if it should be shown
+  // Show steps that should be visible
   sortedSteps.forEach(step => {
     const name = step.getAttribute('step-name');
-    const shouldShow = ['library', 'method', 'keywords-include'].includes(name) || filterMap.has(name);
-    
-    if (shouldShow) {
-      // Use the original step from the document
-      const originalStep = document.querySelector(`[step-name="${name}"]`);
-      if (originalStep) {
-        originalStep.style.display = '';
-        container.appendChild(originalStep);
-        Logger.info('[FilterUpdate] Added step to container:', { name });
-      }
+    if (['library', 'method', 'keywords-include'].includes(name) || filterMap.has(name)) {
+      step.style.display = '';
     }
   });
 
-  Logger.info('[FilterUpdate] Final container state:', {
-    containerHTML: container.innerHTML.slice(0, 100) + '...',
+  // Reorder without removing from DOM
+  sortedSteps.forEach(step => {
+    container.appendChild(step); // Moving an existing element reorders it without cloning
+  });
+
+  Logger.info('[FilterUpdate] Steps reordered:', {
     visibleSteps: Array.from(container.querySelectorAll('[step-name]'))
       .filter(s => s.style.display !== 'none')
       .map(s => s.getAttribute('step-name'))
