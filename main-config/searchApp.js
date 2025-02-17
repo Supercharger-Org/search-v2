@@ -94,39 +94,46 @@ class SearchApp {
   }
 
   async initializeSession() {
-    try {
-      Logger.info('Initializing session...');
+  try {
+    Logger.info('Initializing session...');
+    
+    const urlParams = new URLSearchParams(window.location.search);
+    const sessionId = urlParams.get('id');
+    
+    let sessionData = null;
+    
+    if (sessionId) {
+      // Load existing session
+      Logger.info('Loading existing session:', sessionId);
+      sessionData = await this.sessionManager.loadSession(sessionId);
       
-      const urlParams = new URLSearchParams(window.location.search);
-      const sessionId = urlParams.get('id');
-      
-      let sessionData = null;
-      
-      if (sessionId) {
-        // Load existing session
-        Logger.info('Loading existing session:', sessionId);
-        sessionData = await this.sessionManager.loadSession(sessionId);
-        Logger.info('Session data loaded:', sessionData);
+      if (sessionData) {
+        Logger.info('Session loaded successfully');
+        this.sessionState.load(sessionData);
+        
+        // Initialize UI with session data
+        this.uiManager.initialize(sessionData);
+        
+        // If we have search results, ensure search UI is properly initialized
+        if (sessionData.searchRan && sessionData.search?.results) {
+          this.uiManager.updateAll(sessionData);
+        }
+      } else {
+        Logger.info('No session data found, initializing fresh UI');
+        this.uiManager.initialize();
       }
-
-      // Always ensure we have a valid state object
-      const initialState = sessionData || this.getEmptyState();
-      
-      // Load state into session manager
-      this.sessionState.load(initialState);
-      
-      // Update UI with state
-      this.uiManager.updateAll(initialState);
-      
-    } catch (error) {
-      Logger.error('Session initialization failed:', error);
-      // Ensure we still have a valid UI state on error
-      const emptyState = this.getEmptyState();
-      this.sessionState.load(emptyState);
-      this.uiManager.updateAll(emptyState);
+    } else {
+      Logger.info('No session ID found, initializing fresh UI');
+      this.uiManager.initialize();
     }
+    
+  } catch (error) {
+    Logger.error('Session/UI initialization failed:', error);
+    // Fallback to basic UI initialization
+    this.uiManager.initialize();
   }
-
+}
+  
   async initializeAuth() {
     try {
       await this.authManager.checkAuthStatus();
