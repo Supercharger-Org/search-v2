@@ -7,6 +7,11 @@ import { FilterUpdate } from "./filterUpdate.js";
 import { SearchResultManager } from "./searchResultManager.js";
 import { AccordionManager } from "./accordionManager.js";
 
+const STEP_SELECTOR = '[step-name]';
+const TRIGGER_SELECTOR = '[data-accordion="trigger"]';
+const CONTENT_SELECTOR = '[data-accordion="content"]';
+const ICON_SELECTOR = '[data-accordion="icon"]';
+
 export default class UIManager {
   constructor(eventBus) {
   this.eventBus = eventBus;
@@ -313,11 +318,6 @@ setupLibraryMethodListeners() {
     });
   });
 }
-
-const STEP_SELECTOR = '[step-name]';
-const TRIGGER_SELECTOR = '[data-accordion="trigger"]';
-const CONTENT_SELECTOR = '[data-accordion="content"]';
-const ICON_SELECTOR = '[data-accordion="icon"]';
   
 setupFilterEventHandlers() {
   Logger.info('[UIManager] Setting up filter event handlers');
