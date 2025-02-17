@@ -44,87 +44,124 @@ class SearchApp {
     }
   }
 
-    // In SearchApp.js
-async initializeSession() {
-  try {
-    Logger.info('Initializing session...');
+    // searchApp.js
+class SearchApp {
+  constructor() {
+    // Create shared EventBus instance
+    this.eventBus = new EventBus();
     
-    // Initialize UI manager first (setup only)
-    this.uiManager.initialize();
+    // Initialize core services
+    this.apiConfig = new APIConfig();
+    this.apiService = new APIService(this.apiConfig);
     
-    const urlParams = new URLSearchParams(window.location.search);
-    const sessionId = urlParams.get('id');
+    // Create auth manager instance and share event bus
+    this.authManager = new AuthManager();
+    this.authManager.eventBus = this.eventBus;
     
-    let sessionData = null;
+    // Initialize managers with shared event bus
+    this.uiManager = new UIManager(this.eventBus);
+    this.sessionState = new SessionState(this.uiManager);
+    this.sessionManager = new SessionManager(this.eventBus);
+    this.assigneeSearchManager = new AssigneeSearchManager(this.eventBus, EventTypes);
+    this.valueSelectManager = new ValueSelectManager(this.eventBus);
     
-    if (sessionId) {
-      // Load existing session
-      Logger.info('Loading existing session:', sessionId);
-      sessionData = await this.sessionManager.loadSession(sessionId);
-    } 
-    
-    // Always update UI with either session data or empty state
-    const initialState = sessionData || {
+    // Make app instance globally available
+    window.app = this;
+  }
+
+  getEmptyState() {
+    return {
       library: null,
-      method: { selected: null },
+      method: { 
+        selected: null,
+        description: {
+          value: "",
+          previousValue: null,
+          isValid: false,
+          improved: false,
+          modificationSummary: null
+        },
+        patent: null,
+        searchValue: "",
+        validated: false
+      },
       filters: [],
       search: {
         results: null,
         current_page: 1,
         total_pages: 0,
         active_item: null,
-        reload_required: false
+        reload_required: false,
+        items_per_page: 10
       },
       searchRan: false
     };
-    
-    this.sessionState.load(initialState);
-    this.uiManager.updateUI(initialState);
-    
-  } catch (error) {
-    Logger.error('Session/UI initialization failed:', error);
-    // Initialize with empty state on error
-    this.uiManager.updateUI({
-      library: null,
-      method: { selected: null },
-      filters: [],
-      search: {
-        results: null,
-        current_page: 1,
-        total_pages: 0,
-        active_item: null,
-        reload_required: false
-      },
-      searchRan: false
-    });
   }
-}
 
   async initialize() {
     try {
       Logger.info('Initializing SearchApp...');
 
+      // First initialize core UI (setup event listeners, etc)
+      this.uiManager.initialize();
+
       // Setup initial auth event listeners
       this.setupAuthEventListeners();
       
-      // Initialize auth first
+      // Initialize auth
       await this.initializeAuth();
-
+      
+      // Initialize session and load state
+      await this.initializeSession();
+      
       // Setup all event handlers
       this.setupEventHandlers();
       
       // Initialize additional managers
       this.initializeManagers();
       
-      // Initialize session and UI
-      await this.initializeSession();
-      
       Logger.info('SearchApp initialization complete');
     } catch (error) {
       Logger.error('SearchApp initialization error:', error);
+      // Even on error, ensure we have a valid UI state
       this.handleInitializationError();
     }
   }
+
+  async initializeSession() {
+    try {
+      Logger.info('Initializing session...');
+      
+      const urlParams = new URLSearchParams(window.location.search);
+      const sessionId = urlParams.get('id');
+      
+      let sessionData = null;
+      
+      if (sessionId) {
+        // Load existing session
+        Logger.info('Loading existing session:', sessionId);
+        sessionData = await this.sessionManager.loadSession(sessionId);
+        Logger.info('Session data loaded:', sessionData);
+      }
+
+      // Always ensure we have a valid state object
+      const initialState = sessionData || this.getEmptyState();
+      
+      // Load state into session manager
+      this.sessionState.load(initialState);
+      
+      // Update UI with state
+      this.uiManager.updateAll(initialState);
+      
+    } catch (error) {
+      Logger.error('Session initialization failed:', error);
+      // Ensure we still have a valid UI state on error
+      const emptyState = this.getEmptyState();
+      this.sessionState.load(emptyState);
+      this.uiManager.updateAll(emptyState);
+    }
+  }
+
 
   handleInitializationError() {
     Logger.info('Handling initialization error - falling back to basic initialization');
