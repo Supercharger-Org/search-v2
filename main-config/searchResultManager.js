@@ -11,8 +11,9 @@ export class SearchResultManager {
     const resultBox = document.querySelector('#search-result-box');
     if (!resultBox) return;
 
-    // Only show result box if search has been executed
-    resultBox.style.display = state.searchRan ? '' : 'none';
+    // Only show result box after search has completed and we have results
+    const shouldShowResults = state.searchRan && state.search.results && !state.search.reload_required;
+    resultBox.style.display = shouldShowResults ? '' : 'none';
 
     // Handle reload required state
     document.querySelectorAll('[data-state="search-reload"]').forEach(el => {
@@ -28,11 +29,63 @@ export class SearchResultManager {
     }
 
     // Render results if available
-    if (state.searchRan && state.search.results) {
+    if (shouldShowResults) {
       this.renderSearchResults(state);
       this.updatePagination(state);
     }
   }
+
+  truncateText(text, limit = 150) {
+    if (!text) return '';
+    if (text.length <= limit) return text;
+    return text.substr(0, limit).trim() + '...';
+  }
+
+  createSearchResultRow(template, item) {
+    const newRow = template.cloneNode(true);
+    newRow.style.display = '';
+
+    const fieldMappings = {
+      'patentNumberText': 'publication_number',
+      'titleText': 'title',
+      'assigneeText': item.assignee ? Array.isArray(item.assignee) ? item.assignee.join(', ') : item.assignee : '',
+      'inventorText': item.inventors ? Array.isArray(item.inventors) ? item.inventors.join(', ') : item.inventors : '',
+      'abstractText': this.truncateText(item.abstract),
+      'claimText': this.truncateText(item.claims_html || ''),
+      'descriptionText': 'description',
+      'grantDateText': 'grant_date',
+      'priorityDateText': 'priority_date',
+      'filingDateText': 'filing_date',
+      'publicationDateText': 'publication_date',
+      'statusText': 'status',
+      'patentUrlText': 'patent_url',
+      'transferOfficeText': 'transfer_office_website'
+    };
+
+    // Update each field in the row
+    Object.entries(fieldMappings).forEach(([uiAttr, dataField]) => {
+      const el = newRow.querySelector(`[data-attribute="table_contentCell_${uiAttr}"]`);
+      if (el) {
+        if (typeof dataField === 'string' && item[dataField]) {
+          el.textContent = item[dataField];
+        } else {
+          el.textContent = dataField; // For pre-processed fields (truncated text)
+        }
+      }
+    });
+
+    // Add click handler for row selection
+    newRow.addEventListener('click', () => {
+      if (this.eventBus) {
+        this.eventBus.emit(EventTypes.SEARCH_ITEM_SELECTED, { item });
+      } else {
+        Logger.error('EventBus not initialized in SearchResultManager');
+      }
+    });
+
+    return newRow;
+  }
+
 
   // Library column management
   updateLibraryColumns(library) {
@@ -67,51 +120,6 @@ export class SearchResultManager {
       const newRow = this.createSearchResultRow(template, item);
       parent.appendChild(newRow);
     });
-  }
-
-  createSearchResultRow(template, item) {
-    const newRow = template.cloneNode(true);
-    newRow.style.display = '';
-
-    const fieldMappings = {
-      'patentNumberText': 'publication_number',
-      'titleText': 'title',
-      'assigneeText': item.assignee ? Array.isArray(item.assignee) ? item.assignee.join(', ') : item.assignee : '',
-      'inventorText': item.inventors ? Array.isArray(item.inventors) ? item.inventors.join(', ') : item.inventors : '',
-      'abstractText': 'abstract',
-      'claimText': item.claims_html || '',
-      'descriptionText': 'description',
-      'grantDateText': 'grant_date',
-      'priorityDateText': 'priority_date',
-      'filingDateText': 'filing_date',
-      'publicationDateText': 'publication_date',
-      'statusText': 'status',
-      'patentUrlText': 'patent_url',
-      'transferOfficeText': 'transfer_office_website'
-    };
-
-    // Update each field in the row
-    Object.entries(fieldMappings).forEach(([uiAttr, dataField]) => {
-      const el = newRow.querySelector(`[data-attribute="table_contentCell_${uiAttr}"]`);
-      if (el) {
-        if (typeof dataField === 'string') {
-          el.textContent = item[dataField] || '';
-        } else {
-          if (uiAttr === 'claimText') {
-            el.innerHTML = dataField; // Use innerHTML for claims_html
-          } else {
-            el.textContent = dataField;
-          }
-        }
-      }
-    });
-
-    // Add click handler for row selection
-    newRow.addEventListener('click', () => {
-      this.eventBus.emit(EventTypes.SEARCH_ITEM_SELECTED, { item });
-    });
-
-    return newRow;
   }
 
   // Pagination management
@@ -190,8 +198,18 @@ export class SearchResultManager {
     if (searchButton) {
       searchButton.addEventListener('click', (e) => {
         e.preventDefault();
+        
+        // Update button state
         searchButton.innerHTML = 'Searching...';
         searchButton.disabled = true;
+        
+        // Hide result box during search
+        const resultBox = document.querySelector('#search-result-box');
+        if (resultBox) {
+          resultBox.style.display = 'none';
+        }
+        
+        // Emit search event
         this.eventBus.emit(EventTypes.SEARCH_INITIATED);
       });
     }
