@@ -311,7 +311,6 @@ setupSearchHandlers() {
         searchButton.disabled = false;
       }
     });
-} // Closing brace for setupSearchHandlers method
     
     // Search completion
     this.eventBus.on(EventTypes.SEARCH_COMPLETED, () => {
