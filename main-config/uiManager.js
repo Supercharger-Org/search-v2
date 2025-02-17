@@ -55,7 +55,6 @@ export default class UIManager {
     optionsStep.style.display = shouldShow ? '' : 'none';
 }
 
-
 initialize(initialState = null) {
   Logger.info('Initializing UI Manager', initialState ? 'with state' : 'fresh start');
   
@@ -68,10 +67,13 @@ initialize(initialState = null) {
   this.setupLibraryMethodListeners();
   this.setupFilterEventHandlers();
   this.filterSetup.setupAllFilters();
+  this.setupResizeObserver();
   this.searchManager.setupSearchEventListeners();
+  
+  // Initialize accordions
   document.querySelectorAll('[data-accordion="trigger"]').forEach(trigger => {
-      this.accordionManager.initializeAccordion(trigger, false);
-    });
+    this.accordionManager.initializeAccordion(trigger, false);
+  });
   
   if (initialState) {
     this.initializeWithState(initialState);
@@ -79,8 +81,6 @@ initialize(initialState = null) {
     this.initializeFreshStart();
   }
 }
-
-  
 
 initializeFreshStart() {
   // Show and open only the library step
