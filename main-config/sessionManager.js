@@ -156,8 +156,8 @@ export default class SessionManager {
   }
 
   async saveSession() {
-    // Only save if we have an existing session and are logged in
-    if (!this.sessionState.isLoggedIn || !this.sessionState.sessionId) {
+    if (!this.sessionId || !AuthManager.getUserAuthToken()) {
+      Logger.info("Cannot save session - missing session ID or auth token");
       return;
     }
 
@@ -165,6 +165,11 @@ export default class SessionManager {
       const token = AuthManager.getUserAuthToken();
       const state = window.app.sessionState.get();
       
+      Logger.info("Saving session:", {
+        sessionId: this.sessionId,
+        state: JSON.stringify(state, null, 2)
+      });
+
       const response = await fetch(SESSION_API.SAVE, {
         method: 'PATCH',
         headers: {
@@ -174,25 +179,28 @@ export default class SessionManager {
         },
         mode: 'cors',
         body: JSON.stringify({
-          uniqueID: this.sessionState.sessionId,
+          uniqueID: this.sessionId,
           data: state
         })
       });
 
+      const responseData = await response.json();
+      Logger.info("Session save response:", JSON.stringify(responseData, null, 2));
+      
       if (!response.ok) {
         throw new Error('Failed to save session');
       }
 
-      const responseData = await response.json();
       this.eventBus.emit(EventTypes.SESSION_SAVED, { 
-        sessionId: this.sessionState.sessionId,
+        sessionId: this.sessionId,
         data: responseData
       });
 
     } catch (error) {
       Logger.error('Session save error:', error);
+      throw error; // Re-throw to be caught by scheduler
     }
-  }
+}
 
   async loadSession(sessionId) {
     try {
