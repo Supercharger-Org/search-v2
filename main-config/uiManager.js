@@ -33,7 +33,7 @@ export default class UIManager {
     this.setupEventListeners();
     
     // Initialize all accordions
-    this.initializeAccordions();
+    this.accordionManager.initialize();
     
     this.isInitialized = true;
 
@@ -90,15 +90,8 @@ export default class UIManager {
     this.setupLibraryMethodListeners();
     this.setupFilterEventHandlers();
     this.filterSetup.setupAllFilters();
-    this.setupResizeObserver();
     this.searchManager.setupSearchEventListeners();
     this.setupSessionEventListeners();
-  }
-
-  initializeAccordions() {
-    document.querySelectorAll('[data-accordion="trigger"]').forEach(trigger => {
-      this.accordionManager.initializeAccordion(trigger, false);
-    });
   }
 
   // Keep the original method name to match existing calls
@@ -120,35 +113,38 @@ export default class UIManager {
     this.searchManager.updateSidebar(state);
     // Update active states for library and method selections
     this.updateActiveStates(state);
-    
-    // Ensure proper accordion states
-    this.updateAccordionStates(state);
   }
 
-  updateStepVisibility(state) {
-    // Hide all steps first
-    document.querySelectorAll('.horizontal-slide_wrapper[step-name]').forEach(step => {
-      step.style.display = 'none';
-    });
-    
-    // Show library step
-    const libraryStep = document.querySelector('[step-name="library"]')?.closest('.horizontal-slide_wrapper');
-    if (libraryStep) libraryStep.style.display = '';
-    
-    // Show method step if library is selected
-    if (state.library) {
-      const methodStep = document.querySelector('[step-name="method"]')?.closest('.horizontal-slide_wrapper');
-      if (methodStep) methodStep.style.display = '';
-    }
-    
-    // Show filter steps based on state
-    if (state.filters?.length > 0) {
-      state.filters.forEach(filter => {
-        const filterStep = document.querySelector(`[step-name="${filter.name}"]`)?.closest('.horizontal-slide_wrapper');
-        if (filterStep) filterStep.style.display = '';
-      });
+ updateStepVisibility(state) {
+  // First hide all steps
+  document.querySelectorAll('.horizontal-slide_wrapper[step-name]').forEach(step => {
+    this.accordionManager.handleStepVisibilityChange(step, false);
+  });
+  
+  // Show library step
+  const libraryStep = document.querySelector('[step-name="library"]')?.closest('.horizontal-slide_wrapper');
+  if (libraryStep) {
+    this.accordionManager.handleStepVisibilityChange(libraryStep, true);
+  }
+  
+  // Show method step if library is selected
+  if (state.library) {
+    const methodStep = document.querySelector('[step-name="method"]')?.closest('.horizontal-slide_wrapper');
+    if (methodStep) {
+      this.accordionManager.handleStepVisibilityChange(methodStep, true);
     }
   }
+  
+  // Show filter steps based on state
+  if (state.filters?.length > 0) {
+    state.filters.forEach(filter => {
+      const filterStep = document.querySelector(`[step-name="${filter.name}"]`)?.closest('.horizontal-slide_wrapper');
+      if (filterStep) {
+        this.accordionManager.handleStepVisibilityChange(filterStep, true);
+      }
+    });
+  }
+}
 
   updateDisplay(state){
     this.updateAll(state);
@@ -264,225 +260,24 @@ setupAuthStateListener() {
   });
 }
 
-  initializeAccordions() {
-    const triggers = document.querySelectorAll('[data-accordion="trigger"]');
-    triggers.forEach(trigger => {
-      if (trigger._initialized) return;
+setupFilterEventHandlers() {
+  document.querySelectorAll('[data-filter-option]').forEach(btn => {
+    btn.addEventListener('click', e => {
+      e.preventDefault();
+      const filterName = btn.getAttribute('data-filter-option');
+      this.eventBus.emit(EventTypes.FILTER_ADDED, { filterName });
       
-      const content = trigger.nextElementSibling;
-      if (!content) return;
-      
-      // Initialize but keep closed
-      trigger._initialized = true;
-      trigger._isOpen = false;
-      
-      content.style.display = 'none';
-      content.style.height = '0';
-      content.style.overflow = 'hidden';
-      content.style.transition = 'height 0.3s ease';
-      
-      trigger.addEventListener('click', (e) => {
-        e.preventDefault();
-        this.handleAccordionClick(trigger);
-      });
-      
-      const icon = trigger.querySelector('[data-accordion="icon"]');
-      if (icon) {
-        icon.style.transition = 'transform 0.3s ease';
-      }
-      
-      this.createContentObserver(content);
-    });
-  }
-
-  handleAccordionClick(trigger) {
-    const stepEl = trigger.closest('[step-name]');
-    if (!stepEl) return;
-    
-    const stepName = stepEl.getAttribute('step-name');
-    const isFilterStep = !['library', 'method', 'keywords-include'].includes(stepName);
-    
-    if (isFilterStep && !trigger._isOpen) {
-      // Close other filter steps when opening a new one
-      this.closeOtherFilterSteps(trigger);
-    }
-    
-    this.toggleAccordion(trigger);
-  }
-
-  toggleAccordion(trigger, forceOpen = null) {
-    const content = trigger.nextElementSibling;
-    if (!content) return;
-    
-    const isOpen = forceOpen !== null ? forceOpen : !trigger._isOpen;
-    const icon = trigger.querySelector('[data-accordion="icon"]');
-    
-    content.style.display = 'block';
-    
-    requestAnimationFrame(() => {
-      content.style.height = isOpen ? `${content.scrollHeight}px` : '0';
-      
-      if (icon) {
-        icon.style.transform = isOpen ? 'rotate(180deg)' : 'rotate(0deg)';
-      }
-      
-      trigger._isOpen = isOpen;
-      
-      if (!isOpen) {
-        content.addEventListener('transitionend', function handler() {
-          if (!trigger._isOpen) {
-            content.style.display = 'none';
-          }
-          content.removeEventListener('transitionend', handler);
-        });
-      }
-    });
-  }
-
-  closeOtherFilterSteps(currentTrigger) {
-    const triggers = document.querySelectorAll('[data-accordion="trigger"]');
-    triggers.forEach(trigger => {
-      if (trigger === currentTrigger) return;
-      
-      const stepEl = trigger.closest('[step-name]');
-      if (!stepEl) return;
-      
-      const stepName = stepEl.getAttribute('step-name');
-      if (!['library', 'method', 'keywords-include'].includes(stepName)) {
-        if (trigger._isOpen) {
-          this.toggleAccordion(trigger, false);
+      // Let state update first
+      setTimeout(() => {
+        const stepElement = document.querySelector(`[step-name="${filterName}"]`)
+          ?.closest('.horizontal-slide_wrapper');
+        if (stepElement) {
+          this.accordionManager.handleStepVisibilityChange(stepElement, true);
         }
-      }
+      }, 50);
     });
-  }
-
-  createContentObserver(content) {
-    if (!content || content._hasObserver) return;
-    
-    const config = {
-      childList: true,
-      subtree: true,
-      attributes: true,
-      attributeFilter: ['style', 'class', 'hidden']
-    };
-    
-    const observer = new MutationObserver(mutations => {
-      const relevantMutations = mutations.filter(m => 
-        !(m.type === 'attributes' && 
-          m.attributeName === 'style' && 
-          m.target === content)
-      );
-      
-      if (relevantMutations.length > 0) {
-        this.updateContentHeight(content);
-      }
-    });
-    
-    observer.observe(content, config);
-    content._hasObserver = true;
-  }
-
-  initializeNewStep(stepElement) {
-    const trigger = stepElement.querySelector('[data-accordion="trigger"]');
-    if (!trigger) return;
-    
-    // Initialize the accordion if not already done
-    if (!trigger._initialized) {
-      // Set initial trigger state
-      trigger._initialized = true;
-      trigger._isOpen = false;
-      
-      const content = trigger.nextElementSibling;
-      if (content) {
-        content.style.display = 'none';
-        content.style.height = '0';
-        content.style.overflow = 'hidden';
-        content.style.transition = 'height 0.3s ease';
-        
-        // Add click handler
-        trigger.addEventListener('click', (e) => {
-          e.preventDefault();
-          this.handleAccordionClick(trigger);
-        });
-        
-        // Setup icon animation
-        const icon = trigger.querySelector('[data-accordion="icon"]');
-        if (icon) {
-          icon.style.transition = 'transform 0.3s ease';
-        }
-        
-        // Create content observer
-        this.createContentObserver(content);
-      }
-    }
-    
-    // Show the step
-    stepElement.style.display = '';
-    
-    // Open the new step
-    this.toggleAccordion(trigger, true);
-    
-    // If it's a filter step, close other filter steps
-    const stepName = stepElement.getAttribute('step-name');
-    if (!['library', 'method', 'keywords-include'].includes(stepName)) {
-      this.closeOtherFilterSteps(trigger);
-    }
+  });
 }
-
-  updateContentHeight(content) {
-    if (!content) return;
-    
-    const trigger = content.previousElementSibling;
-    if (!trigger || !trigger._isOpen) return;
-    
-    // Store current height
-    const currentHeight = content.style.height;
-    
-    // Temporarily set height to auto to get actual content height
-    content.style.height = 'auto';
-    const targetHeight = content.scrollHeight;
-    
-    // Only update if height has changed
-    if (currentHeight !== targetHeight + 'px') {
-      content.style.height = targetHeight + 'px';
-    }
-  }
-  
-  setupResizeObserver() {
-    let resizeTimeout;
-    window.addEventListener('resize', () => {
-      clearTimeout(resizeTimeout);
-      resizeTimeout = setTimeout(() => {
-        document.querySelectorAll('[data-accordion="trigger"]').forEach(trigger => {
-          if (trigger._isOpen) {
-            const content = trigger.nextElementSibling;
-            if (content) {
-              this.updateContentHeight(content);
-            }
-          }
-        });
-      }, 100);
-    });
-  }
-
-  setupFilterEventHandlers() {
-    document.querySelectorAll('[data-filter-option]').forEach(btn => {
-      btn.addEventListener('click', e => {
-        e.preventDefault();
-        const filterName = btn.getAttribute('data-filter-option');
-        this.eventBus.emit(EventTypes.FILTER_ADDED, { filterName });
-        
-        // Wait for state update before initializing the new step
-        setTimeout(() => {
-          const stepElement = document.querySelector(`[step-name="${filterName}"]`)
-            ?.closest('.horizontal-slide_wrapper');
-          if (stepElement) {
-            this.accordionManager.initializeNewStep(stepElement, true);
-          }
-        }, 50);
-      });
-    });
-  }
   
   updateMethodDisplay(state) {
     const methodWrapper = document.querySelector('[step-name="method"]')?.closest(".horizontal-slide_wrapper");
