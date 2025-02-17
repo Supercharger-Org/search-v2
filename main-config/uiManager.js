@@ -67,7 +67,6 @@ initialize(initialState = null) {
   this.setupLibraryMethodListeners();
   this.setupFilterEventHandlers();
   this.filterSetup.setupAllFilters();
-  this.setupResizeObserver();
   this.searchManager.setupSearchEventListeners();
   
   // Initialize accordions
