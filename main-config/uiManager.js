@@ -198,28 +198,6 @@ setupAuthStateListener() {
     document.querySelectorAll(sel).forEach(el => el.style.display = '');
   }
 
-
-  setInitialUIState() {
-    Logger.info('Setting initial UI state');
-    const { scrollX, scrollY } = window;
-    this.initialHideConfig.ids.forEach(id => {
-      const el = document.getElementById(id);
-      if (el) el.style.display = "none";
-    });
-    this.initialHideConfig.classes.forEach(sel => {
-      document.querySelectorAll(sel).forEach(el => el.style.display = "none");
-    });
-    this.initialHideConfig.dataAttributes.forEach(sel => {
-      document.querySelectorAll(sel).forEach(el => el.style.display = "none");
-    });
-    const libraryStep = document.querySelector('[step-name="library"]');
-    if (libraryStep) {
-      const libWrap = libraryStep.closest(".horizontal-slide_wrapper");
-      if (libWrap) libWrap.style.display = "";
-    }
-    window.scrollTo(scrollX, scrollY);
-  }
-
   setupMethodDescriptionListeners() {
     const descInput = document.querySelector("#main-search-description");
     if (descInput) {
