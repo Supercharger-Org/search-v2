@@ -337,45 +337,36 @@ update(path, value) {
     return this.state;
   }
 
-  load(sessionData) {
-    Logger.info('Loading session data into state:', JSON.stringify(sessionData, null, 2));
-    
-    if (!sessionData) {
-      Logger.error('Attempted to load empty session data');
-      return;
-    }
-
-    // Create a new state object with initial structure
-    const newState = this.getInitialState();
-
-    // Merge the session data with our initial state structure
-    this.state = {
-      ...newState,
-      ...sessionData,
-      // Ensure nested objects maintain their structure
-      method: {
-        ...newState.method,
-        ...sessionData.method,
-        description: {
-          ...newState.method.description,
-          ...sessionData.method?.description
-        }
-      },
-      search: {
-        ...newState.search,
-        ...sessionData.search
-      }
-    };
-
-    // Ensure searchRan flag is set correctly based on search results
-    this.state.searchRan = Array.isArray(this.state.search?.results) && 
-                          this.state.search.results.length > 0;
-
-    Logger.info('Updated state after load:', JSON.stringify(this.state, null, 2));
-
-    // No direct UI update here - let the event system handle it
-  }
-
+  load(data) {
+  Logger.info('Loading session data into state:', JSON.stringify(data, null, 2));
+  
+  // Create a deep copy of the data to avoid reference issues
+  const newState = JSON.parse(JSON.stringify(data));
+  
+  // Ensure search state is properly structured
+  newState.search = {
+    results: data.search?.results || null,
+    current_page: data.search?.current_page || 1,
+    total_pages: data.search?.results ? 
+      Math.ceil(data.search.results.length / 10) : 0,
+    items_per_page: 10,
+    active_item: data.search?.active_item || null,
+    reload_required: false
+  };
+  
+  // Set searchRan based on presence of results
+  newState.searchRan = !!data.search?.results;
+  
+  // Replace current state
+  this.state = newState;
+  
+  // Log the final state for debugging
+  Logger.info('State after loading:', JSON.stringify(this.state, null, 2));
+  
+  // Emit state updated event
+  window.app.eventBus.emit('stateUpdated', this.state);
+}
+  
   reset() {
     this.state = this.getInitialState();
     if (this.uiManager) {
