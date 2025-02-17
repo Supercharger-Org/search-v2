@@ -504,6 +504,18 @@ setupAuthStateListener() {
     if (state.library === "tto" && state.method?.selected === "patent") {
       this.eventBus.emit(EventTypes.METHOD_SELECTED, { value: "descriptive" });
     }
+
+    // Update keyword generation button visibility
+    const manageBtn = document.querySelector("#manage-keywords-button");
+    if (manageBtn) {
+      const shouldShow = this.shouldShowKeywordsButton(state);
+      manageBtn.style.display = shouldShow ? "" : "none";
+      if (shouldShow) {
+        manageBtn.disabled = false;
+        manageBtn.textContent = "Generate Keywords";
+      }
+    }
+
     this.updateDescriptionDisplay(state);
     this.updatePatentDisplay(state);
   }
