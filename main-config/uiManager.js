@@ -308,25 +308,22 @@ setupAuthStateListener() {
   
 setupFilterEventHandlers() {
   document.querySelectorAll('[data-filter-option]').forEach(btn => {
-    btn.addEventListener('click', async (e) => {
+    btn.addEventListener('click', e => {
       e.preventDefault();
       const filterName = btn.getAttribute('data-filter-option');
       
       // Emit filter added event
       this.eventBus.emit(EventTypes.FILTER_ADDED, { filterName });
       
-      // Wait for state update
-      await new Promise(resolve => setTimeout(resolve, 50));
-      
-      // Get the step element
+      // Find and initialize the step
       const stepElement = document.querySelector(`[step-name="${filterName}"]`)
         ?.closest('.horizontal-slide_wrapper');
       
       if (stepElement) {
-        // Initialize new step
-        this.initializeNewStep(stepElement);
+        // Call accordionManager's initialize method
+        this.accordionManager.initializeNewStep(stepElement, true);
         
-        // Force proper order update
+        // Update filter order
         this.filterUpdate.updateFilterStepsDisplay(this.state);
       }
     });
