@@ -85,7 +85,6 @@ export default class UIManager {
   }
 
   setupEventListeners() {
-    this.setupAuthStateListener();
     this.setupMethodDescriptionListeners();
     this.setupLibraryMethodListeners();
     this.setupFilterEventHandlers();
