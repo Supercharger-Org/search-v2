@@ -82,7 +82,7 @@ initialize(initialState = null) {
 
   
 
-  initializeFreshStart() {
+initializeFreshStart() {
   // Show and open only the library step
   const libraryStep = document.querySelector('[step-name="library"]')?.closest('.horizontal-slide_wrapper');
   if (libraryStep) {
