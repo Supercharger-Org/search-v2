@@ -207,8 +207,8 @@ initializeWithState(state) {
     }
   }
 
-  // Ensure proper step order
-  this.filterUpdate.updateFilterStepOrder(state);
+  // Update filter display instead of calling non-existent method
+  this.filterUpdate.updateFilterStepsDisplay(state);
   this.updateAll(state);
 }
 
@@ -286,7 +286,7 @@ setupAuthStateListener() {
     }
   }
 
-  setupLibraryMethodListeners() {
+setupLibraryMethodListeners() {
   document.querySelectorAll("[data-library-option]").forEach(el => {
     el.addEventListener("click", e => {
       e.preventDefault();
@@ -306,7 +306,8 @@ setupAuthStateListener() {
       if (methodStep) {
         const trigger = methodStep.querySelector('[data-accordion="trigger"]');
         if (trigger && !trigger._isOpen) {
-          this.toggleAccordion(trigger, true);
+          // Use accordionManager instead of non-existent toggleAccordion
+          this.accordionManager.toggleAccordion(trigger, true);
         }
       }
     });
@@ -314,25 +315,24 @@ setupAuthStateListener() {
 }
   
 setupFilterEventHandlers() {
+  Logger.info('[UIManager] Setting up filter event handlers');
   document.querySelectorAll('[data-filter-option]').forEach(btn => {
     btn.addEventListener('click', e => {
       e.preventDefault();
       const filterName = btn.getAttribute('data-filter-option');
+      Logger.info('[UIManager] Filter option clicked:', { filterName });
       
-      // Emit filter added event
       this.eventBus.emit(EventTypes.FILTER_ADDED, { filterName });
       
-      // Find and initialize the step
-      const stepElement = document.querySelector(`[step-name="${filterName}"]`)
-        ?.closest('.horizontal-slide_wrapper');
-      
-      if (stepElement) {
-        // Call accordionManager's initialize method
-        this.accordionManager.initializeNewStep(stepElement, true);
-        
-        // Update filter order
-        this.filterUpdate.updateFilterStepsDisplay(this.state);
-      }
+      // Wait for state update before proceeding
+      setTimeout(() => {
+        const stepElement = document.querySelector(`[step-name="${filterName}"]`)
+          ?.closest('.horizontal-slide_wrapper');
+        if (stepElement) {
+          Logger.info('[UIManager] Initializing new filter step');
+          this.accordionManager.initializeNewStep(stepElement, true);
+        }
+      }, 50);
     });
   });
 }
