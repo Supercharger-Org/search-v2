@@ -203,47 +203,55 @@ export default class SessionManager {
 }
 
   async loadSession(sessionId) {
-    try {
-      const token = AuthManager.getUserAuthToken();
-      if (!token) {
-        throw new Error("No auth token available");
-      }
-
-      Logger.info("Loading session:", sessionId);
-
-      const response = await fetch(SESSION_API.GET, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "X-Xano-Authorization": `Bearer ${token}`,
-          "X-Xano-Authorization-Only": "true"
-        },
-        mode: "cors",
-        body: JSON.stringify({ sessionId })
-      });
-
-      if (!response.ok) {
-        throw new Error(`Failed to load session: ${response.status}`);
-      }
-
-      const responseData = await response.json();
-      
-      if (!responseData?.data) {
-        throw new Error("No session data received");
-      }
-
-      // Update session state
-      this.sessionId = sessionId;
-      this.isLoadedFromExisting = true;
-
-      this.eventBus.emit(EventTypes.LOAD_SESSION, responseData.data);
-      return responseData.data;
-
-    } catch (error) {
-      Logger.error("Session load error:", error);
-      throw error;
+  try {
+    const token = AuthManager.getUserAuthToken();
+    if (!token) {
+      throw new Error("No auth token available");
     }
+
+    Logger.info("Loading session:", sessionId);
+
+    const response = await fetch(SESSION_API.GET, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Xano-Authorization": `Bearer ${token}`,
+        "X-Xano-Authorization-Only": "true"
+      },
+      mode: "cors",
+      body: JSON.stringify({ sessionId })
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to load session: ${response.status}`);
+    }
+
+    const responseData = await response.json();
+    
+    if (!responseData?.data) {
+      throw new Error("No session data received");
+    }
+
+    // Ensure we extract data properly from the API response
+    const sessionData = responseData.data;
+    
+    // Log the loaded data for debugging
+    Logger.info("Loaded session data:", JSON.stringify(sessionData, null, 2));
+
+    // Update session state
+    this.sessionId = sessionId;
+    this.isLoadedFromExisting = true;
+
+    // Emit the load event with the full session data
+    this.eventBus.emit(EventTypes.LOAD_SESSION, sessionData);
+    
+    return sessionData;
+
+  } catch (error) {
+    Logger.error("Session load error:", error);
+    throw error;
   }
+}
 
   scheduleSessionSave() {
     if (!this.sessionId || !AuthManager.getUserAuthToken()) return;
