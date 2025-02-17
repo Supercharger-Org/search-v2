@@ -232,31 +232,77 @@ class SearchApp {
     
     // Session Events
     this.setupSessionHandlers();
+    const reloadTriggeringEvents = [
+      EventTypes.LIBRARY_SELECTED,
+      EventTypes.METHOD_SELECTED,
+      EventTypes.FILTER_ADDED,
+      EventTypes.FILTER_UPDATED,
+      EventTypes.KEYWORD_ADDED,
+      EventTypes.KEYWORD_REMOVED,
+      EventTypes.KEYWORD_EXCLUDED_ADDED,
+      EventTypes.KEYWORD_EXCLUDED_REMOVED,
+      EventTypes.CODE_ADDED,
+      EventTypes.CODE_REMOVED,
+      EventTypes.INVENTOR_ADDED,
+      EventTypes.INVENTOR_REMOVED,
+      EventTypes.ASSIGNEE_ADDED,
+      EventTypes.ASSIGNEE_REMOVED
+    ];
+
+    reloadTriggeringEvents.forEach(eventType => {
+      this.eventBus.on(eventType, () => {
+        const state = this.sessionState.get();
+        if (state.search?.results) {
+          this.sessionState.updateSearchState({
+            reload_required: true
+          });
+        }
+      });
+    });
   }
 
-  setupSearchHandlers() {
-  // Search initiation
-  this.eventBus.on(EventTypes.SEARCH_INITIATED, async () => {
-    try {
-      const searchInput = this.sessionState.generateSearchInput();
-      const results = await this.apiService.executeSearch(searchInput);
-      
-      this.sessionState.updateSearchState({
-        results: results || [],
-        current_page: 1,
-        total_pages: Math.ceil((results?.length || 0) / this.sessionState.get().search.items_per_page),
-        reload_required: false
-      });
+setupSearchHandlers() {
+    // Search initiation
+    this.eventBus.on(EventTypes.SEARCH_INITIATED, async () => {
+      try {
+        const searchInput = this.sessionState.generateSearchInput();
+        const results = await this.apiService.executeSearch(searchInput);
+        
+        this.sessionState.updateSearchState({
+          results: results || [],
+          current_page: 1,
+          total_pages: Math.ceil((results?.length || 0) / this.sessionState.get().search.items_per_page),
+          reload_required: false
+        });
 
-      // Save session after successful search
-      await this.sessionManager.saveSession();
+        // Only try to save if we have a session and auth
+        if (this.sessionManager.sessionId && this.authManager.getUserAuthToken()) {
+          try {
+            await this.sessionManager.saveSession();
+          } catch (error) {
+            Logger.error('Failed to save session after search:', error);
+            // Continue with search completion even if save fails
+          }
+        }
 
-      this.eventBus.emit(EventTypes.SEARCH_COMPLETED, { results });
-    } catch (error) {
-      Logger.error("Search failed:", error);
-      this.eventBus.emit(EventTypes.SEARCH_FAILED, { error });
-    }
-  });
+        this.eventBus.emit(EventTypes.SEARCH_COMPLETED, { results });
+
+        // Hide loaders after search completes
+        document.querySelectorAll('[data-loader="patent-results"]').forEach(loader => {
+          loader.style.display = 'none';
+        });
+
+      } catch (error) {
+        Logger.error("Search failed:", error);
+        this.eventBus.emit(EventTypes.SEARCH_FAILED, { error });
+        
+        // Hide loaders on error
+        document.querySelectorAll('[data-loader="patent-results"]').forEach(loader => {
+          loader.style.display = 'none';
+        });
+      }
+    });
+};
     
     // Search completion
     this.eventBus.on(EventTypes.SEARCH_COMPLETED, () => {
@@ -671,6 +717,8 @@ class SearchApp {
       this.uiManager.updateAll(state);
     });
   }
+
+  
 }
 
 // Initialize the app
