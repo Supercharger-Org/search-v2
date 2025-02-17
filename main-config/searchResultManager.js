@@ -3,6 +3,9 @@ import { Logger } from "./logger.js";
 import { EventTypes } from "./eventTypes.js";
 
 export class SearchResultManager {
+  constructor(eventBus) {
+    this.eventBus = eventBus;
+  }
   updateSearchResultsDisplay(state) {
     const resultBox = document.querySelector('#search-result-box');
     if (!resultBox) return;
