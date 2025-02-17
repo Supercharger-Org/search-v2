@@ -2,6 +2,12 @@
 import { Logger } from "./logger.js";
 import { EventTypes } from "./eventTypes.js";
 
+  // Handle filter step visibility and ordering
+ const STEP_SELECTOR = '[step-name]';
+const TRIGGER_SELECTOR = '[data-accordion="trigger"]';
+const CONTENT_SELECTOR = '[data-accordion="content"]';
+const ICON_SELECTOR = '[data-accordion="icon"]';
+
 export class FilterUpdate {
   constructor(eventBus) {
     this.eventBus = eventBus;
@@ -161,11 +167,6 @@ export class FilterUpdate {
       if (clearBtn) clearBtn.style.display = "none";
     }
   }
-  // Handle filter step visibility and ordering
- const STEP_SELECTOR = '[step-name]';
-const TRIGGER_SELECTOR = '[data-accordion="trigger"]';
-const CONTENT_SELECTOR = '[data-accordion="content"]';
-const ICON_SELECTOR = '[data-accordion="icon"]';
 
 // In FilterUpdate class, update updateFilterStepsDisplay
 updateFilterStepsDisplay(state) {
