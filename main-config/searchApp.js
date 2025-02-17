@@ -84,6 +84,8 @@ class SearchApp {
       
       // Initialize additional managers
       this.initializeManagers();
+
+      this.authManager.updateStateVisibility();
       
       Logger.info('SearchApp initialization complete');
     } catch (error) {
