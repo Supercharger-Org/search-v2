@@ -269,10 +269,10 @@ export class AuthManager {
       if (previewEl) {
         let previewText = 'Custom filter search';
         
-        if (item.selections?.method?.selected === 'descriptive' && item.selections?.method?.description?.value) {
-          previewText = item.selections.method.description.value;
-        } else if (item.selections?.method?.selected === 'patent' && item.selections?.method?.patent?.title) {
-          previewText = item.selections.method.patent.title;
+        if (item.data?.method?.selected === 'descriptive' && item.data?.method?.description?.value) {
+          previewText = item.data.method.description.value;
+        } else if (item.data?.method?.selected === 'patent' && item.data?.method?.patent?.title) {
+          previewText = item.data.method.patent.title;
         }
         
         previewEl.textContent = previewText;
@@ -293,6 +293,7 @@ export class AuthManager {
       container.appendChild(clone);
     });
   }
+
 
   getRequestHeaders(token) {
     const cleanToken = token ? token.replace(/^"(.*)"$/, '$1') : '';
