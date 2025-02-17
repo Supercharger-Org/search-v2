@@ -7,32 +7,88 @@ export class SearchResultManager {
   constructor(eventBus) {
     this.eventBus = eventBus;
   }
-  updateSearchResultsDisplay(state) {
+ updateSearchResultsDisplay(state) {
     const resultBox = document.querySelector('#search-result-box');
     if (!resultBox) return;
 
-    // Only show result box after search has completed and we have results
-    const shouldShowResults = state.searchRan && state.search.results && !state.search.reload_required;
-    resultBox.style.display = shouldShowResults ? '' : 'none';
-
-    // Handle reload required state
-    document.querySelectorAll('[data-state="search-reload"]').forEach(el => {
-      el.style.display = state.search.reload_required ? '' : 'none';
-    });
-
-    // Update search button state
+    // Update search button text based on state
     const searchButton = document.querySelector('#run-search');
     if (searchButton) {
-      searchButton.style.display = !state.searchRan || state.search.reload_required ? '' : 'none';
+      if (!state.searchRan) {
+        searchButton.innerHTML = 'Generate Results';
+      } else {
+        searchButton.innerHTML = 'Regenerate Results';
+      }
       searchButton.disabled = false;
-      searchButton.innerHTML = 'Search';
     }
 
+    // Show/hide loaders
+    document.querySelectorAll('[data-loader="patent-results"]').forEach(loader => {
+      loader.style.display = 'none'; // Initially hide loaders
+    });
+
+    // Show/hide reload warning
+    document.querySelectorAll('[data-state="search-reload"]').forEach(el => {
+      el.style.display = state.search?.reload_required ? '' : 'none';
+    });
+
+    // Only show result box if we have results
+    resultBox.style.display = state.search?.results ? '' : 'none';
+
     // Render results if available
-    if (shouldShowResults) {
+    if (state.searchRan && state.search?.results) {
       this.renderSearchResults(state);
       this.updatePagination(state);
     }
+  }
+
+  setupSearchEventListeners() {
+    this.setupSearchButton();
+    this.setupPaginationButtons();
+    this.setupPatentSidebar();
+    this.setupReloadTrigger();
+  }
+
+  setupSearchButton() {
+    const searchButton = document.querySelector('#run-search');
+    if (searchButton) {
+      searchButton.addEventListener('click', (e) => {
+        e.preventDefault();
+        this.initiateSearch(searchButton);
+      });
+    }
+  }
+
+  setupReloadTrigger() {
+    const reloadTrigger = document.querySelector('#reload-results-trigger');
+    if (reloadTrigger) {
+      reloadTrigger.addEventListener('click', (e) => {
+        e.preventDefault();
+        const searchButton = document.querySelector('#run-search');
+        this.initiateSearch(searchButton);
+      });
+    }
+  }
+
+  initiateSearch(searchButton) {
+    // Update button state
+    if (searchButton) {
+      searchButton.innerHTML = 'Searching... Please wait...';
+      searchButton.disabled = true;
+    }
+
+    // Show loaders
+    document.querySelectorAll('[data-loader="patent-results"]').forEach(loader => {
+      loader.style.display = '';
+    });
+
+    // Hide reload warnings
+    document.querySelectorAll('[data-state="search-reload"]').forEach(el => {
+      el.style.display = 'none';
+    });
+
+    // Emit search event
+    this.eventBus.emit(EventTypes.SEARCH_INITIATED);
   }
 
   truncateText(text, limit = 150) {
@@ -184,35 +240,6 @@ export class SearchResultManager {
     setTimeout(() => {
       sidebar.style.display = 'none';
     }, 300); // Match transition duration
-  }
-
-  // Setup methods
-  setupSearchEventListeners() {
-    this.setupSearchButton();
-    this.setupPaginationButtons();
-    this.setupPatentSidebar();
-  }
-
-  setupSearchButton() {
-    const searchButton = document.querySelector('#run-search');
-    if (searchButton) {
-      searchButton.addEventListener('click', (e) => {
-        e.preventDefault();
-        
-        // Update button state
-        searchButton.innerHTML = 'Searching...';
-        searchButton.disabled = true;
-        
-        // Hide result box during search
-        const resultBox = document.querySelector('#search-result-box');
-        if (resultBox) {
-          resultBox.style.display = 'none';
-        }
-        
-        // Emit search event
-        this.eventBus.emit(EventTypes.SEARCH_INITIATED);
-      });
-    }
   }
 
   setupPaginationButtons() {
