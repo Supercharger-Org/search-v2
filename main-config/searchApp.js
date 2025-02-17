@@ -44,37 +44,61 @@ class SearchApp {
     }
   }
 
-    async initializeSession() {
-      try {
-        Logger.info('Initializing session...');
-        
-        const urlParams = new URLSearchParams(window.location.search);
-        const sessionId = urlParams.get('id');
-        
-        if (sessionId) {
-          // Load existing session
-          Logger.info('Loading existing session:', sessionId);
-          const sessionData = await this.sessionManager.loadSession(sessionId);
-          
-          if (sessionData) {
-            Logger.info('Session loaded successfully');
-            this.sessionState.load(sessionData);
-            this.uiManager.initialize(sessionData);
-          } else {
-            Logger.info('No session data found, initializing fresh UI');
-            this.uiManager.initialize();
-          }
-        } else {
-          Logger.info('No session ID found, initializing fresh UI');
-          this.uiManager.initialize();
-        }
-        
-      } catch (error) {
-        Logger.error('Session/UI initialization failed:', error);
-        // Fallback to basic UI initialization
-        this.uiManager.initialize();
-      }
-    }
+    // In SearchApp.js
+async initializeSession() {
+  try {
+    Logger.info('Initializing session...');
+    
+    // Initialize UI manager first (setup only)
+    this.uiManager.initialize();
+    
+    const urlParams = new URLSearchParams(window.location.search);
+    const sessionId = urlParams.get('id');
+    
+    let sessionData = null;
+    
+    if (sessionId) {
+      // Load existing session
+      Logger.info('Loading existing session:', sessionId);
+      sessionData = await this.sessionManager.loadSession(sessionId);
+    } 
+    
+    // Always update UI with either session data or empty state
+    const initialState = sessionData || {
+      library: null,
+      method: { selected: null },
+      filters: [],
+      search: {
+        results: null,
+        current_page: 1,
+        total_pages: 0,
+        active_item: null,
+        reload_required: false
+      },
+      searchRan: false
+    };
+    
+    this.sessionState.load(initialState);
+    this.uiManager.updateUI(initialState);
+    
+  } catch (error) {
+    Logger.error('Session/UI initialization failed:', error);
+    // Initialize with empty state on error
+    this.uiManager.updateUI({
+      library: null,
+      method: { selected: null },
+      filters: [],
+      search: {
+        results: null,
+        current_page: 1,
+        total_pages: 0,
+        active_item: null,
+        reload_required: false
+      },
+      searchRan: false
+    });
+  }
+}
 
   async initialize() {
     try {
@@ -85,15 +109,15 @@ class SearchApp {
       
       // Initialize auth first
       await this.initializeAuth();
-      
-      // Initialize session and UI
-      await this.initializeSession();
-      
+
       // Setup all event handlers
       this.setupEventHandlers();
       
       // Initialize additional managers
       this.initializeManagers();
+      
+      // Initialize session and UI
+      await this.initializeSession();
       
       Logger.info('SearchApp initialization complete');
     } catch (error) {
