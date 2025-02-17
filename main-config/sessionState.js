@@ -329,9 +329,8 @@ update(path, value) {
     
     this.logSession();
     
-    // Trigger UI updates
+    // Single UI update
     if (this.uiManager) {
-      this.uiManager.updateDisplay(this.state);
       this.uiManager.updateAll(this.state);
     }
     
@@ -374,10 +373,7 @@ update(path, value) {
 
     Logger.info('Updated state after load:', JSON.stringify(this.state, null, 2));
 
-    // Update UI if available
-    if (this.uiManager) {
-      this.uiManager.updateAll(this.state);
-    }
+    // No direct UI update here - let the event system handle it
   }
 
   reset() {
