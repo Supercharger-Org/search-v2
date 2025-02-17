@@ -100,24 +100,42 @@ class SearchApp {
     const urlParams = new URLSearchParams(window.location.search);
     const sessionId = urlParams.get('id');
     
-    let sessionData = null;
-    
     if (sessionId) {
       // Load existing session
       Logger.info('Loading existing session:', sessionId);
-      sessionData = await this.sessionManager.loadSession(sessionId);
+      const sessionData = await this.sessionManager.loadSession(sessionId);
       
       if (sessionData) {
-        Logger.info('Session loaded successfully');
+        Logger.info('Session loaded successfully:', sessionData);
+        
+        // Initialize UI first
+        this.uiManager.initialize();
+        
+        // Load session state
         this.sessionState.load(sessionData);
         
-        // Initialize UI with session data
-        this.uiManager.initialize(sessionData);
-        
-        // If we have search results, ensure search UI is properly initialized
-        if (sessionData.searchRan && sessionData.search?.results) {
-          this.uiManager.updateAll(sessionData);
+        // Mark search as completed if we have results
+        if (sessionData.search?.results) {
+          Logger.info('Restoring search results from session');
+          
+          // Update search state with results
+          this.sessionState.updateSearchState({
+            results: sessionData.search.results,
+            current_page: sessionData.search.current_page || 1,
+            total_pages: Math.ceil((sessionData.search.results.length || 0) / sessionData.search.items_per_page),
+            active_item: sessionData.search.active_item || null,
+            reload_required: false
+          });
+          
+          // Emit search completed event to update UI
+          this.eventBus.emit(EventTypes.SEARCH_COMPLETED, { 
+            results: sessionData.search.results 
+          });
         }
+        
+        // Update UI with full state
+        this.uiManager.updateAll(this.sessionState.get());
+        
       } else {
         Logger.info('No session data found, initializing fresh UI');
         this.uiManager.initialize();
