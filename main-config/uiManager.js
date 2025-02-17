@@ -182,20 +182,6 @@ export default class UIManager {
   return false;
 }
 
-
-setupAuthStateListener() {
-  this.eventBus.on(AUTH_EVENTS.AUTH_STATE_CHANGED, ({ isAuthorized }) => {
-    Logger.info('Auth state changed:', isAuthorized);
-    this.updateAuthVisibility(isAuthorized);
-  });
-}
-
-  updateAuthVisibility(isAuthorized) {
-    document.querySelectorAll('[state-visibility]').forEach(el => el.style.display = 'none');
-    const sel = isAuthorized ? '[state-visibility="user-authorized"]' : '[state-visibility="free-user"]';
-    document.querySelectorAll(sel).forEach(el => el.style.display = '');
-  }
-
   setupMethodDescriptionListeners() {
     const descInput = document.querySelector("#main-search-description");
     if (descInput) {
