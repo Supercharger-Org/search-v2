@@ -12,52 +12,35 @@ export class AccordionManager {
   }
 
   initializeAccordion(trigger, shouldOpen = false) {
-    if (trigger._initialized) {
-      Logger.info('[AccordionManager] Trigger already initialized:', {
-        stepName: trigger.closest('[step-name]')?.getAttribute('step-name')
-      });
-      return;
-    }
-  
+    if (trigger._initialized) return;
+    
     const content = trigger.nextElementSibling;
-    if (!content) {
-      Logger.error('[AccordionManager] No content found for trigger');
-      return;
-    }
-  
-    Logger.info('[AccordionManager] Initializing accordion:', {
-      stepName: trigger.closest('[step-name]')?.getAttribute('step-name'),
-      shouldOpen
-    });
+    if (!content) return;
     
     // Initialize
     trigger._initialized = true;
-    trigger._isOpen = shouldOpen;
+    trigger._isOpen = false;
     
-    // Set initial display state
-    content.style.display = shouldOpen ? 'block' : 'none';
-    content.style.height = shouldOpen ? 'auto' : '0';
+    content.style.display = 'none';
+    content.style.height = '0';
     content.style.overflow = 'hidden';
     content.style.transition = 'height 0.3s ease';
     
-    // Add click handler
+    // Add click handler - using bound method
     trigger.addEventListener('click', this.handleAccordionClick);
     
     // Setup icon animation
     const icon = trigger.querySelector('[data-accordion="icon"]');
     if (icon) {
       icon.style.transition = 'transform 0.3s ease';
-      icon.style.transform = shouldOpen ? 'rotate(180deg)' : 'rotate(0deg)';
     }
     
     // Create observer for content changes
     this.createContentObserver(content);
     
-    // If opening, update height after a brief delay to ensure correct calculation
+    // Open if requested
     if (shouldOpen) {
-      requestAnimationFrame(() => {
-        content.style.height = `${content.scrollHeight}px`;
-      });
+      this.toggleAccordion(trigger, true);
     }
   }
 
@@ -69,8 +52,6 @@ export class AccordionManager {
     if (!stepEl) return;
     
     const stepName = stepEl.getAttribute('step-name');
-    Logger.info('[AccordionManager] Accordion clicked:', { stepName });
-    
     const isFilterStep = !['library', 'method', 'keywords-include'].includes(stepName);
     
     if (isFilterStep && !trigger._isOpen) {
@@ -86,12 +67,6 @@ export class AccordionManager {
     
     const isOpen = forceOpen !== null ? forceOpen : !trigger._isOpen;
     const icon = trigger.querySelector('[data-accordion="icon"]');
-    
-    Logger.info('[AccordionManager] Toggling accordion:', {
-      stepName: trigger.closest('[step-name]')?.getAttribute('step-name'),
-      isOpen,
-      wasForced: forceOpen !== null
-    });
     
     content.style.display = 'block';
     
@@ -117,8 +92,6 @@ export class AccordionManager {
   }
 
   closeOtherFilterSteps(currentTrigger) {
-    Logger.info('[AccordionManager] Closing other filter steps');
-    
     const triggers = document.querySelectorAll('[data-accordion="trigger"]');
     triggers.forEach(trigger => {
       if (trigger === currentTrigger) return;
@@ -129,7 +102,6 @@ export class AccordionManager {
       const stepName = stepEl.getAttribute('step-name');
       if (!['library', 'method', 'keywords-include'].includes(stepName)) {
         if (trigger._isOpen) {
-          Logger.info('[AccordionManager] Closing filter step:', { stepName });
           this.toggleAccordion(trigger, false);
         }
       }
@@ -196,20 +168,11 @@ export class AccordionManager {
     
     content._hasObserver = true;
   }
-
   initializeNewStep(stepElement, shouldOpen = true) {
-    Logger.info('[AccordionManager] Initializing new step:', {
-      stepName: stepElement.getAttribute('step-name'),
-      shouldOpen
-    });
-    
     const trigger = stepElement.querySelector('[data-accordion="trigger"]');
-    if (!trigger) {
-      Logger.error('[AccordionManager] No trigger found in step');
-      return;
-    }
+    if (!trigger) return;
     
-    // Initialize the accordion with forced open state
+    // Initialize the accordion
     this.initializeAccordion(trigger, shouldOpen);
     
     // Show the step
