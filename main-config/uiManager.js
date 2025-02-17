@@ -21,144 +21,99 @@ export default class UIManager {
   };
 }
 
+  setupEventListeners() {
+    this.setupAuthStateListener();
+    this.setupMethodDescriptionListeners();
+    this.setupLibraryMethodListeners();
+    this.setupFilterEventHandlers();
+    this.filterSetup.setupAllFilters();
+    this.setupResizeObserver();
+    this.searchManager.setupSearchEventListeners();
+     this.setupSessionEventListeners();
+  }
+
+  initializeAccordions() {
+    document.querySelectorAll('[data-accordion="trigger"]').forEach(trigger => {
+      this.accordionManager.initializeAccordion(trigger, false);
+    });
+  }
+
   updateDisplay(state) {
     this.updateAll(state);
   }
 
-  updateOptionsStepVisibility(state) {
-    const optionsStep = document.querySelector('[step-name="options"]')?.closest('.horizontal-slide_wrapper');
-    if (!optionsStep) return;
 
-    // Don't show if no method selected
-    if (!state.method?.selected) {
-        optionsStep.style.display = 'none';
-        return;
+updateUI(state) {
+    if (!this.isInitialized) {
+      Logger.warn('Attempting to update UI before initialization');
+      return;
     }
 
-    let shouldShow = false;
+    Logger.info('Updating UI with state:', state);
 
-    // For basic method - always show
-    if (state.method.selected === 'basic') {
-        shouldShow = true;
-    } 
-    // For descriptive/patent - show if keywords-include filter exists
-    else {
-        shouldShow = state.filters?.some(f => f.name === 'keywords-include') || false;
-    }
+    // Update step visibility and initialization
+    this.updateStepVisibility(state);
+    
+    // Update all UI components based on state
+    this.updateMethodDisplay(state);
+    this.filterUpdate.updateAllFilterDisplays(state);
+    this.searchManager.updateSearchResultsDisplay(state);
+    this.searchManager.updateSidebar(state);
+    this.updateMethodOptionsVisibility(state);
+    
+    // Update active states for library and method selections
+    this.updateActiveStates(state);
+    
+    // Ensure proper accordion states
+    this.updateAccordionStates(state);
+  }
 
-    Logger.info('Options step visibility:', { 
-        method: state.method.selected, 
-        shouldShow,
-        hasKeywordsFilter: state.filters?.some(f => f.name === 'keywords-include')
+  updateStepVisibility(state) {
+    // Hide all steps first
+    document.querySelectorAll('.horizontal-slide_wrapper[step-name]').forEach(step => {
+      step.style.display = 'none';
     });
+    
+    // Show library step
+    const libraryStep = document.querySelector('[step-name="library"]')?.closest('.horizontal-slide_wrapper');
+    if (libraryStep) libraryStep.style.display = '';
+    
+    // Show method step if library is selected
+    if (state.library) {
+      const methodStep = document.querySelector('[step-name="method"]')?.closest('.horizontal-slide_wrapper');
+      if (methodStep) methodStep.style.display = '';
+    }
+    
+    // Show filter steps based on state
+    if (state.filters?.length > 0) {
+      state.filters.forEach(filter => {
+        const filterStep = document.querySelector(`[step-name="${filter.name}"]`)?.closest('.horizontal-slide_wrapper');
+        if (filterStep) filterStep.style.display = '';
+      });
+    }
+  }
 
-    optionsStep.style.display = shouldShow ? '' : 'none';
-}
-
-
-initialize(initialState = null) {
-  Logger.info('Initializing UI Manager', initialState ? 'with state' : 'fresh start');
-  
-  // First, hide everything
-  this.setInitialUIState();
-  
-  // Setup all event listeners
-  this.setupAuthStateListener();
-  this.setupMethodDescriptionListeners();
-  this.setupLibraryMethodListeners();
-  this.setupFilterEventHandlers();
-  this.filterSetup.setupAllFilters();
-  this.setupResizeObserver();
-  this.searchManager.setupSearchEventListeners();
-  document.querySelectorAll('[data-accordion="trigger"]').forEach(trigger => {
-      this.accordionManager.initializeAccordion(trigger, false);
+  updateActiveStates(state) {
+    // Update library selections
+    document.querySelectorAll("[data-library-option]").forEach(el => {
+      el.classList.toggle("active", el.dataset.libraryOption === state.library);
     });
-  
-  if (initialState) {
-    this.initializeWithState(initialState);
-  } else {
-    this.initializeFreshStart();
+    
+    // Update method selections
+    document.querySelectorAll("[data-method-option]").forEach(el => {
+      el.classList.toggle("active", el.dataset.methodOption === state.method?.selected);
+    });
   }
-}
 
-  
-
-  initializeFreshStart() {
-  // Show and open only the library step
-  const libraryStep = document.querySelector('[step-name="library"]')?.closest('.horizontal-slide_wrapper');
-  if (libraryStep) {
-    libraryStep.style.display = '';
-    const trigger = libraryStep.querySelector('[data-accordion="trigger"]');
-    if (trigger) {
-      this.accordionManager.initializeAccordion(trigger, true);
-    }
-  }
-}
-
-updateAll(state) {
-  Logger.info('Updating all UI elements with state:', state);
-  
-  // Hide all steps first
-  document.querySelectorAll('.horizontal-slide_wrapper[step-name]').forEach(step => {
-    step.style.display = 'none';
-  });
-  
-  // Show library step
-  const libraryStep = document.querySelector('[step-name="library"]')?.closest('.horizontal-slide_wrapper');
-  if (libraryStep) {
-    libraryStep.style.display = '';
-  }
-  
-  // Show method step if library is selected
-  if (state.library) {
-    const methodStep = document.querySelector('[step-name="method"]')?.closest('.horizontal-slide_wrapper');
-    if (methodStep) {
-      methodStep.style.display = '';
-    }
-  }
-  this.setupResizeObserver();
-  
-  // Show only steps that exist in state.filters
-  if (state.filters && Array.isArray(state.filters)) {
-    state.filters.forEach(filter => {
-      const filterStep = document.querySelector(`[step-name="${filter.name}"]`)?.closest('.horizontal-slide_wrapper');
-      if (filterStep) {
-        filterStep.style.display = '';
+  updateAccordionStates(state) {
+    document.querySelectorAll('.horizontal-slide_wrapper[style*="display: "').forEach(step => {
+      const trigger = step.querySelector('[data-accordion="trigger"]');
+      if (trigger && !trigger._initialized) {
+        this.accordionManager.initializeAccordion(trigger, true);
       }
     });
   }
   
-  // Update UI elements
-  this.updateMethodDisplay(state);
-  this.filterUpdate.updateAllFilterDisplays(state);
-  this.searchManager.updateSearchResultsDisplay(state);
-  this.searchManager.updateSidebar(state);
-  
-  // Update manage keywords button
-  const manageBtn = document.querySelector("#manage-keywords-button");
-  if (manageBtn) {
-    manageBtn.style.display = this.shouldShowKeywordsButton(state) ? "" : "none";
-  }
-  
-  
-  // Update active states
-  document.querySelectorAll("[data-library-option]").forEach(el => {
-    el.classList.toggle("active", el.dataset.libraryOption === state.library);
-  });
-  
-  document.querySelectorAll("[data-method-option]").forEach(el => {
-    el.classList.toggle("active", el.dataset.methodOption === state.method?.selected);
-  });
-  
-  // Initialize any visible steps that need it
-  document.querySelectorAll('.horizontal-slide_wrapper[style*="display: "').forEach(step => {
-    const trigger = step.querySelector('[data-accordion="trigger"]');
-    if (trigger && !trigger._initialized) {
-      this.initializeNewStep(step);
-    }
-  });
-}
-
   shouldShowKeywordsStep(state) {
   if (!state.method?.selected) return false;
   if (["descriptive", "basic"].includes(state.method.selected)) {
