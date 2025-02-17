@@ -1,6 +1,7 @@
 // searchResultManager.js
 import { Logger } from "./logger.js";
 import { EventTypes } from "./eventTypes.js";
+import EventBus from "./eventBus.js";
 
 export class SearchResultManager {
   constructor(eventBus) {
