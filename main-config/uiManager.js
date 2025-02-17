@@ -15,7 +15,7 @@ export default class UIManager {
   this.searchManager = new SearchResultManager(eventBus);
   this.accordionManager = new AccordionManager();
   this.initialHideConfig = {
-    ids: ["validate-description", "description-summary", "patent-loader", "patent-info-wrapper"],
+    ids: ["validate-description", "description-summary", "patent-loader", "patent-info-wrapper", "filter-options-box"],
     classes: [".horizontal-slide_wrapper"],
     dataAttributes: ["[data-method-display]", "[data-state='search-reload']"]
   };
