@@ -101,10 +101,6 @@ export default class UIManager {
     });
   }
 
-  updateDisplay(state){
-    updateAll(state);
-  }
-
   // Keep the original method name to match existing calls
   updateAll(state) {
     if (!this.isInitialized) {
@@ -152,6 +148,10 @@ export default class UIManager {
         if (filterStep) filterStep.style.display = '';
       });
     }
+  }
+
+  updateDisplay(state){
+    this.updateAll(state);
   }
 
   updateActiveStates(state) {
