@@ -171,19 +171,19 @@ export class AccordionManager {
     content._hasObserver = true;
   }
   initializeNewStep(stepElement, shouldOpen = true) {
-    const trigger = stepElement.querySelector('[data-accordion="trigger"]');
-    if (!trigger) return;
-    
-    // Initialize the accordion
-    this.initializeAccordion(trigger, shouldOpen);
-    
-    // Show the step
-    stepElement.style.display = '';
-    
-    // If it's a filter step, close other filter steps
-    const stepName = stepElement.getAttribute('step-name');
-    if (!['library', 'method', 'keywords-include'].includes(stepName)) {
-      this.closeOtherFilterSteps(trigger);
-    }
+  const trigger = stepElement.querySelector('[data-accordion="trigger"]');
+  if (!trigger) return;
+  
+  // Initialize the accordion with forced open state
+  this.initializeAccordion(trigger, shouldOpen);
+  
+  // Show the step
+  stepElement.style.display = '';
+  
+  // If it's a filter step, close other filter steps
+  const stepName = stepElement.getAttribute('step-name');
+  if (!['library', 'method', 'keywords-include'].includes(stepName)) {
+    this.closeOtherFilterSteps(trigger);
   }
+}
 }
