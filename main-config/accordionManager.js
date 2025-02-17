@@ -1,3 +1,5 @@
+import { Logger } from "./logger.js";
+
 export class AccordionManager {
   constructor() {
     // Bind methods to ensure correct 'this' context
