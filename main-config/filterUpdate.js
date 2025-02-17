@@ -2,12 +2,6 @@
 import { Logger } from "./logger.js";
 import { EventTypes } from "./eventTypes.js";
 
-  // Handle filter step visibility and ordering
- const STEP_SELECTOR = '[step-name]';
-const TRIGGER_SELECTOR = '[data-accordion="trigger"]';
-const CONTENT_SELECTOR = '[data-accordion="content"]';
-const ICON_SELECTOR = '[data-accordion="icon"]';
-
 export class FilterUpdate {
   constructor(eventBus) {
     this.eventBus = eventBus;
@@ -167,80 +161,59 @@ export class FilterUpdate {
       if (clearBtn) clearBtn.style.display = "none";
     }
   }
+  // Handle filter step visibility and ordering
+  updateFilterStepsDisplay(state) {
+    const container = document.querySelector('.step-small-container');
+    if (!container) return;
 
-updateFilterStepsDisplay(state) {
-  Logger.info('[FilterUpdate] Starting filter steps display update', {
-    hasState: !!state,
-    hasFilters: !!state?.filters,
-    filterCount: state?.filters?.length
-  });
-  
-  const container = document.getElementById('main-steps-container');
-  if (!container) {
-    Logger.error('[FilterUpdate] Container #main-steps-container not found');
-    return;
+    // Get and sort all steps
+    const steps = Array.from(container.querySelectorAll('.horizontal-slide_wrapper[step-name]'));
+    
+    // First hide all filter steps
+    steps.forEach(step => {
+      const name = step.getAttribute('step-name');
+      if (!['library', 'method', 'keywords-include'].includes(name)) {
+        step.style.display = 'none';
+      }
+    });
+
+    // Show and order steps based on state.filters
+    if (state.filters?.length > 0) {
+      steps.sort((a, b) => {
+        const aName = a.getAttribute('step-name');
+        const bName = b.getAttribute('step-name');
+        
+        // Core steps order
+        const coreSteps = ['library', 'method', 'keywords-include'];
+        const aCore = coreSteps.indexOf(aName);
+        const bCore = coreSteps.indexOf(bName);
+        
+        if (aCore !== -1 && bCore !== -1) return aCore - bCore;
+        if (aCore !== -1) return -1;
+        if (bCore !== -1) return 1;
+        
+        // For filter steps, sort by their order in state.filters
+        const aFilter = state.filters.find(f => f.name === aName);
+        const bFilter = state.filters.find(f => f.name === bName);
+        
+        return (aFilter?.order ?? Infinity) - (bFilter?.order ?? Infinity);
+      });
+
+      // Show steps that exist in state.filters
+      state.filters.forEach(filter => {
+        const step = steps.find(s => s.getAttribute('step-name') === filter.name);
+        if (step) {
+          step.style.display = '';
+        }
+      });
+
+      // Reorder in DOM
+      const fragment = document.createDocumentFragment();
+      steps.forEach(step => fragment.appendChild(step));
+      container.innerHTML = '';
+      container.appendChild(fragment);
+    }
   }
-
-  // Get steps currently in the container
-  const steps = Array.from(container.querySelectorAll('[step-name]'));
-  Logger.info('[FilterUpdate] Found steps in container:', {
-    totalSteps: steps.length,
-    stepNames: steps.map(s => s.getAttribute('step-name'))
-  });
-
-  // Create filter map
-  const filterMap = new Map(state.filters?.map(f => [f.name, f]) || []);
-
-  // First hide all non-core steps
-  steps.forEach(step => {
-    const name = step.getAttribute('step-name');
-    if (!['library', 'method', 'keywords-include'].includes(name)) {
-      step.style.display = 'none';
-    }
-  });
-
-  // Sort steps
-  const sortedSteps = steps.sort((a, b) => {
-    const aName = a.getAttribute('step-name');
-    const bName = b.getAttribute('step-name');
-    
-    const coreSteps = ['library', 'method', 'keywords-include'];
-    const aIndex = coreSteps.indexOf(aName);
-    const bIndex = coreSteps.indexOf(bName);
-    
-    if (aIndex !== -1 && bIndex !== -1) return aIndex - bIndex;
-    if (aIndex !== -1) return -1;
-    if (bIndex !== -1) return 1;
-    
-    const aFilter = filterMap.get(aName);
-    const bFilter = filterMap.get(bName);
-    
-    if (!aFilter && !bFilter) return 0;
-    if (!aFilter) return 1;
-    if (!bFilter) return -1;
-    
-    return (aFilter.order || 0) - (bFilter.order || 0);
-  });
-
-  // Show steps that should be visible
-  sortedSteps.forEach(step => {
-    const name = step.getAttribute('step-name');
-    if (['library', 'method', 'keywords-include'].includes(name) || filterMap.has(name)) {
-      step.style.display = '';
-    }
-  });
-
-  // Reorder without removing from DOM
-  sortedSteps.forEach(step => {
-    container.appendChild(step); // Moving an existing element reorders it without cloning
-  });
-
-  Logger.info('[FilterUpdate] Steps reordered:', {
-    visibleSteps: Array.from(container.querySelectorAll('[step-name]'))
-      .filter(s => s.style.display !== 'none')
-      .map(s => s.getAttribute('step-name'))
-  });
-}
 
   // Handle filter option button visibility
   updateFilterOptionButtons(state) {
