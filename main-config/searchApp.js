@@ -19,41 +19,6 @@ class SearchApp {
     this.apiConfig = new APIConfig();
     this.apiService = new APIService(this.apiConfig);
     
-    // Create auth manager instance
-    this.authManager = new AuthManager();
-    // Share the same event bus
-    this.authManager.eventBus = this.eventBus;
-    
-    // Initialize managers with shared event bus
-    this.uiManager = new UIManager(this.eventBus);
-    this.sessionState = new SessionState(this.uiManager);
-    this.sessionManager = new SessionManager(this.eventBus);
-    this.assigneeSearchManager = new AssigneeSearchManager(this.eventBus, EventTypes);
-    this.valueSelectManager = new ValueSelectManager(this.eventBus);
-    
-    // Make app instance globally available
-    window.app = this;
-  }
-
-  async initializeAuth() {
-    try {
-      await this.authManager.checkAuthStatus();
-    } catch (error) {
-      Logger.error('Auth initialization failed:', error);
-      // Continue with initialization even if auth fails
-    }
-  }
-
-    // searchApp.js
-class SearchApp {
-  constructor() {
-    // Create shared EventBus instance
-    this.eventBus = new EventBus();
-    
-    // Initialize core services
-    this.apiConfig = new APIConfig();
-    this.apiService = new APIService(this.apiConfig);
-    
     // Create auth manager instance and share event bus
     this.authManager = new AuthManager();
     this.authManager.eventBus = this.eventBus;
@@ -162,14 +127,13 @@ class SearchApp {
     }
   }
 
-
-  handleInitializationError() {
-    Logger.info('Handling initialization error - falling back to basic initialization');
-    // Basic fallback initialization
-    this.uiManager.initialize();
-    this.assigneeSearchManager.init();
-    this.valueSelectManager.init();
-    this.setupEventHandlers();
+  async initializeAuth() {
+    try {
+      await this.authManager.checkAuthStatus();
+    } catch (error) {
+      Logger.error('Auth initialization failed:', error);
+      // Continue with initialization even if auth fails
+    }
   }
 
   initializeManagers() {
@@ -179,6 +143,18 @@ class SearchApp {
     } catch (error) {
       Logger.error('Manager initialization failed:', error);
     }
+  }
+
+  handleInitializationError() {
+    Logger.info('Handling initialization error - ensuring valid UI state');
+    const emptyState = this.getEmptyState();
+    this.sessionState.load(emptyState);
+    this.uiManager.updateAll(emptyState);
+    
+    // Still try to initialize managers
+    this.assigneeSearchManager.init();
+    this.valueSelectManager.init();
+    this.setupEventHandlers();
   }
 
   async initializeComponents() {
