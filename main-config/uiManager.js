@@ -87,8 +87,8 @@ initialize(initialState = null) {
 }
 
 initializeFreshStart() {
-  // Show and open only the library step
-  const libraryStep = document.querySelector('[step-name="library"]')?.closest('.horizontal-slide_wrapper');
+  Logger.info('[UIManager] Initializing fresh start');
+  const libraryStep = document.querySelector('[step-name="library"]');
   if (libraryStep) {
     libraryStep.style.display = '';
     const trigger = libraryStep.querySelector('[data-accordion="trigger"]');
@@ -99,31 +99,31 @@ initializeFreshStart() {
 }
 
 updateAll(state) {
-  Logger.info('Updating all UI elements with state:', state);
+  Logger.info('[UIManager] Updating all UI elements with state:', state);
   
   // Hide all steps first
-  document.querySelectorAll('.horizontal-slide_wrapper[step-name]').forEach(step => {
+  document.querySelectorAll('[step-name]').forEach(step => {
     step.style.display = 'none';
   });
   
   // Show library step
-  const libraryStep = document.querySelector('[step-name="library"]')?.closest('.horizontal-slide_wrapper');
+  const libraryStep = document.querySelector('[step-name="library"]');
   if (libraryStep) {
     libraryStep.style.display = '';
   }
   
   // Show method step if library is selected
   if (state.library) {
-    const methodStep = document.querySelector('[step-name="method"]')?.closest('.horizontal-slide_wrapper');
+    const methodStep = document.querySelector('[step-name="method"]');
     if (methodStep) {
       methodStep.style.display = '';
     }
   }
   
-  // Show only steps that exist in state.filters
+  // Show steps that exist in state.filters
   if (state.filters && Array.isArray(state.filters)) {
     state.filters.forEach(filter => {
-      const filterStep = document.querySelector(`[step-name="${filter.name}"]`)?.closest('.horizontal-slide_wrapper');
+      const filterStep = document.querySelector(`[step-name="${filter.name}"]`);
       if (filterStep) {
         filterStep.style.display = '';
       }
@@ -137,7 +137,7 @@ updateAll(state) {
   this.searchManager.updateSidebar(state);
   
   // Initialize any visible steps that need it
-  document.querySelectorAll('.horizontal-slide_wrapper[style*="display: "').forEach(step => {
+  document.querySelectorAll('[step-name][style*="display: "]').forEach(step => {
     const trigger = step.querySelector('[data-accordion="trigger"]');
     if (trigger && !trigger._initialized) {
       this.accordionManager.initializeAccordion(trigger, true);
@@ -234,25 +234,33 @@ setupAuthStateListener() {
 
 
   setInitialUIState() {
-    Logger.info('Setting initial UI state');
-    const { scrollX, scrollY } = window;
-    this.initialHideConfig.ids.forEach(id => {
-      const el = document.getElementById(id);
-      if (el) el.style.display = "none";
-    });
-    this.initialHideConfig.classes.forEach(sel => {
-      document.querySelectorAll(sel).forEach(el => el.style.display = "none");
-    });
-    this.initialHideConfig.dataAttributes.forEach(sel => {
-      document.querySelectorAll(sel).forEach(el => el.style.display = "none");
-    });
-    const libraryStep = document.querySelector('[step-name="library"]');
-    if (libraryStep) {
-      const libWrap = libraryStep.closest(".horizontal-slide_wrapper");
-      if (libWrap) libWrap.style.display = "";
-    }
-    window.scrollTo(scrollX, scrollY);
+  Logger.info('[UIManager] Setting initial UI state');
+  const { scrollX, scrollY } = window;
+  
+  // Hide elements by ID
+  this.initialHideConfig.ids.forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.style.display = "none";
+  });
+  
+  // Hide elements by class
+  this.initialHideConfig.classes.forEach(sel => {
+    document.querySelectorAll(sel).forEach(el => el.style.display = "none");
+  });
+  
+  // Hide elements by data attribute
+  this.initialHideConfig.dataAttributes.forEach(sel => {
+    document.querySelectorAll(sel).forEach(el => el.style.display = "none");
+  });
+  
+  // Show only library step initially
+  const libraryStep = document.querySelector('[step-name="library"]');
+  if (libraryStep) {
+    libraryStep.style.display = "";
   }
+  
+  window.scrollTo(scrollX, scrollY);
+}
 
   setupMethodDescriptionListeners() {
     const descInput = document.querySelector("#main-search-description");
