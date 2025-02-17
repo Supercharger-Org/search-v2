@@ -302,7 +302,16 @@ setupSearchHandlers() {
         });
       }
     });
-}
+
+    // Search completion
+    this.eventBus.on(EventTypes.SEARCH_COMPLETED, () => {
+      const searchButton = document.querySelector('#run-search');
+      if (searchButton) {
+        searchButton.innerHTML = 'Search';
+        searchButton.disabled = false;
+      }
+    });
+} // Closing brace for setupSearchHandlers method
     
     // Search completion
     this.eventBus.on(EventTypes.SEARCH_COMPLETED, () => {
