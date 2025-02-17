@@ -9,17 +9,80 @@ import { AccordionManager } from "./accordionManager.js";
 
 export default class UIManager {
   constructor(eventBus) {
-  this.eventBus = eventBus;
-  this.filterSetup = new FilterSetup(eventBus);
-  this.filterUpdate = new FilterUpdate(eventBus);
-  this.searchManager = new SearchResultManager(eventBus);
-  this.accordionManager = new AccordionManager();
-  this.initialHideConfig = {
-    ids: ["validate-description", "filter-options-box", "description-summary", "patent-loader", "patent-info-wrapper"],
-    classes: [".horizontal-slide_wrapper"],
-    dataAttributes: ["[data-method-display]", "[data-state='search-reload']"]
-  };
-}
+    this.eventBus = eventBus;
+    this.filterSetup = new FilterSetup(eventBus);
+    this.filterUpdate = new FilterUpdate(eventBus);
+    this.searchManager = new SearchResultManager(eventBus);
+    this.accordionManager = new AccordionManager();
+    this.isInitialized = false;
+  }
+
+  // Keep the original method name to match SearchApp's calls
+  initialize(initialState = null) {
+    if (this.isInitialized) {
+      Logger.warn('UIManager already initialized');
+      return;
+    }
+
+    Logger.info('Initializing UI Manager setup functions');
+
+    // Hide all UI elements initially
+    this.setInitialUIState();
+    
+    // Setup all event listeners and UI elements
+    this.setupEventListeners();
+    
+    // Initialize all accordions
+    this.initializeAccordions();
+    
+    this.isInitialized = true;
+
+    // If we have an initial state, update the UI
+    if (initialState) {
+      this.updateAll(initialState);
+    }
+  }
+
+  // Keep the original method name to match existing calls
+  setInitialUIState() {
+    const elementsToHide = {
+      ids: [
+        "validate-description",
+        "description-summary",
+        "patent-loader",
+        "patent-info-wrapper",
+        "filter-options-box"
+      ],
+      classes: [".horizontal-slide_wrapper"],
+      dataAttributes: [
+        "[data-method-display]",
+        "[data-state='search-reload']"
+      ]
+    };
+
+    Logger.info('Setting initial UI visibility state');
+    
+    elementsToHide.ids.forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.style.display = "none";
+    });
+
+    elementsToHide.classes.forEach(selector => {
+      document.querySelectorAll(selector).forEach(el => {
+        el.style.display = "none";
+      });
+    });
+
+    elementsToHide.dataAttributes.forEach(selector => {
+      document.querySelectorAll(selector).forEach(el => {
+        el.style.display = "none";
+      });
+    });
+
+    // Always show library step initially
+    const libraryStep = document.querySelector('[step-name="library"]')?.closest('.horizontal-slide_wrapper');
+    if (libraryStep) libraryStep.style.display = "";
+  }
 
   setupEventListeners() {
     this.setupAuthStateListener();
@@ -29,7 +92,7 @@ export default class UIManager {
     this.filterSetup.setupAllFilters();
     this.setupResizeObserver();
     this.searchManager.setupSearchEventListeners();
-     this.setupSessionEventListeners();
+    this.setupSessionEventListeners();
   }
 
   initializeAccordions() {
@@ -38,12 +101,8 @@ export default class UIManager {
     });
   }
 
-  updateDisplay(state) {
-    this.updateAll(state);
-  }
-
-
-updateUI(state) {
+  // Keep the original method name to match existing calls
+  updateAll(state) {
     if (!this.isInitialized) {
       Logger.warn('Attempting to update UI before initialization');
       return;
@@ -59,7 +118,7 @@ updateUI(state) {
     this.filterUpdate.updateAllFilterDisplays(state);
     this.searchManager.updateSearchResultsDisplay(state);
     this.searchManager.updateSidebar(state);
-    this.updateMethodOptionsVisibility(state);
+    this.updateOptionsStepVisibility(state);
     
     // Update active states for library and method selections
     this.updateActiveStates(state);
@@ -124,52 +183,6 @@ updateUI(state) {
   }
   return false;
 }
-
-
-initializeWithState(state) {
-  Logger.info('Initializing with state:', state);
-  
-  // Show and initialize library step
-  const libraryStep = document.querySelector('[step-name="library"]')?.closest('.horizontal-slide_wrapper');
-  if (libraryStep) {
-    libraryStep.style.display = '';
-    this.accordionManager.initializeNewStep(libraryStep, true);
-  }
-  
-  // Show and initialize method step if library is selected
-  if (state.library) {
-    const methodStep = document.querySelector('[step-name="method"]')?.closest('.horizontal-slide_wrapper');
-    if (methodStep) {
-      methodStep.style.display = '';
-      this.accordionManager.initializeNewStep(methodStep, true);
-    }
-  }
-  
-  // Show and initialize filter steps
-  if (state.filters && Array.isArray(state.filters)) {
-    state.filters.forEach(filter => {
-      const filterStep = document.querySelector(`[step-name="${filter.name}"]`)?.closest('.horizontal-slide_wrapper');
-      if (filterStep) {
-        filterStep.style.display = '';
-        this.accordionManager.initializeNewStep(filterStep, true);
-      }
-    });
-  }
-
-  // Initialize keywords-include if present
-  if (this.shouldShowKeywordsStep(state)) {
-    const keywordsStep = document.querySelector('[step-name="keywords-include"]')?.closest('.horizontal-slide_wrapper');
-    if (keywordsStep) {
-      keywordsStep.style.display = '';
-      this.accordionManager.initializeNewStep(keywordsStep, true);
-    }
-  }
-
-  // Ensure proper step order
-  this.filterUpdate.updateFilterStepOrder(state);
-  this.updateAll(state);
-}
-
 
 
 setupAuthStateListener() {
