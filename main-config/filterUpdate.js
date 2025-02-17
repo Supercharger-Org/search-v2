@@ -162,7 +162,7 @@ export class FilterUpdate {
     }
   }
   // Handle filter step visibility and ordering
-  updateFilterStepsDisplay(state) {
+ updateFilterStepsDisplay(state) {
   const container = document.querySelector('.step-small-container');
   if (!container) return;
 
