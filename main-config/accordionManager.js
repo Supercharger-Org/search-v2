@@ -10,37 +10,41 @@ export class AccordionManager {
   }
 
   initializeAccordion(trigger, shouldOpen = false) {
-    if (trigger._initialized) return;
-    
-    const content = trigger.nextElementSibling;
-    if (!content) return;
-    
-    // Initialize
-    trigger._initialized = true;
-    trigger._isOpen = false;
-    
-    content.style.display = 'none';
-    content.style.height = '0';
-    content.style.overflow = 'hidden';
-    content.style.transition = 'height 0.3s ease';
-    
-    // Add click handler - using bound method
-    trigger.addEventListener('click', this.handleAccordionClick);
-    
-    // Setup icon animation
-    const icon = trigger.querySelector('[data-accordion="icon"]');
-    if (icon) {
-      icon.style.transition = 'transform 0.3s ease';
-    }
-    
-    // Create observer for content changes
-    this.createContentObserver(content);
-    
-    // Open if requested
-    if (shouldOpen) {
-      this.toggleAccordion(trigger, true);
-    }
+  if (trigger._initialized) return;
+  
+  const content = trigger.nextElementSibling;
+  if (!content) return;
+  
+  // Initialize
+  trigger._initialized = true;
+  trigger._isOpen = shouldOpen; // Set initial state based on shouldOpen
+  
+  // Set initial display state
+  content.style.display = shouldOpen ? 'block' : 'none';
+  content.style.height = shouldOpen ? 'auto' : '0';
+  content.style.overflow = 'hidden';
+  content.style.transition = 'height 0.3s ease';
+  
+  // Add click handler
+  trigger.addEventListener('click', this.handleAccordionClick);
+  
+  // Setup icon animation
+  const icon = trigger.querySelector('[data-accordion="icon"]');
+  if (icon) {
+    icon.style.transition = 'transform 0.3s ease';
+    icon.style.transform = shouldOpen ? 'rotate(180deg)' : 'rotate(0deg)';
   }
+  
+  // Create observer for content changes
+  this.createContentObserver(content);
+  
+  // If opening, update height after a brief delay to ensure correct calculation
+  if (shouldOpen) {
+    requestAnimationFrame(() => {
+      content.style.height = `${content.scrollHeight}px`;
+    });
+  }
+}
 
   handleAccordionClick(e) {
     e.preventDefault();
