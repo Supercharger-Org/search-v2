@@ -228,26 +228,29 @@ class SearchApp {
   }
 
   setupSearchHandlers() {
-    // Search initiation
-    this.eventBus.on(EventTypes.SEARCH_INITIATED, async () => {
-      try {
-        const searchInput = this.sessionState.generateSearchInput();
-        const results = await this.apiService.executeSearch(searchInput);
-        
-        this.sessionState.updateSearchState({
-          results: results || [],
-          current_page: 1,
-          total_pages: Math.ceil((results?.length || 0) / this.sessionState.get().search.items_per_page),
-          reload_required: false
-        });
+  // Search initiation
+  this.eventBus.on(EventTypes.SEARCH_INITIATED, async () => {
+    try {
+      const searchInput = this.sessionState.generateSearchInput();
+      const results = await this.apiService.executeSearch(searchInput);
+      
+      this.sessionState.updateSearchState({
+        results: results || [],
+        current_page: 1,
+        total_pages: Math.ceil((results?.length || 0) / this.sessionState.get().search.items_per_page),
+        reload_required: false
+      });
 
-        this.eventBus.emit(EventTypes.SEARCH_COMPLETED, { results });
-      } catch (error) {
-        Logger.error("Search failed:", error);
-        this.eventBus.emit(EventTypes.SEARCH_FAILED, { error });
-      }
-    });
+      // Save session after successful search
+      await this.sessionManager.saveSession();
 
+      this.eventBus.emit(EventTypes.SEARCH_COMPLETED, { results });
+    } catch (error) {
+      Logger.error("Search failed:", error);
+      this.eventBus.emit(EventTypes.SEARCH_FAILED, { error });
+    }
+  });
+    
     // Search completion
     this.eventBus.on(EventTypes.SEARCH_COMPLETED, () => {
       const searchButton = document.querySelector('#run-search');
