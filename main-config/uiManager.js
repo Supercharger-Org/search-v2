@@ -101,6 +101,10 @@ export default class UIManager {
     });
   }
 
+  updateDisplay(state){
+    updateAll(state);
+  }
+
   // Keep the original method name to match existing calls
   updateAll(state) {
     if (!this.isInitialized) {
