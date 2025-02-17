@@ -1,4 +1,3 @@
-// sessionManager.js
 import { EventTypes } from './eventTypes.js';
 import { Logger } from './logger.js';
 import { AuthManager } from './authManager.js';
@@ -16,10 +15,16 @@ export default class SessionManager {
     this.sessionId = null;
     this.isInitialized = false;
     this.selectedMethod = null;
-    
-    // Add new tracking without removing existing
     this.isLoadedFromExisting = false;
     this.freeSearchesUsed = 0;
+    
+    // Initialize session state
+    this.sessionState = {
+      isLoggedIn: false,
+      loadedFromExisting: false,
+      sessionCreated: false,
+      sessionId: null
+    };
     
     this.setupInitialEventListeners();
   }
@@ -85,9 +90,11 @@ export default class SessionManager {
       }
     });
   }
+
   async createNewSession() {
-    if (!this.sessionState.isLoggedIn || 
-        this.sessionState.loadedFromExisting || 
+    // Check conditions using the class properties directly
+    if (!AuthManager.getUserAuthToken() || 
+        this.isLoadedFromExisting || 
         this.sessionState.sessionCreated) {
       return;
     }
@@ -122,6 +129,7 @@ export default class SessionManager {
       }
 
       // Update session state
+      this.sessionId = sessionId;
       this.sessionState.sessionId = sessionId;
       this.sessionState.sessionCreated = true;
 
@@ -138,7 +146,6 @@ export default class SessionManager {
       throw error;
     }
   }
-
 
   initializeNewSessionState(state) {
     return {
@@ -198,77 +205,77 @@ export default class SessionManager {
 
     } catch (error) {
       Logger.error('Session save error:', error);
-      throw error; // Re-throw to be caught by scheduler
+      throw error;
     }
-}
+  }
 
   async loadSession(sessionId) {
-  try {
-    const token = AuthManager.getUserAuthToken();
-    if (!token) {
-      throw new Error("No auth token available");
+    try {
+      const token = AuthManager.getUserAuthToken();
+      if (!token) {
+        throw new Error("No auth token available");
+      }
+
+      Logger.info("Loading session:", sessionId);
+
+      const response = await fetch(SESSION_API.GET, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Xano-Authorization": `Bearer ${token}`,
+          "X-Xano-Authorization-Only": "true"
+        },
+        mode: "cors",
+        body: JSON.stringify({ sessionId })
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to load session: ${response.status}`);
+      }
+
+      const responseData = await response.json();
+      
+      if (!responseData?.data) {
+        throw new Error("No session data received");
+      }
+
+      // Log the raw response data for debugging
+      Logger.info("Raw API response:", JSON.stringify(responseData, null, 2));
+
+      // Preserve all data from the response, including search results
+      const sessionData = {
+        ...responseData.data,
+        // Ensure search object maintains its structure
+        search: {
+          ...responseData.data.search,
+          results: responseData.data.search?.results || null,
+          current_page: responseData.data.search?.current_page || 1,
+          total_pages: responseData.data.search?.results ? 
+            Math.ceil(responseData.data.search.results.length / 10) : 0,
+          items_per_page: 10,
+          active_item: responseData.data.search?.active_item || null,
+          reload_required: false
+        },
+        // Preserve searchRan flag if it exists
+        searchRan: responseData.data.search?.results ? true : false
+      };
+
+      // Update session state
+      this.sessionId = sessionId;
+      this.isLoadedFromExisting = true;
+
+      Logger.info("Processed session data:", JSON.stringify(sessionData, null, 2));
+
+      // Emit the LOAD_SESSION event with the complete data
+      this.eventBus.emit(EventTypes.LOAD_SESSION, sessionData);
+      
+      return sessionData;
+
+    } catch (error) {
+      Logger.error("Session load error:", error);
+      throw error;
     }
-
-    Logger.info("Loading session:", sessionId);
-
-    const response = await fetch(SESSION_API.GET, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "X-Xano-Authorization": `Bearer ${token}`,
-        "X-Xano-Authorization-Only": "true"
-      },
-      mode: "cors",
-      body: JSON.stringify({ sessionId })
-    });
-
-    if (!response.ok) {
-      throw new Error(`Failed to load session: ${response.status}`);
-    }
-
-    const responseData = await response.json();
-    
-    if (!responseData?.data) {
-      throw new Error("No session data received");
-    }
-
-    // Log the raw response data for debugging
-    Logger.info("Raw API response:", JSON.stringify(responseData, null, 2));
-
-    // Preserve all data from the response, including search results
-    const sessionData = {
-      ...responseData.data,
-      // Ensure search object maintains its structure
-      search: {
-        ...responseData.data.search,
-        results: responseData.data.search?.results || null,
-        current_page: responseData.data.search?.current_page || 1,
-        total_pages: responseData.data.search?.results ? 
-          Math.ceil(responseData.data.search.results.length / 10) : 0,
-        items_per_page: 10,
-        active_item: responseData.data.search?.active_item || null,
-        reload_required: false
-      },
-      // Preserve searchRan flag if it exists
-      searchRan: responseData.data.search?.results ? true : false
-    };
-
-    // Update session state
-    this.sessionId = sessionId;
-    this.isLoadedFromExisting = true;
-
-    Logger.info("Processed session data:", JSON.stringify(sessionData, null, 2));
-
-    // Emit the LOAD_SESSION event with the complete data
-    this.eventBus.emit(EventTypes.LOAD_SESSION, sessionData);
-    
-    return sessionData;
-
-  } catch (error) {
-    Logger.error("Session load error:", error);
-    throw error;
   }
-}
 
   scheduleSessionSave() {
     if (!this.sessionId || !AuthManager.getUserAuthToken()) return;
