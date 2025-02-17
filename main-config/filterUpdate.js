@@ -164,12 +164,18 @@ export class FilterUpdate {
   // Handle filter step visibility and ordering
  updateFilterStepsDisplay(state) {
   const container = document.querySelector('.step-small-container');
-  if (!container) return;
+  if (!container) {
+    Logger.error('Step container not found');
+    return;
+  }
 
   // Get all steps
   const steps = Array.from(container.querySelectorAll('.horizontal-slide_wrapper[step-name]'));
   
-  // First hide all filter steps
+  // Create a map for quick filter lookup
+  const filterMap = new Map(state.filters?.map(f => [f.name, f]) || []);
+
+  // Hide non-core steps initially
   steps.forEach(step => {
     const name = step.getAttribute('step-name');
     if (!['library', 'method', 'keywords-include'].includes(name)) {
@@ -177,48 +183,54 @@ export class FilterUpdate {
     }
   });
 
-  if (!state.filters?.length) return;
-
-  // Create a map for quick filter lookup
-  const filterMap = new Map(state.filters.map(f => [f.name, f]));
-
-  // Sort steps based on precise ordering
-  steps.sort((a, b) => {
+  // Sort steps
+  const sortedSteps = steps.sort((a, b) => {
     const aName = a.getAttribute('step-name');
     const bName = b.getAttribute('step-name');
     
-    // Core steps always come first in specific order
+    // Core steps order
     const coreSteps = ['library', 'method', 'keywords-include'];
     const aIndex = coreSteps.indexOf(aName);
     const bIndex = coreSteps.indexOf(bName);
     
-    // If both are core steps, sort by core order
-    if (aIndex !== -1 && bIndex !== -1) return aIndex - bIndex;
+    // If both are core steps, maintain core order
+    if (aIndex !== -1 && bIndex !== -1) {
+      return aIndex - bIndex;
+    }
     
-    // Core steps always come before filter steps
+    // Core steps come before filter steps
     if (aIndex !== -1) return -1;
     if (bIndex !== -1) return 1;
     
-    // For filter steps, sort by their order in state.filters
+    // Get filter objects
     const aFilter = filterMap.get(aName);
     const bFilter = filterMap.get(bName);
     
-    // Handle cases where filter might not exist in state
+    // Non-existent filters go last
     if (!aFilter && !bFilter) return 0;
     if (!aFilter) return 1;
     if (!bFilter) return -1;
     
-    return (aFilter.order ?? Infinity) - (bFilter.order ?? Infinity);
+    // Sort by filter order
+    return (aFilter.order || 0) - (bFilter.order || 0);
   });
 
-  // Show steps that exist in state.filters and reorder
-  steps.forEach(step => {
+  // Clear container
+  container.innerHTML = '';
+  
+  // Re-append steps in correct order
+  sortedSteps.forEach(step => {
     const name = step.getAttribute('step-name');
-    if (filterMap.has(name) || ['library', 'method', 'keywords-include'].includes(name)) {
+    // Show step if it's core or exists in filters
+    if (['library', 'method', 'keywords-include'].includes(name) || filterMap.has(name)) {
       step.style.display = '';
-      // Remove and reappend to maintain order
-      container.appendChild(step);
     }
+    container.appendChild(step);
+  });
+  
+  Logger.info('Updated filter steps display', {
+    totalSteps: steps.length,
+    visibleSteps: steps.filter(s => s.style.display !== 'none').length
   });
 }
   // Handle filter option button visibility
