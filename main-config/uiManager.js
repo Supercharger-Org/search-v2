@@ -132,6 +132,14 @@ updateAll(state) {
   this.searchManager.updateSearchResultsDisplay(state);
   this.searchManager.updateSidebar(state);
   
+  // Initialize any visible steps that need it
+  document.querySelectorAll('.horizontal-slide_wrapper[style*="display: "').forEach(step => {
+    const trigger = step.querySelector('[data-accordion="trigger"]');
+    if (trigger && !trigger._initialized) {
+      this.accordionManager.initializeAccordion(trigger, true);
+    }
+  });
+  
   // Update manage keywords button
   const manageBtn = document.querySelector("#manage-keywords-button");
   if (manageBtn) {
