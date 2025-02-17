@@ -162,18 +162,28 @@ export class FilterUpdate {
     }
   }
   // Handle filter step visibility and ordering
- updateFilterStepsDisplay(state) {
+ const STEP_SELECTOR = '[step-name]';
+const TRIGGER_SELECTOR = '[data-accordion="trigger"]';
+const CONTENT_SELECTOR = '[data-accordion="content"]';
+const ICON_SELECTOR = '[data-accordion="icon"]';
+
+// In FilterUpdate class, update updateFilterStepsDisplay
+updateFilterStepsDisplay(state) {
+  Logger.info('[FilterUpdate] Starting filter steps display update', {
+    filterCount: state?.filters?.length
+  });
+  
   const container = document.querySelector('.step-small-container');
   if (!container) {
-    Logger.error('Step container not found');
+    Logger.error('[FilterUpdate] Container not found');
     return;
   }
 
-  // Get all steps
-  const steps = Array.from(container.querySelectorAll('.horizontal-slide_wrapper[step-name]'));
-  
-  // Create a map for quick filter lookup
-  const filterMap = new Map(state.filters?.map(f => [f.name, f]) || []);
+  // Get all steps directly by step-name
+  const steps = Array.from(container.querySelectorAll(STEP_SELECTOR));
+  Logger.info('[FilterUpdate] Found steps:', {
+    stepNames: steps.map(s => s.getAttribute('step-name'))
+  });
 
   // Hide non-core steps initially
   steps.forEach(step => {
@@ -183,56 +193,43 @@ export class FilterUpdate {
     }
   });
 
+  // Create filter map
+  const filterMap = new Map(state.filters?.map(f => [f.name, f]) || []);
+
   // Sort steps
   const sortedSteps = steps.sort((a, b) => {
     const aName = a.getAttribute('step-name');
     const bName = b.getAttribute('step-name');
     
-    // Core steps order
     const coreSteps = ['library', 'method', 'keywords-include'];
     const aIndex = coreSteps.indexOf(aName);
     const bIndex = coreSteps.indexOf(bName);
     
-    // If both are core steps, maintain core order
-    if (aIndex !== -1 && bIndex !== -1) {
-      return aIndex - bIndex;
-    }
-    
-    // Core steps come before filter steps
+    if (aIndex !== -1 && bIndex !== -1) return aIndex - bIndex;
     if (aIndex !== -1) return -1;
     if (bIndex !== -1) return 1;
     
-    // Get filter objects
     const aFilter = filterMap.get(aName);
     const bFilter = filterMap.get(bName);
     
-    // Non-existent filters go last
     if (!aFilter && !bFilter) return 0;
     if (!aFilter) return 1;
     if (!bFilter) return -1;
     
-    // Sort by filter order
     return (aFilter.order || 0) - (bFilter.order || 0);
   });
 
-  // Clear container
+  // Clear and rebuild container
   container.innerHTML = '';
-  
-  // Re-append steps in correct order
   sortedSteps.forEach(step => {
     const name = step.getAttribute('step-name');
-    // Show step if it's core or exists in filters
     if (['library', 'method', 'keywords-include'].includes(name) || filterMap.has(name)) {
       step.style.display = '';
+      container.appendChild(step);
     }
-    container.appendChild(step);
-  });
-  
-  Logger.info('Updated filter steps display', {
-    totalSteps: steps.length,
-    visibleSteps: steps.filter(s => s.style.display !== 'none').length
   });
 }
+
   // Handle filter option button visibility
   updateFilterOptionButtons(state) {
     document.querySelectorAll('[data-filter-option]').forEach(button => {
