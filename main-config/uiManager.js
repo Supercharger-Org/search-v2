@@ -147,14 +147,6 @@ updateAll(state) {
   document.querySelectorAll("[data-method-option]").forEach(el => {
     el.classList.toggle("active", el.dataset.methodOption === state.method?.selected);
   });
-  
-  // Initialize any visible steps that need it
-  document.querySelectorAll('.horizontal-slide_wrapper[style*="display: "').forEach(step => {
-    const trigger = step.querySelector('[data-accordion="trigger"]');
-    if (trigger && !trigger._initialized) {
-      this.initializeNewStep(step);
-    }
-  });
 }
 
   shouldShowKeywordsStep(state) {
