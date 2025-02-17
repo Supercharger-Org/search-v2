@@ -118,8 +118,6 @@ export default class UIManager {
     this.filterUpdate.updateAllFilterDisplays(state);
     this.searchManager.updateSearchResultsDisplay(state);
     this.searchManager.updateSidebar(state);
-    this.updateOptionsStepVisibility(state);
-    
     // Update active states for library and method selections
     this.updateActiveStates(state);
     
