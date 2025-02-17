@@ -302,7 +302,7 @@ setupSearchHandlers() {
         });
       }
     });
-};
+}
     
     // Search completion
     this.eventBus.on(EventTypes.SEARCH_COMPLETED, () => {
