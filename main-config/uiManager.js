@@ -68,7 +68,6 @@ initialize(initialState = null) {
   this.setupLibraryMethodListeners();
   this.setupFilterEventHandlers();
   this.filterSetup.setupAllFilters();
-  this.setupResizeObserver();
   this.searchManager.setupSearchEventListeners();
   document.querySelectorAll('[data-accordion="trigger"]').forEach(trigger => {
       this.accordionManager.initializeAccordion(trigger, false);
@@ -116,7 +115,6 @@ updateAll(state) {
       methodStep.style.display = '';
     }
   }
-  this.setupResizeObserver();
   
   // Show only steps that exist in state.filters
   if (state.filters && Array.isArray(state.filters)) {
