@@ -154,10 +154,21 @@ class SearchApp {
   
   async initializeAuth() {
     try {
+      Logger.info('Initializing auth...');
+      
+      // First ensure all auth-related elements are hidden
+      document.querySelectorAll('[state-visibility]').forEach(el => {
+        el.style.display = 'none';
+      });
+
+      // Then check auth status - this will trigger appropriate visibility updates
       await this.authManager.checkAuthStatus();
+      
+      Logger.info('Auth initialization complete');
     } catch (error) {
       Logger.error('Auth initialization failed:', error);
-      // Continue with initialization even if auth fails
+      // If auth fails, ensure we handle as free user
+      this.authManager.handleFreeUser();
     }
   }
 
