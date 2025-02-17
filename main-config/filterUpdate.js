@@ -5,6 +5,7 @@ import { EventTypes } from "./eventTypes.js";
 export class FilterUpdate {
   constructor(eventBus) {
     this.eventBus = eventBus;
+    this.filterOptionsBoxInitialized = false;
   }
 
   // Core utility methods
@@ -12,8 +13,47 @@ export class FilterUpdate {
     return state.filters && state.filters.some(f => f.name === filterName);
   }
 
+  // Updated method to handle filter options box visibility
+  updateFilterOptionsBox(state) {
+    const optionsBox = document.querySelector('#filter-options-box');
+    if (!optionsBox) {
+      Logger.error('Filter options box not found');
+      return;
+    }
+
+    // If this is the first time we're initializing, ensure it starts hidden
+    if (!this.filterOptionsBoxInitialized) {
+      optionsBox.style.display = 'none';
+      this.filterOptionsBoxInitialized = true;
+    }
+
+    // Determine visibility based on conditions
+    const hasFilters = state.filters && state.filters.length > 0;
+    const isBasicMethod = state.method?.selected === 'basic';
+    
+    Logger.info('Updating filter options box visibility:', {
+      hasFilters,
+      isBasicMethod,
+      currentDisplay: optionsBox.style.display
+    });
+
+    // Show if either condition is met
+    const shouldShow = hasFilters || isBasicMethod;
+    
+    // Only update display if it's different from current state
+    if ((shouldShow && optionsBox.style.display === 'none') || 
+        (!shouldShow && optionsBox.style.display !== 'none')) {
+      optionsBox.style.display = shouldShow ? '' : 'none';
+      Logger.info('Filter options box visibility updated:', { shouldShow });
+    }
+  }
+
   // Main update method
   updateAllFilterDisplays(state) {
+    // Update filter options box first
+    this.updateFilterOptionsBox(state);
+    
+    // Then update other displays
     this.updateFilterStepsDisplay(state);
     this.updateKeywordsDisplay(state);
     this.updateExcludedKeywordsDisplay(state);
@@ -22,7 +62,6 @@ export class FilterUpdate {
     this.updateAssigneesDisplay(state);
     this.updateDateDisplay(state);
     this.updateFilterOptionButtons(state);
-    this.updateFilterOptionsBox(state);
   }
 
   // Badge Display Management
@@ -222,18 +261,5 @@ export class FilterUpdate {
       const exists = state.filters?.some(f => f.name === filterName) || false;
       button.style.display = exists ? 'none' : '';
     });
-  }
-
-  // Handle filter options box visibility
-  updateFilterOptionsBox(state) {
-    const optionsBox = document.querySelector('#filter-options-box');
-    if (!optionsBox) return;
-
-    const shouldShow = 
-      state.isSessionLoaded || // Show if loading from session
-      state.method?.selected === 'basic' || // Show if basic method
-      (state.filters && state.filters.length > 0); // Show if filters exist
-
-    optionsBox.style.display = shouldShow ? '' : 'none';
   }
 }
