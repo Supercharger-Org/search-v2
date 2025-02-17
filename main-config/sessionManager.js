@@ -15,6 +15,12 @@ export default class SessionManager {
     this.saveTimeout = null;
     this.sessionId = null;
     this.isInitialized = false;
+    this.selectedMethod = null;
+    
+    // Add new tracking without removing existing
+    this.isLoadedFromExisting = false;
+    this.freeSearchesUsed = 0;
+    
     this.setupInitialEventListeners();
   }
 
@@ -22,38 +28,70 @@ export default class SessionManager {
     // Session creation events based on method type
     this.eventBus.on(EventTypes.METHOD_SELECTED, ({ value }) => {
       this.selectedMethod = value;
+      if (this.sessionId) {
+        this.scheduleSessionSave();
+      }
     });
 
     // Create session after keyword generation or filter add (for basic)
     this.eventBus.on(EventTypes.KEYWORDS_GENERATE_COMPLETED, async () => {
-      if (this.selectedMethod !== 'basic' && !this.sessionId) {
+      if (this.selectedMethod !== 'basic' && !this.sessionId && AuthManager.getUserAuthToken()) {
         await this.createNewSession();
+      }
+      if (this.sessionId) {
+        this.scheduleSessionSave();
       }
     });
 
     this.eventBus.on(EventTypes.FILTER_ADDED, async () => {
-      if (this.selectedMethod === 'basic' && !this.sessionId) {
+      if (this.selectedMethod === 'basic' && !this.sessionId && AuthManager.getUserAuthToken()) {
         await this.createNewSession();
       }
-    });
-
-    // Track search execution
-    this.eventBus.on(EventTypes.SEARCH_INITIATED, () => {
-      const state = window.app.sessionState.get();
-      window.app.sessionState.update('searchRan', true);
-      this.scheduleSessionSave();
-    });
-
-    // Save after search completes
-    this.eventBus.on(EventTypes.SEARCH_COMPLETED, () => {
       if (this.sessionId) {
-        Logger.info('Search completed, scheduling session save');
         this.scheduleSessionSave();
       }
     });
-  }
 
+    // Track all events that should trigger a session save
+    const saveEvents = [
+      EventTypes.KEYWORD_ADDED,
+      EventTypes.KEYWORD_REMOVED,
+      EventTypes.KEYWORD_EXCLUDED_ADDED,
+      EventTypes.KEYWORD_EXCLUDED_REMOVED,
+      EventTypes.CODE_ADDED,
+      EventTypes.CODE_REMOVED,
+      EventTypes.INVENTOR_ADDED,
+      EventTypes.INVENTOR_REMOVED,
+      EventTypes.ASSIGNEE_ADDED,
+      EventTypes.ASSIGNEE_REMOVED,
+      EventTypes.FILTER_UPDATED,
+      EventTypes.SEARCH_COMPLETED
+    ];
+
+    saveEvents.forEach(eventType => {
+      this.eventBus.on(eventType, () => {
+        if (this.sessionId) {
+          this.scheduleSessionSave();
+        }
+      });
+    });
+
+    // Special handling for search events
+    this.eventBus.on(EventTypes.SEARCH_INITIATED, async () => {
+      if (!AuthManager.getUserAuthToken()) {
+        this.incrementFreeSearchCount();
+      } else if (!this.sessionId && this.selectedMethod === 'basic') {
+        await this.createNewSession();
+      }
+    });
+  }
   async createNewSession() {
+    if (!this.sessionState.isLoggedIn || 
+        this.sessionState.loadedFromExisting || 
+        this.sessionState.sessionCreated) {
+      return;
+    }
+
     try {
       const token = AuthManager.getUserAuthToken();
       if (!token) {
@@ -61,16 +99,9 @@ export default class SessionManager {
         return;
       }
 
-      this.sessionId = this.generateUniqueId();
-      Logger.info("Creating new session:", {
-        sessionId: this.sessionId,
-        method: this.selectedMethod
-      });
-
+      const sessionId = this.generateUniqueId();
       const state = window.app.sessionState.get();
       const initializedState = this.initializeNewSessionState(state);
-
-      Logger.info("Session creation payload:", JSON.stringify(initializedState, null, 2));
 
       const response = await fetch(SESSION_API.CREATE, {
         method: "POST",
@@ -81,31 +112,33 @@ export default class SessionManager {
         },
         mode: "cors",
         body: JSON.stringify({
-          uniqueID: this.sessionId,
+          uniqueID: sessionId,
           data: initializedState
         })
       });
-
-      const responseData = await response.json();
-      Logger.info("Session creation response:", JSON.stringify(responseData, null, 2));
 
       if (!response.ok) {
         throw new Error(`Failed to create session: ${response.status}`);
       }
 
+      // Update session state
+      this.sessionState.sessionId = sessionId;
+      this.sessionState.sessionCreated = true;
+
       // Update URL with session ID
       const newUrl = new URL(window.location.href);
-      newUrl.searchParams.set("id", this.sessionId);
-      window.history.pushState({ sessionId: this.sessionId }, "", newUrl);
+      newUrl.searchParams.set("id", sessionId);
+      window.history.pushState({ sessionId }, "", newUrl);
 
-      this.eventBus.emit(EventTypes.SESSION_CREATED, { sessionId: this.sessionId });
-      return responseData;
+      this.eventBus.emit(EventTypes.SESSION_CREATED, { sessionId });
+      return response.json();
 
     } catch (error) {
       Logger.error("Session creation error:", error);
       throw error;
     }
   }
+
 
   initializeNewSessionState(state) {
     return {
@@ -123,8 +156,8 @@ export default class SessionManager {
   }
 
   async saveSession() {
-    if (!this.sessionId || !AuthManager.getUserAuthToken()) {
-      Logger.info("Cannot save session - missing session ID or auth token");
+    // Only save if we have an existing session and are logged in
+    if (!this.sessionState.isLoggedIn || !this.sessionState.sessionId) {
       return;
     }
 
@@ -132,11 +165,6 @@ export default class SessionManager {
       const token = AuthManager.getUserAuthToken();
       const state = window.app.sessionState.get();
       
-      Logger.info("Saving session:", {
-        sessionId: this.sessionId,
-        state: JSON.stringify(state, null, 2)
-      });
-
       const response = await fetch(SESSION_API.SAVE, {
         method: 'PATCH',
         headers: {
@@ -146,20 +174,18 @@ export default class SessionManager {
         },
         mode: 'cors',
         body: JSON.stringify({
-          uniqueID: this.sessionId,
+          uniqueID: this.sessionState.sessionId,
           data: state
         })
       });
 
-      const responseData = await response.json();
-      Logger.info("Session save response:", JSON.stringify(responseData, null, 2));
-      
       if (!response.ok) {
         throw new Error('Failed to save session');
       }
 
+      const responseData = await response.json();
       this.eventBus.emit(EventTypes.SESSION_SAVED, { 
-        sessionId: this.sessionId,
+        sessionId: this.sessionState.sessionId,
         data: responseData
       });
 
@@ -188,22 +214,19 @@ export default class SessionManager {
         body: JSON.stringify({ sessionId })
       });
 
-      const responseData = await response.json();
-
       if (!response.ok) {
-        Logger.error('Session load failed:', {
-          status: response.status,
-          statusText: response.statusText,
-          response: responseData
-        });
         throw new Error(`Failed to load session: ${response.status}`);
       }
 
-      Logger.info("Session data loaded:", JSON.stringify(responseData, null, 2));
-
+      const responseData = await response.json();
+      
       if (!responseData?.data) {
         throw new Error("No session data received");
       }
+
+      // Update session state
+      this.sessionId = sessionId;
+      this.isLoadedFromExisting = true;
 
       this.eventBus.emit(EventTypes.LOAD_SESSION, responseData.data);
       return responseData.data;
@@ -215,12 +238,21 @@ export default class SessionManager {
   }
 
   scheduleSessionSave() {
-    if (!AuthManager.getUserAuthToken()) return;
+    if (!this.sessionId || !AuthManager.getUserAuthToken()) return;
     
+    // Clear existing timeout
     if (this.saveTimeout) {
       clearTimeout(this.saveTimeout);
     }
-    this.saveTimeout = setTimeout(() => this.saveSession(), 1000);
+    
+    // Set new timeout for 10 seconds
+    this.saveTimeout = setTimeout(async () => {
+      try {
+        await this.saveSession();
+      } catch (error) {
+        Logger.error('Scheduled session save failed:', error);
+      }
+    }, 10000);
   }
 
   generateUniqueId() {
@@ -229,5 +261,9 @@ export default class SessionManager {
       const v = c === 'x' ? r : (r & 0x3 | 0x8);
       return v.toString(16);
     });
+  }
+
+  setAuthState(isLoggedIn) {
+    this.sessionState.isLoggedIn = isLoggedIn;
   }
 }
