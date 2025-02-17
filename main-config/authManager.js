@@ -202,6 +202,7 @@ export class AuthManager {
       try {
         // Get user info first
         await this.getUserInfo(authToken);
+        this.updateVisibility(isAuthorized);
         
         // Only after user info is loaded, try to load sessions
         try {
@@ -337,15 +338,6 @@ export class AuthManager {
   setAuthToken(token) {
     this.setCookie(AUTH_CONFIG.cookies.auth, token, 30);
     Logger.info('Auth token set in cookie');
-  }
-
-  getUserAuthToken() {
-    const token = this.getCookie(AUTH_CONFIG.cookies.auth);
-    if (!token) {
-      Logger.info('No auth token found in cookies');
-      return null;
-    }
-    return token.replace(/^"(.*)"$/, '$1'); // Clean the token
   }
 }
 
