@@ -232,17 +232,34 @@ export default class SessionManager {
       throw new Error("No session data received");
     }
 
-    // Ensure we extract data properly from the API response
-    const sessionData = responseData.data;
-    
-    // Log the loaded data for debugging
-    Logger.info("Loaded session data:", JSON.stringify(sessionData, null, 2));
+    // Log the raw response data for debugging
+    Logger.info("Raw API response:", JSON.stringify(responseData, null, 2));
+
+    // Preserve all data from the response, including search results
+    const sessionData = {
+      ...responseData.data,
+      // Ensure search object maintains its structure
+      search: {
+        ...responseData.data.search,
+        results: responseData.data.search?.results || null,
+        current_page: responseData.data.search?.current_page || 1,
+        total_pages: responseData.data.search?.results ? 
+          Math.ceil(responseData.data.search.results.length / 10) : 0,
+        items_per_page: 10,
+        active_item: responseData.data.search?.active_item || null,
+        reload_required: false
+      },
+      // Preserve searchRan flag if it exists
+      searchRan: responseData.data.search?.results ? true : false
+    };
 
     // Update session state
     this.sessionId = sessionId;
     this.isLoadedFromExisting = true;
 
-    // Emit the load event with the full session data
+    Logger.info("Processed session data:", JSON.stringify(sessionData, null, 2));
+
+    // Emit the LOAD_SESSION event with the complete data
     this.eventBus.emit(EventTypes.LOAD_SESSION, sessionData);
     
     return sessionData;
