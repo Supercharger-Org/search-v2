@@ -313,26 +313,39 @@ setupLibraryMethodListeners() {
     });
   });
 }
+
+const STEP_SELECTOR = '[step-name]';
+const TRIGGER_SELECTOR = '[data-accordion="trigger"]';
+const CONTENT_SELECTOR = '[data-accordion="content"]';
+const ICON_SELECTOR = '[data-accordion="icon"]';
   
 setupFilterEventHandlers() {
   Logger.info('[UIManager] Setting up filter event handlers');
   document.querySelectorAll('[data-filter-option]').forEach(btn => {
-    btn.addEventListener('click', e => {
+    btn.addEventListener('click', async (e) => {
       e.preventDefault();
       const filterName = btn.getAttribute('data-filter-option');
       Logger.info('[UIManager] Filter option clicked:', { filterName });
       
       this.eventBus.emit(EventTypes.FILTER_ADDED, { filterName });
       
-      // Wait for state update before proceeding
-      setTimeout(() => {
-        const stepElement = document.querySelector(`[step-name="${filterName}"]`)
-          ?.closest('.horizontal-slide_wrapper');
-        if (stepElement) {
-          Logger.info('[UIManager] Initializing new filter step');
-          this.accordionManager.initializeNewStep(stepElement, true);
-        }
-      }, 50);
+      // Wait for state update
+      await new Promise(resolve => setTimeout(resolve, 50));
+      
+      // Find step directly by step-name
+      const stepElement = document.querySelector(`[step-name="${filterName}"]`);
+      if (!stepElement) {
+        Logger.error('[UIManager] Step element not found:', { filterName });
+        return;
+      }
+      
+      Logger.info('[UIManager] Found step element:', { 
+        filterName,
+        hasAccordionTrigger: !!stepElement.querySelector(TRIGGER_SELECTOR),
+        hasAccordionContent: !!stepElement.querySelector(CONTENT_SELECTOR)
+      });
+      
+      this.accordionManager.initializeNewStep(stepElement, true);
     });
   });
 }
