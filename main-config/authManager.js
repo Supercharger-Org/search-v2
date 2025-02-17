@@ -41,7 +41,7 @@ export class AuthManager {
     this.isAuthorized = false;
 
     this.eventBus.on(AUTH_EVENTS.AUTH_STATE_CHANGED, ({ isAuthorized }) => {
-      this.updateVisibility(isAuthorized);
+      this.updateVisibility(this.isAuthorized);
     });
   }
 
@@ -202,7 +202,7 @@ export class AuthManager {
       try {
         // Get user info first
         await this.getUserInfo(authToken);
-        this.updateVisibility(isAuthorized);
+        this.updateVisibility(this.isAuthorized);
         
         // Only after user info is loaded, try to load sessions
         try {
