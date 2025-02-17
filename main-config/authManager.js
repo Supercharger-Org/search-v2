@@ -40,8 +40,9 @@ export class AuthManager {
     this.userSession = null;
     this.isAuthorized = false;
 
+    // Update to use event parameter
     this.eventBus.on(AUTH_EVENTS.AUTH_STATE_CHANGED, ({ isAuthorized }) => {
-      this.updateVisibility(this.isAuthorized);
+      this.updateVisibility(isAuthorized);
     });
   }
 
@@ -119,8 +120,6 @@ export class AuthManager {
       throw error;
     }
   }
-
-//... continuing from previous AuthManager class
 
   static getUserAuthToken() {
     const value = `; ${document.cookie}`;
@@ -202,7 +201,10 @@ export class AuthManager {
       try {
         // Get user info first
         await this.getUserInfo(authToken);
-        this.updateVisibility(this.isAuthorized);
+        
+        // Set authorized state and emit event
+        this.isAuthorized = true;
+        this.eventBus.emit(AUTH_EVENTS.AUTH_STATE_CHANGED, { isAuthorized: true });
         
         // Only after user info is loaded, try to load sessions
         try {
