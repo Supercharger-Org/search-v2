@@ -213,7 +213,7 @@ initializeTableScroll() {
       'assigneeText': item.assignee ? Array.isArray(item.assignee) ? item.assignee.join(', ') : item.assignee : '',
       'inventorText': item.inventors ? Array.isArray(item.inventors) ? item.inventors.join(', ') : item.inventors : '',
       'abstractText': this.truncateText(item.abstract),
-      'claimText': this.truncateText(item.claims_html || ''),
+      'claimText': item.claims ? this.truncateText(item.claims) : '',
       'descriptionText': 'description',
       'grantDateText': 'grant_date',
       'priorityDateText': 'priority_date',
@@ -228,7 +228,9 @@ initializeTableScroll() {
     Object.entries(fieldMappings).forEach(([uiAttr, dataField]) => {
       const el = newRow.querySelector(`[data-attribute="table_contentCell_${uiAttr}"]`);
       if (el) {
-        if (typeof dataField === 'string' && item[dataField]) {
+        if (uiAttr === 'claimText' && item.claims) {
+          el.innerHTML = this.truncateText(item.claims);
+        } else if (typeof dataField === 'string' && item[dataField]) {
           el.textContent = item[dataField];
         } else {
           el.textContent = dataField; // For pre-processed fields (truncated text)
@@ -246,6 +248,40 @@ initializeTableScroll() {
     });
 
     return newRow;
+  }
+
+  showSidebar(sidebar, activeItem) {
+    const sidebarFields = {
+      'title': activeItem.title || '',
+      'abstract': activeItem.abstract || '',
+      'claims': activeItem.claims || '',
+      'assignee': Array.isArray(activeItem.assignee) ? activeItem.assignee.join(', ') : (activeItem.assignee || ''),
+      'inventors': Array.isArray(activeItem.inventors) ? activeItem.inventors.join(', ') : (activeItem.inventors || ''),
+      'score': activeItem.score || '',
+      'publication_number': activeItem.publication_number || '',
+      'priority_date': activeItem.priority_date || '',
+      'filing_date': activeItem.filing_date || '',
+      'publication_date': activeItem.publication_date || '',
+      'grant_date': activeItem.grant_date || ''
+    };
+
+    // Update sidebar content
+    Object.entries(sidebarFields).forEach(([field, value]) => {
+      const el = sidebar.querySelector(`[sidebar-info="${field}"]`);
+      if (el) {
+        if (field === 'claims') {
+          el.innerHTML = value; // Use innerHTML for claims to preserve HTML formatting
+        } else {
+          el.textContent = value;
+        }
+      }
+    });
+
+    // Show sidebar with animation
+    sidebar.style.display = 'block';
+    requestAnimationFrame(() => {
+      sidebar.style.transform = 'translateX(0)';
+    });
   }
 
 
@@ -309,43 +345,6 @@ initializeTableScroll() {
     } else {
       this.hideSidebar(sidebar);
     }
-  }
-
-  showSidebar(sidebar, activeItem) {
-    const sidebarFields = {
-      'title': activeItem.title || '',
-      'abstract': activeItem.abstract || '',
-      'claims': activeItem.claims_html || '',
-      'assignee': Array.isArray(activeItem.assignee) ? activeItem.assignee.join(', ') : (activeItem.assignee || ''),
-      'inventor': Array.isArray(activeItem.inventors) ? activeItem.inventors.join(', ') : (activeItem.inventors || ''),
-      'score': activeItem.score || '',
-      'number': activeItem.publication_number || ''
-    };
-
-    // Update sidebar content
-    Object.entries(sidebarFields).forEach(([field, value]) => {
-      const el = sidebar.querySelector(`[data-sidebar-info="${field}"]`);
-      if (el) {
-        if (field === 'claims') {
-          el.innerHTML = value; // Use innerHTML for claims
-        } else {
-          el.textContent = value;
-        }
-      }
-    });
-
-    // Show sidebar with animation
-    sidebar.style.display = 'block';
-    requestAnimationFrame(() => {
-      sidebar.style.transform = 'translateX(0)';
-    });
-  }
-
-  hideSidebar(sidebar) {
-    sidebar.style.transform = 'translateX(100%)';
-    setTimeout(() => {
-      sidebar.style.display = 'none';
-    }, 300); // Match transition duration
   }
 
   setupPaginationButtons() {
