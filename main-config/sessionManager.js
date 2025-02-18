@@ -32,32 +32,6 @@ export default class SessionManager {
     this.updateFreeSearchDisplay = this.updateFreeSearchDisplay.bind(this);
     
     this.setupInitialEventListeners();
-    this.setupFreeUserEventListeners();
-  }
-
-  setupFreeUserEventListeners() {
-    this.eventBus.on(EventTypes.SEARCH_INITIATED, async () => {
-      if (!AuthManager.getUserAuthToken()) {
-        const canSearch = await this.handleFreeUserSearch();
-        if (!canSearch) {
-          const maxUsagePopup = document.querySelector('#max-usage');
-          if (maxUsagePopup) {
-            maxUsagePopup.style.display = 'block';
-          }
-          this.eventBus.emit(EventTypes.SEARCH_FAILED, { 
-            error: new Error('Free search limit reached') 
-          });
-          return false;
-        }
-      }
-      return true;
-    });
-
-    this.eventBus.on(EventTypes.SEARCH_COMPLETED, () => {
-      if (!AuthManager.getUserAuthToken()) {
-        this.incrementFreeSearchCount();
-      }
-    });
   }
 
   initializeFreeUser() {
@@ -147,7 +121,34 @@ export default class SessionManager {
       }
     });
 
-    // Track all events that should trigger a session save
+    // Search event handling
+    this.eventBus.on(EventTypes.SEARCH_INITIATED, async () => {
+      if (!AuthManager.getUserAuthToken()) {
+        // Check if search is allowed
+        if (this.freeSearchCount >= this.MAX_FREE_SEARCHES) {
+          const maxUsagePopup = document.querySelector('#max-usage');
+          if (maxUsagePopup) {
+            maxUsagePopup.style.display = 'block';
+          }
+          this.eventBus.emit(EventTypes.SEARCH_FAILED, { 
+            error: new Error('Free search limit reached') 
+          });
+          return false;
+        }
+      } else if (!this.sessionId && this.selectedMethod === 'basic') {
+        await this.createNewSession();
+      }
+      return true;
+    });
+
+    // Only increment search count on successful completion
+    this.eventBus.on(EventTypes.SEARCH_COMPLETED, () => {
+      if (!AuthManager.getUserAuthToken()) {
+        this.incrementFreeSearchCount();
+      }
+    });
+
+    // Track session save events
     const saveEvents = [
       EventTypes.KEYWORD_ADDED,
       EventTypes.KEYWORD_REMOVED,
@@ -169,15 +170,6 @@ export default class SessionManager {
           this.scheduleSessionSave();
         }
       });
-    });
-
-    // Special handling for search events
-    this.eventBus.on(EventTypes.SEARCH_INITIATED, async () => {
-      if (!AuthManager.getUserAuthToken()) {
-        this.incrementFreeSearchCount();
-      } else if (!this.sessionId && this.selectedMethod === 'basic') {
-        await this.createNewSession();
-      }
     });
   }
 
@@ -389,7 +381,7 @@ export default class SessionManager {
       } catch (error) {
         Logger.error('Scheduled session save failed:', error);
       }
-    }, 10000);
+    }, 5000);
   }
 
   generateUniqueId() {
