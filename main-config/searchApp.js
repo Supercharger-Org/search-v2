@@ -110,12 +110,22 @@ class SearchApp {
     }
   }
 
-  async initializeSession() {
+  // In SearchApp.js
+
+async initializeSession() {
   try {
     Logger.info('Initializing session...');
     
     const urlParams = new URLSearchParams(window.location.search);
     const sessionId = urlParams.get('id');
+    
+    // Initialize UI first
+    this.uiManager.initialize();
+    
+    // If not authorized, handle free user initialization
+    if (!this.authManager.getUserAuthToken()) {
+      this.sessionManager.initializeFreeUser();
+    }
     
     if (sessionId) {
       // Load existing session
@@ -124,9 +134,6 @@ class SearchApp {
       
       if (sessionData) {
         Logger.info('Session loaded successfully:', sessionData);
-        
-        // Initialize UI first
-        this.uiManager.initialize();
         
         // Load session state
         this.sessionState.load(sessionData);
