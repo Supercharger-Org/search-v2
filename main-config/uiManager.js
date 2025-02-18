@@ -118,6 +118,13 @@ export default class UIManager {
   const container = document.getElementById('main-steps-container');
   if (!container) return;
 
+  // Store the previously visible steps for comparison
+  const previouslyVisibleSteps = new Set(
+    Array.from(container.querySelectorAll('.horizontal-slide_wrapper[step-name]'))
+      .filter(step => step.style.display !== 'none')
+      .map(step => step.getAttribute('step-name'))
+  );
+
   // First hide all steps
   const steps = Array.from(container.querySelectorAll('.horizontal-slide_wrapper[step-name]'));
   steps.forEach(step => {
@@ -145,6 +152,8 @@ export default class UIManager {
     }
   }
   
+  let lastNewStep = null;
+  
   // Show and position filter steps based on their order
   if (state.filters?.length > 0) {
     // Sort filters by order
@@ -154,6 +163,7 @@ export default class UIManager {
     sortedFilters.forEach((filter, index) => {
       const filterStep = container.querySelector(`[step-name="${filter.name}"]`)?.closest('.horizontal-slide_wrapper');
       if (filterStep) {
+        const wasVisible = previouslyVisibleSteps.has(filter.name);
         this.accordionManager.handleStepVisibilityChange(filterStep, true);
         
         // Calculate target position (2 for library/method + current filter index)
@@ -164,11 +174,20 @@ export default class UIManager {
           const referenceNode = container.children[targetPosition] || null;
           container.insertBefore(filterStep, referenceNode);
         }
+
+        // If this is a newly added step, store it for scrolling
+        if (!wasVisible) {
+          lastNewStep = filterStep;
+        }
       }
     });
   }
-}
 
+  // If we found a newly added step, scroll to it
+  if (lastNewStep) {
+    this.scrollToElement(lastNewStep, 100);
+  }
+}
   updateDisplay(state){
     this.updateAll(state);
   }
