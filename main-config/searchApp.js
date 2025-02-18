@@ -1,3 +1,8 @@
+/**
+ * SearchApp - Main application class that coordinates all components and manages the application state.
+ * This class follows an event-driven architecture where component communication happens through events.
+ */
+
 import { Logger } from "./logger.js";
 import { EventTypes } from "./eventTypes.js";
 import EventBus from "./eventBus.js";
@@ -12,6 +17,18 @@ import { AuthManager, AUTH_EVENTS } from './authManager.js';
 
 class SearchApp {
   constructor() {
+    // Initialize core services and event bus
+    this.initializeServices();
+    
+    // Make app instance globally available
+    window.app = this;
+  }
+
+  /**
+   * Initialize core services and managers
+   * This includes event bus, API services, and all managers
+   */
+  initializeServices() {
     // Create shared EventBus instance
     this.eventBus = new EventBus();
     
@@ -19,25 +36,24 @@ class SearchApp {
     this.apiConfig = new APIConfig();
     this.apiService = new APIService(this.apiConfig);
     
-    // Create auth manager instance and share event bus
+    // Initialize managers with shared event bus
     this.authManager = new AuthManager();
     this.authManager.eventBus = this.eventBus;
     
-    // Initialize managers with shared event bus
     this.uiManager = new UIManager(this.eventBus);
     this.sessionState = new SessionState(this.uiManager);
     this.sessionManager = new SessionManager(this.eventBus);
     this.assigneeSearchManager = new AssigneeSearchManager(this.eventBus, EventTypes);
     this.valueSelectManager = new ValueSelectManager(this.eventBus);
-    
-    // Make app instance globally available
-    window.app = this;
   }
 
+  /**
+   * Returns the default empty state structure
+   */
   getEmptyState() {
     return {
       library: null,
-      method: { 
+      method: {
         selected: null,
         description: {
           value: "",
@@ -63,139 +79,173 @@ class SearchApp {
     };
   }
 
+  /**
+   * Main initialization method
+   * Sets up the application in the following order:
+   * 1. Initialize core UI and show loaders
+   * 2. Initialize auth
+   * 3. Initialize session
+   * 4. Setup event handlers
+   * 5. Initialize additional managers
+   */
   async initialize() {
     try {
       Logger.info('Initializing SearchApp...');
-
+      
       // Show initial loaders
-      document.querySelectorAll('[data-loader="auth"]').forEach(loader => 
-        loader.style.display = 'block'
-      );
-      document.querySelectorAll('[data-loader="session"]').forEach(loader => 
-        loader.style.display = 'block'
-      );
+      this.toggleLoaders(true, ['auth', 'session']);
 
-      // Initialize core UI
-      this.uiManager.initialize();
-
-      // Setup auth event listeners
-      this.setupAuthEventListeners();
+      // Initialize core components
+      await this.initializeCore();
       
-      // Initialize auth
-      await this.initializeAuth();
-      document.querySelectorAll('[data-loader="auth"]').forEach(loader => 
-        loader.style.display = 'none'
-      );
-      
-      // Initialize session and load state
-      await this.initializeSession();
-      document.querySelectorAll('[data-loader="session"]').forEach(loader => 
-        loader.style.display = 'none'
-      );
-      
-      // Setup event handlers
+      // Setup all event handlers
       this.setupEventHandlers();
-      
-      // Initialize additional managers
-      this.initializeManagers();
       
       Logger.info('SearchApp initialization complete');
     } catch (error) {
       Logger.error('SearchApp initialization error:', error);
-      // Hide loaders on error
-      document.querySelectorAll('[data-loader]').forEach(loader => 
-        loader.style.display = 'none'
-      );
-      this.handleInitializationError();
+      this.handleInitializationError(error);
     }
   }
 
-  // In SearchApp.js
-
-async initializeSession() {
-  try {
-    Logger.info('Initializing session...');
-    
-    const urlParams = new URLSearchParams(window.location.search);
-    const sessionId = urlParams.get('id');
-    
+  /**
+   * Initialize core components: UI, Auth, and Session
+   */
+  async initializeCore() {
     // Initialize UI first
     this.uiManager.initialize();
+
+    // Initialize auth
+    await this.initializeAuth();
+    this.toggleLoaders(false, ['auth']);
     
-    // If not authorized, handle free user initialization
-    if (!this.authManager.getUserAuthToken()) {
-      this.sessionManager.initializeFreeUser();
-    }
+    // Initialize session
+    await this.initializeSession();
+    this.toggleLoaders(false, ['session']);
     
-    if (sessionId) {
-      // Load existing session
-      Logger.info('Loading existing session:', sessionId);
-      const sessionData = await this.sessionManager.loadSession(sessionId);
-      
-      if (sessionData) {
-        Logger.info('Session loaded successfully:', sessionData);
-        
-        // Load session state
-        this.sessionState.load(sessionData);
-        
-        // Mark search as completed if we have results
-        if (sessionData.search?.results) {
-          Logger.info('Restoring search results from session');
-          
-          // Update search state with results
-          this.sessionState.updateSearchState({
-            results: sessionData.search.results,
-            current_page: sessionData.search.current_page || 1,
-            total_pages: Math.ceil((sessionData.search.results.length || 0) / sessionData.search.items_per_page),
-            active_item: sessionData.search.active_item || null,
-            reload_required: false
-          });
-          
-          // Emit search completed event to update UI
-          this.eventBus.emit(EventTypes.SEARCH_COMPLETED, { 
-            results: sessionData.search.results 
-          });
-        }
-        
-        // Update UI with full state
-        this.uiManager.updateAll(this.sessionState.get());
-        
-      } else {
-        Logger.info('No session data found, initializing fresh UI');
-        this.uiManager.initialize();
-      }
-    } else {
-      Logger.info('No session ID found, initializing fresh UI');
-      this.uiManager.initialize();
-    }
-    
-  } catch (error) {
-    Logger.error('Session/UI initialization failed:', error);
-    // Fallback to basic UI initialization
-    this.uiManager.initialize();
+    // Initialize additional managers
+    this.initializeManagers();
   }
-}
-  
+
+  /**
+   * Toggle loader elements visibility
+   */
+  toggleLoaders(show, types = []) {
+    types.forEach(type => {
+      document.querySelectorAll(`[data-loader="${type}"]`)
+        .forEach(loader => loader.style.display = show ? 'block' : 'none');
+    });
+  }
+
+  /**
+   * Initialize authentication
+   */
   async initializeAuth() {
     try {
       Logger.info('Initializing auth...');
       
-      // First ensure all auth-related elements are hidden
-      document.querySelectorAll('[state-visibility]').forEach(el => {
-        el.style.display = 'none';
-      });
+      // Hide all auth-related elements initially
+      document.querySelectorAll('[state-visibility]')
+        .forEach(el => el.style.display = 'none');
 
-      // Then check auth status - this will trigger appropriate visibility updates
+      // Check auth status
       await this.authManager.checkAuthStatus();
       
       Logger.info('Auth initialization complete');
     } catch (error) {
       Logger.error('Auth initialization failed:', error);
-      // If auth fails, ensure we handle as free user
       this.authManager.handleFreeUser();
     }
   }
 
+  /**
+   * Initialize session state and load existing session if available
+   */
+  async initializeSession() {
+    try {
+      Logger.info('Initializing session...');
+      
+      const urlParams = new URLSearchParams(window.location.search);
+      const sessionId = urlParams.get('id');
+      
+      // Handle free user initialization if not authorized
+      if (!this.authManager.getUserAuthToken()) {
+        this.sessionManager.initializeFreeUser();
+      }
+      
+      if (sessionId) {
+        await this.loadExistingSession(sessionId);
+      } else {
+        Logger.info('No session ID found, initializing fresh UI');
+        this.uiManager.initialize();
+      }
+      
+    } catch (error) {
+      Logger.error('Session initialization failed:', error);
+      this.uiManager.initialize();
+    }
+  }
+
+  /**
+   * Load an existing session by ID
+   */
+  async loadExistingSession(sessionId) {
+    try {
+      Logger.info('Loading existing session:', sessionId);
+      const sessionData = await this.sessionManager.loadSession(sessionId);
+      
+      if (sessionData) {
+        this.handleExistingSessionData(sessionData);
+      } else {
+        Logger.info('No session data found, initializing fresh UI');
+        this.uiManager.initialize();
+      }
+    } catch (error) {
+      Logger.error('Error loading existing session:', error);
+      this.uiManager.initialize();
+    }
+  }
+
+  /**
+   * Handle existing session data
+   */
+  handleExistingSessionData(sessionData) {
+    Logger.info('Session loaded successfully:', sessionData);
+    
+    // Load session state
+    this.sessionState.load(sessionData);
+    
+    // Restore search results if available
+    if (sessionData.search?.results) {
+      this.restoreSearchResults(sessionData);
+    }
+    
+    // Update UI with full state
+    this.uiManager.updateAll(this.sessionState.get());
+  }
+
+  /**
+   * Restore search results from session data
+   */
+  restoreSearchResults(sessionData) {
+    Logger.info('Restoring search results from session');
+    
+    this.sessionState.updateSearchState({
+      results: sessionData.search.results,
+      current_page: sessionData.search.current_page || 1,
+      total_pages: Math.ceil((sessionData.search.results.length || 0) / sessionData.search.items_per_page),
+      active_item: sessionData.search.active_item || null,
+      reload_required: false
+    });
+    
+    this.eventBus.emit(EventTypes.SEARCH_COMPLETED, { 
+      results: sessionData.search.results 
+    });
+  }
+
+  /**
+   * Initialize additional managers
+   */
   initializeManagers() {
     try {
       this.assigneeSearchManager.init();
@@ -205,50 +255,46 @@ async initializeSession() {
     }
   }
 
-  handleInitializationError() {
+  /**
+   * Handle initialization errors
+   */
+  handleInitializationError(error) {
     Logger.info('Handling initialization error - ensuring valid UI state');
+    
+    // Hide all loaders
+    this.toggleLoaders(false);
+    
+    // Reset to empty state
     const emptyState = this.getEmptyState();
     this.sessionState.load(emptyState);
     this.uiManager.updateAll(emptyState);
     
-    // Still try to initialize managers
-    this.assigneeSearchManager.init();
-    this.valueSelectManager.init();
+    // Still try to initialize managers and event handlers
+    this.initializeManagers();
     this.setupEventHandlers();
   }
 
-  async initializeComponents() {
-    try {
-      // Check for existing session
-      const hasExistingSession = await this.sessionManager.initialize();
-      
-      if (hasExistingSession) {
-        const state = this.sessionState.get();
-        this.uiManager.initialize(state);
-      } else {
-        this.uiManager.initialize();
-      }
-      
-      // Initialize other managers
-      this.assigneeSearchManager.init();
-      this.valueSelectManager.init();
-      
-      // Setup all event handlers
-      this.setupEventHandlers();
-      
-    } catch (error) {
-      Logger.error('Component initialization failed:', error);
-      throw error;
-    }
+  /**
+   * Setup all event handlers
+   */
+  setupEventHandlers() {
+    this.setupAuthEventListeners();
+    this.setupSearchHandlers();
+    this.setupFilterHandlers();
+    this.setupMethodHandlers();
+    this.setupSessionHandlers();
+    this.setupNewSessionButton();
+    this.setupReloadTriggers();
   }
 
+  /**
+   * Setup authentication event listeners
+   */
   setupAuthEventListeners() {
-    // Auth state change handler
     this.eventBus.on(AUTH_EVENTS.AUTH_STATE_CHANGED, ({ isAuthorized }) => {
       this.authManager.updateVisibility(isAuthorized);
     });
     
-    // Free usage counter handler
     this.eventBus.on(AUTH_EVENTS.FREE_USAGE_UPDATED, ({ searchesRemaining }) => {
       const searchCountEl = document.querySelector('#free-search-number');
       if (searchCountEl) {
@@ -257,35 +303,146 @@ async initializeSession() {
     });
   }
 
-  updateFilter(filterName, updateFn) {
-    const currentFilters = this.sessionState.get().filters;
-    let filter = currentFilters.find(f => f.name === filterName);
-    if (filter) {
-      updateFn(filter);
-    } else {
-      filter = { name: filterName, order: currentFilters.length, value: null };
-      updateFn(filter);
-      currentFilters.push(filter);
-    }
-    this.sessionState.update("filters", currentFilters);
+  /**
+   * Setup search-related event handlers
+   */
+  setupSearchHandlers() {
+    let isSearching = false;
+
+    this.eventBus.on(EventTypes.SEARCH_INITIATED, async () => {
+      if (isSearching) return;
+      isSearching = true;
+
+      try {
+        await this.handleSearchInitiation();
+      } catch (error) {
+        this.handleSearchError(error);
+      } finally {
+        isSearching = false;
+      }
+    });
+
+    // Setup search result handlers
+    this.setupSearchResultHandlers();
   }
 
-  setupEventHandlers() {
-    // Search Events
-    this.setupSearchHandlers();
+  /**
+   * Handle search initiation
+   */
+  async handleSearchInitiation() {
+    // Check free user search ability
+    if (!this.authManager.getUserAuthToken() && !this.sessionManager.handleFreeUserSearch()) {
+      this.handleFreeUserSearchLimit();
+      return;
+    }
+
+    // Execute search
+    const searchInput = this.sessionState.generateSearchInput();
+    const results = await this.apiService.executeSearch(searchInput);
     
-    // Keyword Events
-    this.setupKeywordHandlers();
+    // Handle successful search
+    await this.handleSuccessfulSearch(results);
+  }
+
+  /**
+   * Handle successful search completion
+   */
+  async handleSuccessfulSearch(results) {
+    // Handle free user search count
+    if (!this.authManager.getUserAuthToken()) {
+      this.sessionManager.incrementFreeSearchCount();
+    }
+
+    // Update search state
+    this.sessionState.updateSearchState({
+      results: results || [],
+      current_page: 1,
+      total_pages: Math.ceil((results?.length || 0) / this.sessionState.get().search.items_per_page),
+      reload_required: false
+    });
+
+    // Save session if authenticated
+    if (this.sessionManager.sessionId && this.authManager.getUserAuthToken()) {
+      try {
+        await this.sessionManager.saveSession();
+      } catch (error) {
+        Logger.error('Failed to save session after search:', error);
+      }
+    }
+
+    // Emit completion event
+    this.eventBus.emit(EventTypes.SEARCH_COMPLETED, { results });
+  }
+
+  /**
+   * Setup search result event handlers
+   */
+  setupSearchResultHandlers() {
+    // Search completion handler
+    this.eventBus.on(EventTypes.SEARCH_COMPLETED, () => {
+      this.updateSearchButton(false, 'Search');
+    });
+
+    // Search failure handler
+    this.eventBus.on(EventTypes.SEARCH_FAILED, ({ error }) => {
+      this.updateSearchButton(false, 'Search');
+      alert(error.message || 'Search failed. Please try again.');
+    });
+
+    // Pagination handlers
+    this.setupPaginationHandlers();
+  }
+
+  /**
+   * Setup pagination event handlers
+   */
+  setupPaginationHandlers() {
+    this.eventBus.on(EventTypes.SEARCH_PAGE_NEXT, () => {
+      const state = this.sessionState.get();
+      if (state.search?.current_page < state.search?.total_pages) {
+        this.sessionState.updateSearchState({
+          current_page: (state.search?.current_page || 0) + 1
+        });
+      }
+    });
+
+    this.eventBus.on(EventTypes.SEARCH_PAGE_PREV, () => {
+      const state = this.sessionState.get();
+      if (state.search?.current_page > 1) {
+        this.sessionState.updateSearchState({
+          current_page: (state.search?.current_page || 2) - 1
+        });
+      }
+    });
+  }
+
+  /**
+   * Update search button state
+   */
+  updateSearchButton(disabled, text) {
+    const searchButton = document.querySelector('#run-search');
+    if (searchButton) {
+      searchButton.disabled = disabled;
+      searchButton.innerHTML = text;
+    }
+  }
+
+  /**
+   * Handle free user search limit reached
+   */
+  handleFreeUserSearchLimit() {
+    const maxUsagePopup = document.querySelector('#max-usage');
+    if (maxUsagePopup) maxUsagePopup.style.display = 'block';
     
-    // Filter Events
-    this.setupFilterHandlers();
-    
-    // Method and Description Events
-    this.setupMethodHandlers();
-    
-    // Session Events
-    this.setupSessionHandlers();
-this.setupNewSessionButton();
+    this.eventBus.emit(EventTypes.SEARCH_FAILED, { 
+      error: new Error('Free search limit reached') 
+    });
+  }
+
+  /**
+   * Setup reload triggers for search-related events
+   */
+  setupReloadTriggers() {
     const reloadTriggeringEvents = [
       EventTypes.LIBRARY_SELECTED,
       EventTypes.METHOD_SELECTED,
@@ -315,294 +472,40 @@ this.setupNewSessionButton();
     });
   }
 
-  setupNewSessionButton(){
-    const newSessionButton = document.querySelector('#start-new-session');
-  if (newSessionButton) {
-    newSessionButton.addEventListener('click', async () => {
-      try {
-        // Disable the button while processing
-        newSessionButton.disabled = true;
-        
-        // Check if there's an existing session
-        if (this.sessionManager.sessionId) {
-          Logger.info('Existing session found, saving before starting new session');
-          
-          try {
-            await this.sessionManager.saveSession();
-            Logger.info('Session saved successfully');
-          } catch (error) {
-            Logger.error('Error saving existing session:', error);
-            // Continue with new session even if save fails
-          }
-        }
-
-        // Remove all URL parameters and refresh
-        window.location.href = window.location.pathname;
-        
-      } catch (error) {
-        Logger.error('Error handling new session:', error);
-        // Re-enable the button if something goes wrong
-        newSessionButton.disabled = false;
-      }
-    });
-  }
-
-  }
-
-setupSearchHandlers() {
-  let isSearching = false;  // Flag to prevent duplicate searches
-
-  this.eventBus.on(EventTypes.SEARCH_INITIATED, async () => {
-    if (isSearching) return;  // Prevent duplicate searches
-    isSearching = true;
-
-    try {
-      // Check if free user can perform search
-      if (!this.authManager.getUserAuthToken()) {
-        if (!this.sessionManager.handleFreeUserSearch()) {
-          const maxUsagePopup = document.querySelector('#max-usage');
-          if (maxUsagePopup) maxUsagePopup.style.display = 'block';
-          this.eventBus.emit(EventTypes.SEARCH_FAILED, { 
-            error: new Error('Free search limit reached') 
-          });
-          isSearching = false;
-          return;
-        }
-      }
-
-      const searchInput = this.sessionState.generateSearchInput();
-      const results = await this.apiService.executeSearch(searchInput);
-      
-      // Handle free user search count increment
-      if (!this.authManager.getUserAuthToken()) {
-        this.sessionManager.incrementFreeSearchCount();
-      }
-
-      this.sessionState.updateSearchState({
-        results: results || [],
-        current_page: 1,
-        total_pages: Math.ceil((results?.length || 0) / this.sessionState.get().search.items_per_page),
-        reload_required: false
-      });
-
-      // Save session if authenticated
-      if (this.sessionManager.sessionId && this.authManager.getUserAuthToken()) {
-        try {
-          await this.sessionManager.saveSession();
-        } catch (error) {
-          Logger.error('Failed to save session after search:', error);
-        }
-      }
-
-      this.eventBus.emit(EventTypes.SEARCH_COMPLETED, { results });
-
-    } catch (error) {
-      Logger.error("Search failed:", error);
-      this.eventBus.emit(EventTypes.SEARCH_FAILED, { error });
-    } finally {
-      isSearching = false;  // Reset search flag
-    }
-  });
-
-  // Keep a single search completion handler
-  this.eventBus.on(EventTypes.SEARCH_COMPLETED, () => {
-    const searchButton = document.querySelector('#run-search');
-    if (searchButton) {
-      searchButton.innerHTML = 'Search';
-      searchButton.disabled = false;
-    }
-  });
-
-  // Keep a single search failure handler
-  this.eventBus.on(EventTypes.SEARCH_FAILED, ({ error }) => {
-    const searchButton = document.querySelector('#run-search');
-    if (searchButton) {
-      searchButton.innerHTML = 'Search';
-      searchButton.disabled = false;
-    }
-    alert(error.message || 'Search failed. Please try again.');
-  });
-  
-    // Search completion
-    this.eventBus.on(EventTypes.SEARCH_COMPLETED, () => {
-      const searchButton = document.querySelector('#run-search');
-      if (searchButton) {
-        searchButton.innerHTML = 'Search';
-        searchButton.disabled = false;
-      }
-    });
-    
-    // Search completion
-    this.eventBus.on(EventTypes.SEARCH_COMPLETED, () => {
-      const searchButton = document.querySelector('#run-search');
-      if (searchButton) {
-        searchButton.innerHTML = 'Search';
-        searchButton.disabled = false;
-      }
-    });
-
-    // Search failure
-    this.eventBus.on(EventTypes.SEARCH_FAILED, ({ error }) => {
-      const searchButton = document.querySelector('#run-search');
-      if (searchButton) {
-        searchButton.innerHTML = 'Search';
-        searchButton.disabled = false;
-      }
-      alert(error.message || 'Search failed. Please try again.');
-    });
-
-    // Pagination
-    this.eventBus.on(EventTypes.SEARCH_PAGE_NEXT, () => {
-      const state = this.sessionState.get();
-      if (state.search?.current_page < state.search?.total_pages) {
-        this.sessionState.updateSearchState({
-          current_page: (state.search?.current_page || 0) + 1
-        });
-      }
-    });
-
-    this.eventBus.on(EventTypes.SEARCH_PAGE_PREV, () => {
-      const state = this.sessionState.get();
-      if (state.search?.current_page > 1) {
-        this.sessionState.updateSearchState({
-          current_page: (state.search?.current_page || 2) - 1
-        });
-      }
-    });
-
-    // Item selection
-    this.eventBus.on(EventTypes.SEARCH_ITEM_SELECTED, (event) => {
-      if (event?.item) {
-        this.sessionState.updateSearchState({
-          active_item: event.item
-        });
-      }
-    });
-
-    this.eventBus.on(EventTypes.SEARCH_ITEM_DESELECTED, () => {
-      this.sessionState.updateSearchState({
-        active_item: null
-      });
-    });
-  }
-
-  setupKeywordHandlers() {
-    // Keywords generation
-    this.eventBus.on(EventTypes.KEYWORDS_GENERATE_INITIATED, async () => {
-      const state = this.sessionState.get();
-      let description = "";
-      try {
-        if (state.method.selected === "patent") {
-          const patent = state.method.patent.data;
-          description = [
-            patent.title || "",
-            patent.abstract || "",
-            ...(Array.isArray(patent.claims) ? patent.claims : [])
-          ].filter(Boolean).join(" ");
-        } else {
-          description = state.method.description.value || "";
-        }
-        
-        if (!description) throw new Error("No content available for keyword generation");
-        const keywords = await this.apiService.generateKeywords(description);
-        
-        if (!this.sessionState.get().filters.some(f => f.name === "keywords-include")) {
-          this.eventBus.emit(EventTypes.FILTER_ADDED, { filterName: "keywords-include" });
-        }
-        
-        this.updateFilter("keywords-include", filter => {
-          const current = Array.isArray(filter.value) ? filter.value : [];
-          filter.value = Array.from(new Set([...current, ...keywords]));
-        });
-        
-        this.eventBus.emit(EventTypes.KEYWORDS_GENERATE_COMPLETED, { keywords });
-      } catch (error) {
-        Logger.error("Failed to generate keywords:", error);
-        alert(error.message || "Failed to generate keywords");
-      }
-    });
-
-    // Additional keywords generation
-    this.eventBus.on(EventTypes.KEYWORDS_ADDITIONAL_GENERATE_INITIATED, async () => {
-      const state = this.sessionState.get();
-      const keywordsFilter = state.filters.find(f => f.name === "keywords-include");
-      const currentKeywords = Array.isArray(keywordsFilter?.value) ? keywordsFilter.value : [];
-      
-      let description = "";
-      try {
-        if (state.method.selected === "patent") {
-          const patent = state.method.patent.data;
-          description = [
-            patent.title || "",
-            patent.abstract || "",
-            ...(Array.isArray(patent.claims) ? patent.claims : [])
-          ].filter(Boolean).join(" ");
-        } else if (state.method.selected === "descriptive") {
-          description = state.method.description.value || "";
-        }
-        
-        const keywords = await this.apiService.generateAdditionalKeywords(
-          currentKeywords,
-          description,
-          state.method.selected
-        );
-        
-        if (Array.isArray(keywords) && keywords.length > 0) {
-          this.updateFilter("keywords-include", filter => {
-            filter.value = Array.from(new Set([...currentKeywords, ...keywords]));
-          });
-          
-          this.eventBus.emit(EventTypes.KEYWORDS_GENERATE_COMPLETED, { keywords });
-        }
-      } catch (error) {
-        Logger.error("Failed to generate additional keywords:", error);
-        alert(error.message || "Failed to generate additional keywords");
-      }
-    });
-
-    // Keywords management
-    this.eventBus.on(EventTypes.KEYWORD_ADDED, ({ keyword }) => {
-      if (!keyword) return;
-      this.updateFilter("keywords-include", filter => {
-        const current = Array.isArray(filter.value) ? filter.value : [];
-        if (!current.includes(keyword)) filter.value = [...current, keyword];
-      });
-    });
-
-    this.eventBus.on(EventTypes.KEYWORD_REMOVED, ({ item, clearAll, type }) => {
-      this.updateFilter("keywords-include", filter => {
-        if (clearAll && type === "include") {
-          filter.value = [];
-        } else if (item) {
-          const current = Array.isArray(filter.value) ? filter.value : [];
-          filter.value = current.filter(k => k !== item);
-        }
-      });
-    });
-
-    // Excluded keywords
-    this.eventBus.on(EventTypes.KEYWORD_EXCLUDED_ADDED, ({ keyword }) => {
-      if (!keyword) return;
-      this.updateFilter("keywords-exclude", filter => {
-        const current = Array.isArray(filter.value) ? filter.value : [];
-        if (!current.includes(keyword)) filter.value = [...current, keyword];
-      });
-    });
-
-    this.eventBus.on(EventTypes.KEYWORD_EXCLUDED_REMOVED, ({ item, clearAll }) => {
-      this.updateFilter("keywords-exclude", filter => {
-        if (clearAll) {
-          filter.value = [];
-        } else if (item) {
-          const current = Array.isArray(filter.value) ? filter.value : [];
-          filter.value = current.filter(k => k !== item);
-        }
-      });
-    });
-  }
-
+  /**
+   * Setup filter-related event handlers
+   */
   setupFilterHandlers() {
-    // Codes
+    // Setup code handlers
+    this.setupCodeHandlers();
+    
+    // Setup inventor handlers
+    this.setupInventorHandlers();
+    
+    // Setup assignee handlers
+    this.setupAssigneeHandlers();
+    
+    // Setup date handlers
+    this.setupDateHandlers();
+
+    // Filter management
+    this.eventBus.on(EventTypes.FILTER_ADDED, ({ filterName }) => {
+      const currentFilters = this.sessionState.get().filters;
+      if (!currentFilters.find(f => f.name === filterName)) {
+        const newFilters = [...currentFilters, { 
+          name: filterName, 
+          order: currentFilters.length, 
+          value: null 
+        }];
+        this.sessionState.update("filters", newFilters);
+      }
+    });
+  }
+
+  /**
+   * Setup code-related event handlers
+   */
+  setupCodeHandlers() {
     this.eventBus.on(EventTypes.CODE_ADDED, ({ code }) => {
       if (!code) return;
       this.updateFilter("code", filter => {
@@ -621,8 +524,12 @@ setupSearchHandlers() {
         }
       });
     });
+  }
 
-    // Inventors
+  /**
+   * Setup inventor-related event handlers
+   */
+  setupInventorHandlers() {
     this.eventBus.on(EventTypes.INVENTOR_ADDED, ({ inventor }) => {
       if (!inventor || !inventor.first_name || !inventor.last_name) return;
       this.updateFilter("inventor", filter => {
@@ -646,8 +553,12 @@ setupSearchHandlers() {
         }
       });
     });
+  }
 
-    // Assignees
+  /**
+   * Setup assignee-related event handlers
+   */
+  setupAssigneeHandlers() {
     this.eventBus.on(EventTypes.ASSIGNEE_ADDED, ({ assignee }) => {
       if (!assignee) return;
       this.updateFilter("assignee", filter => {
@@ -666,8 +577,12 @@ setupSearchHandlers() {
         }
       });
     });
+  }
 
-    // Date
+  /**
+   * Setup date-related event handlers
+   */
+  setupDateHandlers() {
     this.eventBus.on(EventTypes.FILTER_UPDATED, ({ filterName, value }) => {
       if (filterName === "date") {
         this.updateFilter("date", filter => {
@@ -676,7 +591,6 @@ setupSearchHandlers() {
       }
     });
 
-  // Continuing from VALUE_TYPE_UPDATED event handler...
     this.eventBus.on('VALUE_TYPE_UPDATED', ({ filterType, type }) => {
       if (filterType === 'date') {
         const currentFilter = this.sessionState.get().filters.find(f => f.name === 'date');
@@ -686,72 +600,154 @@ setupSearchHandlers() {
         }
       }
     });
-
-    // Filter management
-    this.eventBus.on(EventTypes.FILTER_ADDED, ({ filterName }) => {
-      const currentFilters = this.sessionState.get().filters;
-      if (!currentFilters.find(f => f.name === filterName)) {
-        const newFilters = [...currentFilters, { 
-          name: filterName, 
-          order: currentFilters.length, 
-          value: null 
-        }];
-        this.sessionState.update("filters", newFilters);
-      }
-    });
   }
 
+  /**
+   * Update filter with provided update function
+   */
+  updateFilter(filterName, updateFn) {
+    const currentFilters = this.sessionState.get().filters;
+    let filter = currentFilters.find(f => f.name === filterName);
+    if (filter) {
+      updateFn(filter);
+    } else {
+      filter = { name: filterName, order: currentFilters.length, value: null };
+      updateFn(filter);
+      currentFilters.push(filter);
+    }
+    this.sessionState.update("filters", currentFilters);
+  }
+
+  /**
+   * Setup method-related event handlers
+   */
   setupMethodHandlers() {
-    // Method selection
+    this.setupMethodSelectionHandlers();
+    this.setupDescriptionHandlers();
+    this.setupPatentHandlers();
+    this.setupKeywordGenerationHandlers();
+  }
+
+  /**
+   * Setup method selection handlers
+   */
+  setupMethodSelectionHandlers() {
     this.eventBus.on(EventTypes.METHOD_SELECTED, ({ value }) => {
       const currentState = this.sessionState.get();
       if (value === 'basic') {
-        // Clear all filters completely
-        this.sessionState.update("filters", []);
-        
-        // Reset method state
-        this.sessionState.update("method", {
-          selected: value,
-          description: {
-            value: "",
-            previousValue: null,
-            isValid: false,
-            improved: false,
-            modificationSummary: null
-          },
-          patent: null,
-          searchValue: "",
-          validated: false
-        });
+        this.handleBasicMethodSelection();
       } else {
-        // Reset button text when switching back to descriptive/patent
-        const manageKeywordsButton = document.querySelector("#manage-keywords-button");
-        if (manageKeywordsButton) {
-          manageKeywordsButton.textContent = "Confirm this search value";
-          manageKeywordsButton.disabled = false;
-        }
-
-        // Hide options until valid input
-        const optionsStep = document.querySelector('[step-name="options"]');
-        if (optionsStep) {
-          const optionsWrapper = optionsStep.closest('.horizontal-slide_wrapper');
-          if (optionsWrapper) optionsWrapper.style.display = 'none';
-        }
-
-        this.sessionState.update("method", {
-          ...currentState.method,
-          selected: value,
-          validated: false
-        });
+        this.handleAdvancedMethodSelection(value, currentState);
       }
     });
 
-    // Library selection
     this.eventBus.on(EventTypes.LIBRARY_SELECTED, ({ value }) => {
       this.sessionState.update("library", value);
     });
+  }
 
-    // Patent search
+  /**
+   * Handle basic method selection
+   */
+  handleBasicMethodSelection() {
+    this.sessionState.update("filters", []);
+    this.sessionState.update("method", {
+      selected: 'basic',
+      description: {
+        value: "",
+        previousValue: null,
+        isValid: false,
+        improved: false,
+        modificationSummary: null
+      },
+      patent: null,
+      searchValue: "",
+      validated: false
+    });
+  }
+
+  /**
+   * Handle advanced method selection
+   */
+  handleAdvancedMethodSelection(value, currentState) {
+    const manageKeywordsButton = document.querySelector("#manage-keywords-button");
+    if (manageKeywordsButton) {
+      manageKeywordsButton.textContent = "Confirm this search value";
+      manageKeywordsButton.disabled = false;
+    }
+
+    const optionsStep = document.querySelector('[step-name="options"]');
+    if (optionsStep) {
+      const optionsWrapper = optionsStep.closest('.horizontal-slide_wrapper');
+      if (optionsWrapper) optionsWrapper.style.display = 'none';
+    }
+
+    this.sessionState.update("method", {
+      ...currentState.method,
+      selected: value,
+      validated: false
+    });
+  }
+
+  /**
+   * Setup description-related handlers
+   */
+  setupDescriptionHandlers() {
+    this.eventBus.on(EventTypes.DESCRIPTION_UPDATED, ({ value, isValid }) => {
+      const currentDesc = this.sessionState.get().method.description;
+      this.sessionState.update("method.description", { 
+        ...currentDesc, 
+        value, 
+        isValid 
+      });
+    });
+
+    this.eventBus.on(EventTypes.DESCRIPTION_IMPROVED, async () => {
+      await this.handleDescriptionImprovement();
+    });
+  }
+
+  /**
+   * Handle description improvement
+   */
+  async handleDescriptionImprovement() {
+    const state = this.sessionState.get();
+    const description = state.method?.description?.value;
+    const improveButton = document.querySelector("#validate-description");
+    
+    try {
+      if (!description) {
+        throw new Error("Please enter a description before improving");
+      }
+      
+      if (improveButton) {
+        improveButton.disabled = true;
+        improveButton.textContent = "Improving...";
+      }
+      
+      const result = await this.apiService.improveDescription(description);
+      this.sessionState.update("method.description", {
+        ...state.method.description,
+        value: result.newDescription,
+        previousValue: description,
+        improved: true,
+        modificationSummary: result
+      });
+    } catch (error) {
+      Logger.error("Improvement failed:", error);
+      alert(error.message || "Failed to improve description. Please try again.");
+    } finally {
+      if (improveButton) {
+        improveButton.disabled = false;
+        improveButton.textContent = "Improve Description";
+      }
+    }
+  }
+
+  /**
+   * Setup patent-related handlers
+   */
+  setupPatentHandlers() {
     this.eventBus.on(EventTypes.PATENT_SEARCH_INITIATED, async ({ value }) => {
       try {
         const loader = document.querySelector("#patent-loader");
@@ -777,52 +773,98 @@ setupSearchHandlers() {
         validated: true
       });
     });
+  }
 
-    // Description handling
-    this.eventBus.on(EventTypes.DESCRIPTION_UPDATED, ({ value, isValid }) => {
-      const currentDesc = this.sessionState.get().method.description;
-      this.sessionState.update("method.description", { 
-        ...currentDesc, 
-        value, 
-        isValid 
-      });
+  /**
+   * Setup keyword generation handlers
+   */
+  setupKeywordGenerationHandlers() {
+    this.eventBus.on(EventTypes.KEYWORDS_GENERATE_INITIATED, async () => {
+      await this.handleKeywordGeneration();
     });
 
-    this.eventBus.on(EventTypes.DESCRIPTION_IMPROVED, async () => {
-      const state = this.sessionState.get();
-      const description = state.method?.description?.value;
-      const improveButton = document.querySelector("#validate-description");
-      
-      try {
-        if (!description) {
-          throw new Error("Please enter a description before improving");
-        }
-        
-        if (improveButton) {
-          improveButton.disabled = true;
-          improveButton.textContent = "Improving...";
-        }
-        
-        const result = await this.apiService.improveDescription(description);
-        this.sessionState.update("method.description", {
-          ...state.method.description,
-          value: result.newDescription,
-          previousValue: description,
-          improved: true,
-          modificationSummary: result
-        });
-      } catch (error) {
-        Logger.error("Improvement failed:", error);
-        alert(error.message || "Failed to improve description. Please try again.");
-      } finally {
-        if (improveButton) {
-          improveButton.disabled = false;
-          improveButton.textContent = "Improve Description";
-        }
-      }
+    this.eventBus.on(EventTypes.KEYWORDS_ADDITIONAL_GENERATE_INITIATED, async () => {
+      await this.handleAdditionalKeywordGeneration();
     });
   }
 
+  /**
+   * Handle initial keyword generation
+   */
+  async handleKeywordGeneration() {
+    const state = this.sessionState.get();
+    let description = this.getDescriptionForKeywords(state);
+    
+    try {
+      if (!description) throw new Error("No content available for keyword generation");
+      
+      const keywords = await this.apiService.generateKeywords(description);
+      this.updateKeywordsFilter(keywords);
+      
+      this.eventBus.emit(EventTypes.KEYWORDS_GENERATE_COMPLETED, { keywords });
+    } catch (error) {
+      Logger.error("Failed to generate keywords:", error);
+      alert(error.message || "Failed to generate keywords");
+    }
+  }
+
+  /**
+   * Handle additional keyword generation
+   */
+  async handleAdditionalKeywordGeneration() {
+    const state = this.sessionState.get();
+    const keywordsFilter = state.filters.find(f => f.name === "keywords-include");
+    const currentKeywords = Array.isArray(keywordsFilter?.value) ? keywordsFilter.value : [];
+    
+    try {
+      const description = this.getDescriptionForKeywords(state);
+      const keywords = await this.apiService.generateAdditionalKeywords(
+        currentKeywords,
+        description,
+        state.method.selected
+      );
+      
+      if (Array.isArray(keywords) && keywords.length > 0) {
+        this.updateKeywordsFilter([...currentKeywords, ...keywords]);
+        this.eventBus.emit(EventTypes.KEYWORDS_GENERATE_COMPLETED, { keywords });
+      }
+    } catch (error) {
+      Logger.error("Failed to generate additional keywords:", error);
+      alert(error.message || "Failed to generate additional keywords");
+    }
+  }
+
+  /**
+   * Get description text for keyword generation
+   */
+  getDescriptionForKeywords(state) {
+    if (state.method.selected === "patent") {
+      const patent = state.method.patent.data;
+      return [
+        patent.title || "",
+        patent.abstract || "",
+        ...(Array.isArray(patent.claims) ? patent.claims : [])
+      ].filter(Boolean).join(" ");
+    }
+    return state.method.description.value || "";
+  }
+
+  /**
+   * Update keywords filter with new keywords
+   */
+  updateKeywordsFilter(keywords) {
+    if (!this.sessionState.get().filters.some(f => f.name === "keywords-include")) {
+      this.eventBus.emit(EventTypes.FILTER_ADDED, { filterName: "keywords-include" });
+    }
+    
+    this.updateFilter("keywords-include", filter => {
+      filter.value = Array.from(new Set(keywords));
+    });
+  }
+
+  /**
+   * Setup session-related handlers
+   */
   setupSessionHandlers() {
     this.eventBus.on(EventTypes.LOAD_SESSION, sessionData => {
       Logger.info('Loading session data:', sessionData);
@@ -846,11 +888,39 @@ setupSearchHandlers() {
     });
   }
 
-  
+  /**
+   * Setup new session button handler
+   */
+  setupNewSessionButton() {
+    const newSessionButton = document.querySelector('#start-new-session');
+    if (newSessionButton) {
+      newSessionButton.addEventListener('click', async () => {
+        try {
+          newSessionButton.disabled = true;
+          
+          if (this.sessionManager.sessionId) {
+            Logger.info('Existing session found, saving before starting new session');
+            try {
+              await this.sessionManager.saveSession();
+              Logger.info('Session saved successfully');
+            } catch (error) {
+              Logger.error('Error saving existing session:', error);
+            }
+          }
+
+          window.location.href = window.location.pathname;
+          
+        } catch (error) {
+          Logger.error('Error handling new session:', error);
+          newSessionButton.disabled = false;
+        }
+      });
+    }
+  }
 }
 
 // Initialize the app
 const app = new SearchApp();
 app.initialize();
 
-export default app
+export default app;
