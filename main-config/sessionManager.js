@@ -2,12 +2,6 @@ import { Logger } from './logger.js';
 import { EventTypes } from './eventTypes.js';
 import { AuthManager, AUTH_EVENTS } from './authManager.js';
 
-// Define cookie configuration
-const COOKIE_CONFIG = {
-  freeUser: 'free_user',
-  searchCount: 'search_count'
-};
-
 const SESSION_API = {
   CREATE: 'https://xobg-f2pu-pqfs.n7.xano.io/api:fr-l0x4x/dashboard/patent-search/session-create',
   GET: 'https://xobg-f2pu-pqfs.n7.xano.io/api:fr-l0x4x/dashboard/patent-search/session-get',
@@ -37,9 +31,92 @@ export default class SessionManager {
     this.handleFreeUserSearch = this.handleFreeUserSearch.bind(this);
     this.updateFreeSearchDisplay = this.updateFreeSearchDisplay.bind(this);
     
-    
     this.setupInitialEventListeners();
     this.setupFreeUserEventListeners();
+  }
+
+  setupFreeUserEventListeners() {
+    this.eventBus.on(EventTypes.SEARCH_INITIATED, async () => {
+      if (!AuthManager.getUserAuthToken()) {
+        const canSearch = await this.handleFreeUserSearch();
+        if (!canSearch) {
+          const maxUsagePopup = document.querySelector('#max-usage');
+          if (maxUsagePopup) {
+            maxUsagePopup.style.display = 'block';
+          }
+          this.eventBus.emit(EventTypes.SEARCH_FAILED, { 
+            error: new Error('Free search limit reached') 
+          });
+          return false;
+        }
+      }
+      return true;
+    });
+
+    this.eventBus.on(EventTypes.SEARCH_COMPLETED, () => {
+      if (!AuthManager.getUserAuthToken()) {
+        this.incrementFreeSearchCount();
+      }
+    });
+  }
+
+  initializeFreeUser() {
+    // Get free user data from AuthManager's cookies
+    const authManager = new AuthManager();
+    this.freeUserId = authManager.getCookie('free_user');
+    this.freeSearchCount = parseInt(authManager.getCookie('search_count') || '0');
+
+    if (!this.freeUserId) {
+      this.freeUserId = authManager.generateUniqueId();
+      this.freeSearchCount = 0;
+      authManager.setCookie('free_user', this.freeUserId, 30);
+      authManager.setCookie('search_count', '0', 30);
+    }
+
+    this.updateFreeSearchDisplay();
+    return this.freeSearchCount;
+  }
+
+  async handleFreeUserSearch() {
+    if (this.freeSearchCount >= this.MAX_FREE_SEARCHES) {
+      return false;
+    }
+    return true;
+  }
+
+  incrementFreeSearchCount() {
+    if (!AuthManager.getUserAuthToken()) {
+      this.freeSearchCount = Math.min(this.MAX_FREE_SEARCHES, this.freeSearchCount + 1);
+      const authManager = new AuthManager();
+      authManager.setCookie('search_count', this.freeSearchCount.toString(), 30);
+      this.updateFreeSearchDisplay();
+      
+      this.eventBus.emit(AUTH_EVENTS.FREE_USAGE_UPDATED, {
+        searchesRemaining: this.MAX_FREE_SEARCHES - this.freeSearchCount
+      });
+      
+      return this.freeSearchCount >= this.MAX_FREE_SEARCHES;
+    }
+    return false;
+  }
+
+  updateFreeSearchDisplay() {
+    const remainingSearches = this.MAX_FREE_SEARCHES - this.freeSearchCount;
+    const searchNumberEl = document.querySelector('#free-search-number');
+    if (searchNumberEl) {
+      searchNumberEl.innerHTML = Math.max(0, remainingSearches).toString();
+    }
+
+    // Show/hide max usage popup
+    const maxUsagePopup = document.querySelector('#max-usage');
+    if (maxUsagePopup) {
+      maxUsagePopup.style.display = remainingSearches <= 0 ? 'block' : 'none';
+    }
+
+    Logger.info('Updated free search display:', {
+      freeSearchCount: this.freeSearchCount,
+      remainingSearches,
+    });
   }
 
   setupInitialEventListeners() {
@@ -101,94 +178,6 @@ export default class SessionManager {
       } else if (!this.sessionId && this.selectedMethod === 'basic') {
         await this.createNewSession();
       }
-    });
-  }
-
-  setupFreeUserEventListeners() {
-    this.eventBus.on(EventTypes.SEARCH_INITIATED, async () => {
-      if (!AuthManager.getUserAuthToken()) {
-        const canSearch = await this.handleFreeUserSearch();
-        if (!canSearch) {
-          // Prevent search if limit reached
-          const maxUsagePopup = document.querySelector('#max-usage');
-          if (maxUsagePopup) {
-            maxUsagePopup.style.display = 'block';
-          }
-          this.eventBus.emit(EventTypes.SEARCH_FAILED, { 
-            error: new Error('Free search limit reached') 
-          });
-          return false;
-        }
-      }
-      return true;
-    });
-
-    this.eventBus.on(EventTypes.SEARCH_COMPLETED, () => {
-      if (!AuthManager.getUserAuthToken()) {
-        this.incrementFreeSearchCount();
-      }
-    });
-  }
-
-  initializeFreeUser() {
-    const cookies = document.cookie.split(';').reduce((acc, curr) => {
-      const [key, value] = curr.trim().split('=');
-      acc[key] = value;
-      return acc;
-    }, {});
-
-    this.freeUserId = cookies[AUTH_CONFIG.cookies.freeUser];
-    this.freeSearchCount = parseInt(cookies[AUTH_CONFIG.cookies.searchCount] || '0');
-
-    if (!this.freeUserId) {
-      this.freeUserId = this.generateUniqueId();
-      this.freeSearchCount = 0;
-      this.setCookie(AUTH_CONFIG.cookies.freeUser, this.freeUserId, 30);
-      this.setCookie(AUTH_CONFIG.cookies.searchCount, '0', 30);
-    }
-
-    this.updateFreeSearchDisplay();
-    return this.freeSearchCount;
-  }
-
-  async handleFreeUserSearch() {
-    if (this.freeSearchCount >= this.MAX_FREE_SEARCHES) {
-      return false;
-    }
-    return true;
-  }
-
-  incrementFreeSearchCount() {
-    if (!AuthManager.getUserAuthToken()) {
-      this.freeSearchCount = Math.min(this.MAX_FREE_SEARCHES, this.freeSearchCount + 1);
-      this.setCookie(AUTH_CONFIG.cookies.searchCount, this.freeSearchCount.toString(), 30);
-      this.updateFreeSearchDisplay();
-      
-      this.eventBus.emit(AUTH_EVENTS.FREE_USAGE_UPDATED, {
-        searchesRemaining: this.MAX_FREE_SEARCHES - this.freeSearchCount
-      });
-      
-      return this.freeSearchCount >= this.MAX_FREE_SEARCHES;
-    }
-    return false;
-  }
-
-  updateFreeSearchDisplay() {
-    const remainingSearches = this.MAX_FREE_SEARCHES - this.freeSearchCount;
-    const searchNumberEl = document.querySelector('#free-search-number');
-    if (searchNumberEl) {
-      searchNumberEl.innerHTML = Math.max(0, remainingSearches).toString();
-    }
-
-    // Show/hide max usage popup
-    const maxUsagePopup = document.querySelector('#max-usage');
-    if (maxUsagePopup) {
-      maxUsagePopup.style.display = remainingSearches <= 0 ? 'block' : 'none';
-    }
-
-    Logger.info('Updated free search display:', {
-      freeSearchCount: this.freeSearchCount,
-      remainingSearches,
     });
   }
 
