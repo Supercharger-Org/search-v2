@@ -115,31 +115,55 @@ export default class UIManager {
   }
 
  updateStepVisibility(state) {
+  const container = document.getElementById('main-steps-container');
+  if (!container) return;
+
   // First hide all steps
-  document.querySelectorAll('.horizontal-slide_wrapper[step-name]').forEach(step => {
-    this.accordionManager.handleStepVisibilityChange(step, false);
+  const steps = Array.from(container.querySelectorAll('.horizontal-slide_wrapper[step-name]'));
+  steps.forEach(step => {
+    const stepName = step.getAttribute('step-name');
+    if (!['library', 'method'].includes(stepName)) {
+      this.accordionManager.handleStepVisibilityChange(step, false);
+    }
   });
   
-  // Show library step
-  const libraryStep = document.querySelector('[step-name="library"]')?.closest('.horizontal-slide_wrapper');
+  // Show and position library step (always first)
+  const libraryStep = container.querySelector('[step-name="library"]')?.closest('.horizontal-slide_wrapper');
   if (libraryStep) {
     this.accordionManager.handleStepVisibilityChange(libraryStep, true);
+    container.insertBefore(libraryStep, container.firstChild);
   }
   
-  // Show method step if library is selected
+  // Show and position method step if library is selected (always second)
   if (state.library) {
-    const methodStep = document.querySelector('[step-name="method"]')?.closest('.horizontal-slide_wrapper');
+    const methodStep = container.querySelector('[step-name="method"]')?.closest('.horizontal-slide_wrapper');
     if (methodStep) {
       this.accordionManager.handleStepVisibilityChange(methodStep, true);
+      if (libraryStep?.nextSibling !== methodStep) {
+        container.insertBefore(methodStep, libraryStep?.nextSibling || null);
+      }
     }
   }
   
-  // Show filter steps based on state
+  // Show and position filter steps based on their order
   if (state.filters?.length > 0) {
-    state.filters.forEach(filter => {
-      const filterStep = document.querySelector(`[step-name="${filter.name}"]`)?.closest('.horizontal-slide_wrapper');
+    // Sort filters by order
+    const sortedFilters = [...state.filters].sort((a, b) => a.order - b.order);
+    
+    // Position each filter step after method step
+    sortedFilters.forEach((filter, index) => {
+      const filterStep = container.querySelector(`[step-name="${filter.name}"]`)?.closest('.horizontal-slide_wrapper');
       if (filterStep) {
         this.accordionManager.handleStepVisibilityChange(filterStep, true);
+        
+        // Calculate target position (2 for library/method + current filter index)
+        const targetPosition = 2 + index;
+        const currentPosition = Array.from(container.children).indexOf(filterStep);
+        
+        if (currentPosition !== targetPosition) {
+          const referenceNode = container.children[targetPosition] || null;
+          container.insertBefore(filterStep, referenceNode);
+        }
       }
     });
   }
