@@ -16,7 +16,9 @@ export default class SessionManager {
     this.isInitialized = false;
     this.selectedMethod = null;
     this.isLoadedFromExisting = false;
-    this.freeSearchesUsed = 0;
+    this.MAX_FREE_SEARCHES = 5;
+    this.freeSearchCount = 0;
+    this.freeUserId = null;
     
     // Initialize session state
     this.sessionState = {
@@ -25,6 +27,10 @@ export default class SessionManager {
       sessionCreated: false,
       sessionId: null
     };
+
+    this.handleFreeUserSearch = this.handleFreeUserSearch.bind(this);
+    this.updateFreeSearchDisplay = this.updateFreeSearchDisplay.bind(this);
+    
     
     this.setupInitialEventListeners();
   }
@@ -89,6 +95,101 @@ export default class SessionManager {
         await this.createNewSession();
       }
     });
+  }
+
+  setupFreeUserEventListeners() {
+    this.eventBus.on(EventTypes.SEARCH_INITIATED, async () => {
+      if (!AuthManager.getUserAuthToken()) {
+        const canSearch = await this.handleFreeUserSearch();
+        if (!canSearch) {
+          // Prevent search if limit reached
+          const maxUsagePopup = document.querySelector('#max-usage');
+          if (maxUsagePopup) {
+            maxUsagePopup.style.display = 'block';
+          }
+          this.eventBus.emit(EventTypes.SEARCH_FAILED, { 
+            error: new Error('Free search limit reached') 
+          });
+          return false;
+        }
+      }
+      return true;
+    });
+
+    this.eventBus.on(EventTypes.SEARCH_COMPLETED, () => {
+      if (!AuthManager.getUserAuthToken()) {
+        this.incrementFreeSearchCount();
+      }
+    });
+  }
+
+  initializeFreeUser() {
+    const cookies = document.cookie.split(';').reduce((acc, curr) => {
+      const [key, value] = curr.trim().split('=');
+      acc[key] = value;
+      return acc;
+    }, {});
+
+    this.freeUserId = cookies[AUTH_CONFIG.cookies.freeUser];
+    this.freeSearchCount = parseInt(cookies[AUTH_CONFIG.cookies.searchCount] || '0');
+
+    if (!this.freeUserId) {
+      this.freeUserId = this.generateUniqueId();
+      this.freeSearchCount = 0;
+      this.setCookie(AUTH_CONFIG.cookies.freeUser, this.freeUserId, 30);
+      this.setCookie(AUTH_CONFIG.cookies.searchCount, '0', 30);
+    }
+
+    this.updateFreeSearchDisplay();
+    return this.freeSearchCount;
+  }
+
+  async handleFreeUserSearch() {
+    if (this.freeSearchCount >= this.MAX_FREE_SEARCHES) {
+      return false;
+    }
+    return true;
+  }
+
+  incrementFreeSearchCount() {
+    if (!AuthManager.getUserAuthToken()) {
+      this.freeSearchCount = Math.min(this.MAX_FREE_SEARCHES, this.freeSearchCount + 1);
+      this.setCookie(AUTH_CONFIG.cookies.searchCount, this.freeSearchCount.toString(), 30);
+      this.updateFreeSearchDisplay();
+      
+      this.eventBus.emit(AUTH_EVENTS.FREE_USAGE_UPDATED, {
+        searchesRemaining: this.MAX_FREE_SEARCHES - this.freeSearchCount
+      });
+      
+      return this.freeSearchCount >= this.MAX_FREE_SEARCHES;
+    }
+    return false;
+  }
+
+  updateFreeSearchDisplay() {
+    const remainingSearches = this.MAX_FREE_SEARCHES - this.freeSearchCount;
+    const searchNumberEl = document.querySelector('#free-search-number');
+    if (searchNumberEl) {
+      searchNumberEl.innerHTML = Math.max(0, remainingSearches).toString();
+    }
+
+    // Show/hide max usage popup
+    const maxUsagePopup = document.querySelector('#max-usage');
+    if (maxUsagePopup) {
+      maxUsagePopup.style.display = remainingSearches <= 0 ? 'block' : 'none';
+    }
+
+    Logger.info('Updated free search display:', {
+      freeSearchCount: this.freeSearchCount,
+      remainingSearches,
+    });
+  }
+
+  setCookie(name, value, days) {
+    const date = new Date();
+    date.setTime(date.getTime() + (days * 24 * 60 * 60 * 1000));
+    document.cookie = `${name}=${value};expires=${date.toUTCString()};path=/`;
+    Logger.info(`Cookie set: ${name}=${value}`);
   }
 
   async createNewSession() {
