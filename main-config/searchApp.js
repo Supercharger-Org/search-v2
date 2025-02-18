@@ -350,36 +350,52 @@ this.setupNewSessionButton();
   }
 
 setupSearchHandlers() {
-    this.eventBus.on(EventTypes.SEARCH_INITIATED, async () => {
-      try {
-
-        const searchInput = this.sessionState.generateSearchInput();
-        const results = await this.apiService.executeSearch(searchInput);
-
-        this.sessionState.updateSearchState({
-          results: results || [],
-          current_page: 1,
-          total_pages: Math.ceil((results?.length || 0) / this.sessionState.get().search.items_per_page),
-          reload_required: false
-        });
-
-        if (this.sessionManager.sessionId && AuthManager.getUserAuthToken()) {
-          try {
-            await this.sessionManager.saveSession();
-          } catch (error) {
-            Logger.error('Failed to save session after search:', error);
-          }
+  // Search initiation
+  this.eventBus.on(EventTypes.SEARCH_INITIATED, async () => {
+    try {
+      // Check if free user can perform search
+      if (!this.authManager.getUserAuthToken()) {
+        if (!this.sessionManager.handleFreeUserSearch()) {
+          const maxUsagePopup = document.querySelector('#max-usage');
+          if (maxUsagePopup) maxUsagePopup.style.display = 'block';
+          return;
         }
-
-        this.eventBus.emit(EventTypes.SEARCH_COMPLETED, { results });
-
-      } catch (error) {
-        Logger.error("Search failed:", error);
-        this.eventBus.emit(EventTypes.SEARCH_FAILED, { error });
-      } finally {
-        // Hide session loader after search completes
       }
-    });
+
+      const searchInput = this.sessionState.generateSearchInput();
+      const results = await this.apiService.executeSearch(searchInput);
+      
+      // Handle free user search count increment
+      if (!this.authManager.getUserAuthToken()) {
+        this.sessionManager.incrementFreeSearchCount();
+      }
+
+      this.sessionState.updateSearchState({
+        results: results || [],
+        current_page: 1,
+        total_pages: Math.ceil((results?.length || 0) / this.sessionState.get().search.items_per_page),
+        reload_required: false
+      });
+
+      // Only try to save if we have a session and auth
+      if (this.sessionManager.sessionId && this.authManager.getUserAuthToken()) {
+        try {
+          await this.sessionManager.saveSession();
+        } catch (error) {
+          Logger.error('Failed to save session after search:', error);
+        }
+      }
+
+      this.eventBus.emit(EventTypes.SEARCH_COMPLETED, { results });
+
+
+    } catch (error) {
+      Logger.error("Search failed:", error);
+      this.eventBus.emit(EventTypes.SEARCH_FAILED, { error });
+      
+
+    }
+  });
   
     // Search completion
     this.eventBus.on(EventTypes.SEARCH_COMPLETED, () => {
