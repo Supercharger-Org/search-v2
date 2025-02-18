@@ -121,33 +121,6 @@ export default class SessionManager {
       }
     });
 
-    // Search event handling
-    this.eventBus.on(EventTypes.SEARCH_INITIATED, async () => {
-      if (!AuthManager.getUserAuthToken()) {
-        // Check if search is allowed
-        if (this.freeSearchCount >= this.MAX_FREE_SEARCHES) {
-          const maxUsagePopup = document.querySelector('#max-usage');
-          if (maxUsagePopup) {
-            maxUsagePopup.style.display = 'block';
-          }
-          this.eventBus.emit(EventTypes.SEARCH_FAILED, { 
-            error: new Error('Free search limit reached') 
-          });
-          return false;
-        }
-      } else if (!this.sessionId && this.selectedMethod === 'basic') {
-        await this.createNewSession();
-      }
-      return true;
-    });
-
-    // Only increment search count on successful completion
-    this.eventBus.on(EventTypes.SEARCH_COMPLETED, () => {
-      if (!AuthManager.getUserAuthToken()) {
-        this.incrementFreeSearchCount();
-      }
-    });
-
     // Track session save events
     const saveEvents = [
       EventTypes.KEYWORD_ADDED,
