@@ -67,19 +67,33 @@ class SearchApp {
     try {
       Logger.info('Initializing SearchApp...');
 
-      // First initialize core UI (setup event listeners, etc)
+      // Show initial loaders
+      document.querySelectorAll('[data-loader="auth"]').forEach(loader => 
+        loader.style.display = 'block'
+      );
+      document.querySelectorAll('[data-loader="session"]').forEach(loader => 
+        loader.style.display = 'block'
+      );
+
+      // Initialize core UI
       this.uiManager.initialize();
 
-      // Setup initial auth event listeners
+      // Setup auth event listeners
       this.setupAuthEventListeners();
       
       // Initialize auth
       await this.initializeAuth();
+      document.querySelectorAll('[data-loader="auth"]').forEach(loader => 
+        loader.style.display = 'none'
+      );
       
       // Initialize session and load state
       await this.initializeSession();
+      document.querySelectorAll('[data-loader="session"]').forEach(loader => 
+        loader.style.display = 'none'
+      );
       
-      // Setup all event handlers
+      // Setup event handlers
       this.setupEventHandlers();
       
       // Initialize additional managers
@@ -88,7 +102,10 @@ class SearchApp {
       Logger.info('SearchApp initialization complete');
     } catch (error) {
       Logger.error('SearchApp initialization error:', error);
-      // Even on error, ensure we have a valid UI state
+      // Hide loaders on error
+      document.querySelectorAll('[data-loader]').forEach(loader => 
+        loader.style.display = 'none'
+      );
       this.handleInitializationError();
     }
   }
