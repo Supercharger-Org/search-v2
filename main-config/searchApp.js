@@ -292,17 +292,6 @@ class SearchApp {
 
 setupSearchHandlers() {
 
-  document.addEventListener('DOMContentLoaded', () => {
-    const button = document.getElementById('start-new-session');
-    
-    if (button) {
-        button.addEventListener('click', () => {
-            const baseUrl = window.location.origin + window.location.pathname;
-            window.location.href = baseUrl; // Refreshes the page without parameters
-        });
-    }
-});
-
     // Search initiation
     this.eventBus.on(EventTypes.SEARCH_INITIATED, async () => {
       try {
