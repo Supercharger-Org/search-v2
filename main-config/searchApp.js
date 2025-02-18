@@ -350,14 +350,22 @@ this.setupNewSessionButton();
   }
 
 setupSearchHandlers() {
-  // Search initiation
+  let isSearching = false;  // Flag to prevent duplicate searches
+
   this.eventBus.on(EventTypes.SEARCH_INITIATED, async () => {
+    if (isSearching) return;  // Prevent duplicate searches
+    isSearching = true;
+
     try {
       // Check if free user can perform search
       if (!this.authManager.getUserAuthToken()) {
         if (!this.sessionManager.handleFreeUserSearch()) {
           const maxUsagePopup = document.querySelector('#max-usage');
           if (maxUsagePopup) maxUsagePopup.style.display = 'block';
+          this.eventBus.emit(EventTypes.SEARCH_FAILED, { 
+            error: new Error('Free search limit reached') 
+          });
+          isSearching = false;
           return;
         }
       }
@@ -377,7 +385,7 @@ setupSearchHandlers() {
         reload_required: false
       });
 
-      // Only try to save if we have a session and auth
+      // Save session if authenticated
       if (this.sessionManager.sessionId && this.authManager.getUserAuthToken()) {
         try {
           await this.sessionManager.saveSession();
@@ -388,13 +396,31 @@ setupSearchHandlers() {
 
       this.eventBus.emit(EventTypes.SEARCH_COMPLETED, { results });
 
-
     } catch (error) {
       Logger.error("Search failed:", error);
       this.eventBus.emit(EventTypes.SEARCH_FAILED, { error });
-      
-
+    } finally {
+      isSearching = false;  // Reset search flag
     }
+  });
+
+  // Keep a single search completion handler
+  this.eventBus.on(EventTypes.SEARCH_COMPLETED, () => {
+    const searchButton = document.querySelector('#run-search');
+    if (searchButton) {
+      searchButton.innerHTML = 'Search';
+      searchButton.disabled = false;
+    }
+  });
+
+  // Keep a single search failure handler
+  this.eventBus.on(EventTypes.SEARCH_FAILED, ({ error }) => {
+    const searchButton = document.querySelector('#run-search');
+    if (searchButton) {
+      searchButton.innerHTML = 'Search';
+      searchButton.disabled = false;
+    }
+    alert(error.message || 'Search failed. Please try again.');
   });
   
     // Search completion
