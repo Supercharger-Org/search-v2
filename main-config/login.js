@@ -89,9 +89,9 @@ class LoginHandler {
     return true;
   }
 
-  async handleLogin(email, password) {
+ async handleLogin(email, password) {
+    const button = this.loginForm.querySelector('input[type="submit"]');
     try {
-      const button = this.loginForm.querySelector('input[type="submit"]');
       if (button) {
         button.disabled = true;
         button.value = 'Logging in...';
@@ -110,8 +110,8 @@ class LoginHandler {
   }
 
   async handleCreateAccount(email, password) {
+    const button = this.createAccountForm.querySelector('input[type="submit"]');
     try {
-      const button = this.createAccountForm.querySelector('input[type="submit"]');
       if (button) {
         button.disabled = true;
         button.value = 'Creating Account...';
