@@ -345,10 +345,6 @@ this.setupNewSessionButton();
 setupSearchHandlers() {
     this.eventBus.on(EventTypes.SEARCH_INITIATED, async () => {
       try {
-        // Show session loader during search
-        document.querySelectorAll('[data-loader="session"]').forEach(loader => 
-          loader.style.display = 'block'
-        );
 
         const searchInput = this.sessionState.generateSearchInput();
         const results = await this.apiService.executeSearch(searchInput);
@@ -375,9 +371,6 @@ setupSearchHandlers() {
         this.eventBus.emit(EventTypes.SEARCH_FAILED, { error });
       } finally {
         // Hide session loader after search completes
-        document.querySelectorAll('[data-loader="session"]').forEach(loader => 
-          loader.style.display = 'none'
-        );
       }
     });
   
