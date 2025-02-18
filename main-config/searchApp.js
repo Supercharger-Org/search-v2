@@ -261,6 +261,7 @@ class SearchApp {
     
     // Session Events
     this.setupSessionHandlers();
+this.setupNewSessionButton();
     const reloadTriggeringEvents = [
       EventTypes.LIBRARY_SELECTED,
       EventTypes.METHOD_SELECTED,
@@ -288,6 +289,40 @@ class SearchApp {
         }
       });
     });
+  }
+
+  setupNewSessionButton(){
+    const newSessionButton = document.querySelector('#start-new-session');
+  if (newSessionButton) {
+    newSessionButton.addEventListener('click', async () => {
+      try {
+        // Disable the button while processing
+        newSessionButton.disabled = true;
+        
+        // Check if there's an existing session
+        if (this.sessionManager.sessionId) {
+          Logger.info('Existing session found, saving before starting new session');
+          
+          try {
+            await this.sessionManager.saveSession();
+            Logger.info('Session saved successfully');
+          } catch (error) {
+            Logger.error('Error saving existing session:', error);
+            // Continue with new session even if save fails
+          }
+        }
+
+        // Remove all URL parameters and refresh
+        window.location.href = window.location.pathname;
+        
+      } catch (error) {
+        Logger.error('Error handling new session:', error);
+        // Re-enable the button if something goes wrong
+        newSessionButton.disabled = false;
+      }
+    });
+  }
+
   }
 
 setupSearchHandlers() {
