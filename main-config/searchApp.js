@@ -95,8 +95,11 @@ class SearchApp {
       // Show initial loaders
       this.toggleLoaders(true, ['auth', 'session']);
 
-      // Initialize core components
-      await this.initializeCore();
+      // Get initial state and initialize core components
+      const initialState = await this.initializeCore();
+      
+      // Initialize UI with state
+      this.initializeUI(initialState);
       
       // Setup all event handlers
       this.setupEventHandlers();
@@ -112,19 +115,18 @@ class SearchApp {
    * Initialize core components: UI, Auth, and Session
    */
   async initializeCore() {
-    // Initialize UI first
-    this.uiManager.initialize();
-
-    // Initialize auth
+    // Initialize auth first
     await this.initializeAuth();
     this.toggleLoaders(false, ['auth']);
     
-    // Initialize session
-    await this.initializeSession();
+    // Initialize session and get state
+    const sessionState = await this.initializeSession();
     this.toggleLoaders(false, ['session']);
     
     // Initialize additional managers
     this.initializeManagers();
+
+    return sessionState || this.getEmptyState();
   }
 
   /**
@@ -161,7 +163,7 @@ class SearchApp {
   /**
    * Initialize session state and load existing session if available
    */
-  async initializeSession() {
+   async initializeSession() {
     try {
       Logger.info('Initializing session...');
       
@@ -174,15 +176,14 @@ class SearchApp {
       }
       
       if (sessionId) {
-        await this.loadExistingSession(sessionId);
-      } else {
-        Logger.info('No session ID found, initializing fresh UI');
-        this.uiManager.initialize();
+        return await this.loadExistingSession(sessionId);
       }
+      
+      return null;
       
     } catch (error) {
       Logger.error('Session initialization failed:', error);
-      this.uiManager.initialize();
+      return null;
     }
   }
 
@@ -195,15 +196,30 @@ class SearchApp {
       const sessionData = await this.sessionManager.loadSession(sessionId);
       
       if (sessionData) {
-        this.handleExistingSessionData(sessionData);
-      } else {
-        Logger.info('No session data found, initializing fresh UI');
-        this.uiManager.initialize();
+        // Load session state
+        this.sessionState.load(sessionData);
+        
+        // Restore search results if available
+        if (sessionData.search?.results) {
+          this.restoreSearchResults(sessionData);
+        }
+        
+        return sessionData;
       }
+      
+      return null;
     } catch (error) {
       Logger.error('Error loading existing session:', error);
-      this.uiManager.initialize();
+      return null;
     }
+  }
+
+  initializeUI(initialState) {
+    // Initialize UI manager with state
+    this.uiManager.initialize(initialState);
+    
+    // Update UI with full state
+    this.uiManager.updateAll(initialState);
   }
 
   /**
