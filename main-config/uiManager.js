@@ -276,12 +276,14 @@ setupFilterEventHandlers() {
       const filterName = btn.getAttribute('data-filter-option');
       this.eventBus.emit(EventTypes.FILTER_ADDED, { filterName });
       
-      // Let state update first
+      // Let state update first, then handle visibility and scrolling
       setTimeout(() => {
         const stepElement = document.querySelector(`[step-name="${filterName}"]`)
           ?.closest('.horizontal-slide_wrapper');
         if (stepElement) {
           this.accordionManager.handleStepVisibilityChange(stepElement, true);
+          // Add slight delay to ensure accordion animation has started
+          this.scrollToElement(stepElement, 100);
         }
       }, 50);
     });
@@ -392,6 +394,21 @@ setupFilterEventHandlers() {
     }
     return false;
   }
+
+  scrollToElement(element, delay = 0) {
+  if (!element) return;
+  
+  setTimeout(() => {
+    const headerOffset = 100; // Adjust this value based on your header height
+    const elementPosition = element.getBoundingClientRect().top;
+    const offsetPosition = elementPosition + window.pageYOffset - headerOffset;
+
+    window.scrollTo({
+      top: offsetPosition,
+      behavior: 'smooth'
+    });
+  }, delay);
+}
 
   start() {
     Logger.info('Starting UI Manager');
