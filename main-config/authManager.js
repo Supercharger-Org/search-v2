@@ -342,6 +342,14 @@ export class AuthManager {
     this.setCookie(AUTH_CONFIG.cookies.auth, token, 30);
     Logger.info('Auth token set in cookie');
   }
+  getUserAuthToken() {
+    const token = this.getCookie(AUTH_CONFIG.cookies.auth);
+    if (!token) {
+      Logger.info('No auth token found in cookies');
+      return null;
+    }
+    return token.replace(/^"(.*)"$/, '$1'); // Clean the token
+  }
 }
 
 export { AUTH_EVENTS };
