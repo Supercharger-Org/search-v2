@@ -1,6 +1,12 @@
-import { EventTypes } from './eventTypes.js';
 import { Logger } from './logger.js';
-import { AuthManager } from './authManager.js';
+import { EventTypes } from './eventTypes.js';
+import { AuthManager, AUTH_EVENTS } from './authManager.js';
+
+// Define cookie configuration
+const COOKIE_CONFIG = {
+  freeUser: 'free_user',
+  searchCount: 'search_count'
+};
 
 const SESSION_API = {
   CREATE: 'https://xobg-f2pu-pqfs.n7.xano.io/api:fr-l0x4x/dashboard/patent-search/session-create',
@@ -33,6 +39,7 @@ export default class SessionManager {
     
     
     this.setupInitialEventListeners();
+    this.setupFreeUserEventListeners();
   }
 
   setupInitialEventListeners() {
