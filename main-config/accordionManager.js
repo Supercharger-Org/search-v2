@@ -6,6 +6,8 @@ export class AccordionManager {
     this.TRIGGER_SELECTOR = '[data-accordion="trigger"]';
     this.CONTENT_SELECTOR = '[data-accordion="content"]';
     this.ICON_SELECTOR = '[data-accordion="icon"]';
+    this.TRANSITION_DURATION = '0.4s';
+    this.TRANSITION_TIMING = 'cubic-bezier(0.4, 0, 0.2, 1)';
     
     // Core accordions have different rules
     this.CORE_STEPS = ['library', 'method', 'keywords-include'];
@@ -32,38 +34,41 @@ export class AccordionManager {
    * Setup a single accordion trigger and its related elements
    */
   setupAccordion(trigger, shouldOpen = false) {
-    if (trigger._initialized) return;
-    
-    const content = trigger.nextElementSibling;
-    if (!content) return;
-    
-    // Set initial state
-    trigger._initialized = true;
-    trigger._isOpen = false;
-    
-    // Setup content styles
-    content.style.display = 'none';
-    content.style.height = '0';
-    content.style.overflow = 'hidden';
-    content.style.transition = 'height 0.3s ease';
-    
-    // Add click handler
-    trigger.addEventListener('click', this.handleAccordionClick);
-    
-    // Setup icon animation
-    const icon = trigger.querySelector(this.ICON_SELECTOR);
-    if (icon) {
-      icon.style.transition = 'transform 0.3s ease';
-    }
-    
-    // Setup content observer
-    this.setupContentObserver(content);
-    
-    // Open if requested
-    if (shouldOpen) {
-      this.toggleAccordion(trigger, true);
-    }
+  if (trigger._initialized) return;
+  
+  const content = trigger.nextElementSibling;
+  if (!content) return;
+  
+  // Set initial state
+  trigger._initialized = true;
+  trigger._isOpen = false;
+  
+  // Setup content styles with smoother transition
+  content.style.display = 'none';
+  content.style.height = '0';
+  content.style.overflow = 'hidden';
+  content.style.transition = `height ${this.TRANSITION_DURATION} ${this.TRANSITION_TIMING}, opacity ${this.TRANSITION_DURATION} ${this.TRANSITION_TIMING}`;
+  content.style.opacity = '0';
+  
+  // Add click handler
+  trigger.addEventListener('click', this.handleAccordionClick);
+  
+  // Setup icon animation
+  const icon = trigger.querySelector(this.ICON_SELECTOR);
+  if (icon) {
+    icon.style.transition = `transform ${this.TRANSITION_DURATION} ${this.TRANSITION_TIMING}`;
   }
+  
+  // Setup content observer
+  this.setupContentObserver(content);
+  
+  // Open if requested or if it's the library step
+  const stepEl = trigger.closest('[step-name]');
+  const isLibrary = stepEl?.getAttribute('step-name') === 'library';
+  if (shouldOpen || isLibrary) {
+    this.toggleAccordion(trigger, true);
+  }
+}
 
   /**
    * Handle click events on accordion triggers
@@ -90,34 +95,37 @@ export class AccordionManager {
    * Toggle accordion open/closed state
    */
   toggleAccordion(trigger, forceOpen = null) {
-    const content = trigger.nextElementSibling;
-    if (!content) return;
+  const content = trigger.nextElementSibling;
+  if (!content) return;
+  
+  const isOpen = forceOpen !== null ? forceOpen : !trigger._isOpen;
+  const icon = trigger.querySelector(this.ICON_SELECTOR);
+  
+  content.style.display = 'block';
+  
+  // Use RAF for smooth animation
+  requestAnimationFrame(() => {
+    // First frame: start transition
+    content.style.height = isOpen ? `${content.scrollHeight}px` : '0';
+    content.style.opacity = isOpen ? '1' : '0';
     
-    const isOpen = forceOpen !== null ? forceOpen : !trigger._isOpen;
-    const icon = trigger.querySelector(this.ICON_SELECTOR);
+    if (icon) {
+      icon.style.transform = isOpen ? 'rotate(180deg)' : 'rotate(0deg)';
+    }
     
-    content.style.display = 'block';
+    trigger._isOpen = isOpen;
     
-    requestAnimationFrame(() => {
-      content.style.height = isOpen ? `${content.scrollHeight}px` : '0';
-      
-      if (icon) {
-        icon.style.transform = isOpen ? 'rotate(180deg)' : 'rotate(0deg)';
-      }
-      
-      trigger._isOpen = isOpen;
-      
-      if (!isOpen) {
-        const handler = () => {
-          if (!trigger._isOpen) {
-            content.style.display = 'none';
-          }
-          content.removeEventListener('transitionend', handler);
-        };
-        content.addEventListener('transitionend', handler);
-      }
-    });
-  }
+    if (!isOpen) {
+      const handler = () => {
+        if (!trigger._isOpen) {
+          content.style.display = 'none';
+        }
+        content.removeEventListener('transitionend', handler);
+      };
+      content.addEventListener('transitionend', handler);
+    }
+  });
+}
 
   /**
    * Open accordion when step becomes visible
