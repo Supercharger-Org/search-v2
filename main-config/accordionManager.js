@@ -131,23 +131,25 @@ export class AccordionManager {
    * Open accordion when step becomes visible
    * Called when step visibility changes
    */
-  handleStepVisibilityChange(stepElement, makeVisible) {
-    const trigger = stepElement.querySelector(this.TRIGGER_SELECTOR);
-    if (!trigger) return;
-    
-    // Initialize if not already done
-    if (!trigger._initialized) {
-      this.setupAccordion(trigger);
-    }
-    
-    // Update visibility
-    stepElement.style.display = makeVisible ? '' : 'none';
-    
-    // Open accordion if making visible
-    if (makeVisible) {
-      this.toggleAccordion(trigger, true);
-    }
+ handleStepVisibilityChange(stepElement, makeVisible) {
+  const trigger = stepElement.querySelector(this.TRIGGER_SELECTOR);
+  if (!trigger) return;
+  
+  // Initialize if not already done
+  if (!trigger._initialized) {
+    this.setupAccordion(trigger);
   }
+  
+  // Update visibility
+  stepElement.style.display = makeVisible ? '' : 'none';
+  
+  // Open accordion if making visible, with a slight delay for smooth animation
+  if (makeVisible) {
+    setTimeout(() => {
+      this.toggleAccordion(trigger, true);
+    }, 50);
+  }
+}
 
   /**
    * Close all other filter step accordions
