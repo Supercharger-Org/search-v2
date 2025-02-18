@@ -334,7 +334,6 @@ initializeTableScroll() {
     if (nextBtn) nextBtn.disabled = (state.search?.current_page || 1) === (state.search?.total_pages || 1);
   }
 
-  // Sidebar management
   updateSidebar(state) {
     const sidebar = document.querySelector('#patent-table-sidebar');
     if (!sidebar) return;
@@ -345,6 +344,15 @@ initializeTableScroll() {
     } else {
       this.hideSidebar(sidebar);
     }
+  }
+
+  hideSidebar(sidebar) {
+    if (!sidebar) return;
+    
+    sidebar.style.transform = 'translateX(100%)';
+    setTimeout(() => {
+      sidebar.style.display = 'none';
+    }, 300); // Match transition duration
   }
 
   setupPaginationButtons() {
