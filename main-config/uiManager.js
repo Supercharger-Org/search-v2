@@ -1,5 +1,5 @@
 /**
- * UIManager - Handles all UI updates and state management
+ * UIManager -- Handles all UI updates and state management
  * Coordinates between SessionState and UI components
  */
 
