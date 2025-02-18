@@ -343,13 +343,16 @@ this.setupNewSessionButton();
   }
 
 setupSearchHandlers() {
-
-    // Search initiation
     this.eventBus.on(EventTypes.SEARCH_INITIATED, async () => {
       try {
+        // Show session loader during search
+        document.querySelectorAll('[data-loader="session"]').forEach(loader => 
+          loader.style.display = 'block'
+        );
+
         const searchInput = this.sessionState.generateSearchInput();
         const results = await this.apiService.executeSearch(searchInput);
-        
+
         this.sessionState.updateSearchState({
           results: results || [],
           current_page: 1,
@@ -357,34 +360,27 @@ setupSearchHandlers() {
           reload_required: false
         });
 
-        // Only try to save if we have a session and auth
-        if (this.sessionManager.sessionId && this.authManager.getUserAuthToken()) {
+        if (this.sessionManager.sessionId && AuthManager.getUserAuthToken()) {
           try {
             await this.sessionManager.saveSession();
           } catch (error) {
             Logger.error('Failed to save session after search:', error);
-            // Continue with search completion even if save fails
           }
         }
 
         this.eventBus.emit(EventTypes.SEARCH_COMPLETED, { results });
 
-        // Hide loaders after search completes
-        document.querySelectorAll('[data-loader="patent-results"]').forEach(loader => {
-          loader.style.display = 'none';
-        });
-
       } catch (error) {
         Logger.error("Search failed:", error);
         this.eventBus.emit(EventTypes.SEARCH_FAILED, { error });
-        
-        // Hide loaders on error
-        document.querySelectorAll('[data-loader="patent-results"]').forEach(loader => {
-          loader.style.display = 'none';
-        });
+      } finally {
+        // Hide session loader after search completes
+        document.querySelectorAll('[data-loader="session"]').forEach(loader => 
+          loader.style.display = 'none'
+        );
       }
     });
-
+  
     // Search completion
     this.eventBus.on(EventTypes.SEARCH_COMPLETED, () => {
       const searchButton = document.querySelector('#run-search');
