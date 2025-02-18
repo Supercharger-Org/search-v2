@@ -71,7 +71,7 @@ export class SearchResultManager {
     }
   }
   // Main function to initialize table scroll functionality
-function initializeTableScroll() {
+initializeTableScroll() {
   // Selectors
   const scrollTriggerNode = document.querySelector(
     '[data-attribute="table_scroll_trigger"]'
